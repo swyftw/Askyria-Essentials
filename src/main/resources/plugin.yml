@@ -1,0 +1,25 @@
+name: AskyriaEssentials
+version: 1.0.0
+main: com.askyria.essentials.AskyriaEssentials
+api-version: '1.21'
+author: Askyria
+ description: Askyria server essentials
+commands:
+  protection:
+    description: Clear your own new-player protection
+    usage: /protection clear
+  playertag:
+    description: Set a player's gradient tag
+    usage: /playertag <player> <tag> <fade1> <fade2> <fade3>
+  invsee:
+    description: View a player's inventory
+    usage: /invsee <player>
+  endersee:
+    description: View a player's Ender Chest
+    usage: /endersee <player>
+  endclosed:
+    description: Close access to the End
+    usage: /endclosed
+  endopen:
+    description: Open access to the End
+    usage: /endopen
