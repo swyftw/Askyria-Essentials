@@ -10,7 +10,7 @@ commands:
     usage: /protection clear
   playertag:
     description: Set a player's gradient tag
-    usage: /playertag <player> <tag> <fade1> <fade2> <fade3>
+    usage: /playertag <player> <tag> fade3 OR /playertag <player> <tag> fade <color1> <color2> <color3>
   invsee:
     description: View a player's inventory
     usage: /invsee <player>
