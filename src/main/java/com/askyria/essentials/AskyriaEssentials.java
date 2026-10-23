@@ -76,7 +76,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                     combatUntil.remove(player.getUniqueId());
                     player.sendActionBar(Component.text("You are no longer in combat."));
                 } else {
-                    player.sendActionBar(Component.text("COMBAT: " + seconds + "s"));
+                    player.sendActionBar(Component.text("COMBAT " + seconds + "s"));
                 }
             }
         }, 0L, 5L);
