@@ -21,6 +21,7 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scoreboard.Scoreboard;
@@ -36,6 +37,8 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private final Map<UUID, Long> protectedUntil = new HashMap<>();
     private final Map<UUID, Component> tags = new HashMap<>();
     private final Map<UUID, String> rawTags = new HashMap<>();
+    private final Map<UUID, Long> combatUntil = new HashMap<>();
+    private BukkitTask combatTicker;
     private final MiniMessage mini = MiniMessage.miniMessage();
 
     @Override
@@ -63,6 +66,20 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             }
         }
         Bukkit.getPluginManager().registerEvents(this, this);
+        combatTicker = Bukkit.getScheduler().runTaskTimer(this, () -> {
+            long nowTick = System.currentTimeMillis();
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                Long until = combatUntil.get(player.getUniqueId());
+                if (until == null) continue;
+                long seconds = Math.max(0L, (until - nowTick + 999L) / 1000L);
+                if (seconds <= 0) {
+                    combatUntil.remove(player.getUniqueId());
+                    player.sendActionBar(Component.text("You are no longer in combat."));
+                } else {
+                    player.sendActionBar(Component.text("COMBAT: " + seconds + "s"));
+                }
+            }
+        }, 0L, 5L);
         getLogger().info("Askyria Essentials enabled.");
     }
 
