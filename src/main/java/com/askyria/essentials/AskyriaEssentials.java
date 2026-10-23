@@ -85,6 +85,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
 
     @Override
     public void onDisable() {
+        if (combatTicker != null) combatTicker.cancel();
         saveProtectionData();
     }
 
@@ -131,6 +132,12 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         event.quitMessage(null);
+        Player player = event.getPlayer();
+        Long until = combatUntil.remove(player.getUniqueId());
+        if (until != null && until > System.currentTimeMillis()) {
+            player.setHealth(0.0);
+            Bukkit.broadcast(Component.text(player.getName() + " logged out during combat and was slain."));
+        }
     }
 
     @EventHandler
@@ -144,6 +151,10 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         return null;
     }
 
+    private void tagCombat(Player player) {
+        combatUntil.put(player.getUniqueId(), System.currentTimeMillis() + 15_000L);
+    }
+
     @EventHandler
     public void onDamageByEntity(EntityDamageByEntityEvent event) {
         if (event.getEntity() instanceof Player victim && isProtected(victim)) {
@@ -151,9 +162,16 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             return;
         }
         Player attacker = attackerFrom(event.getDamager());
-        if (attacker != null && isProtected(attacker) && event.getEntity() instanceof Player) {
-            event.setCancelled(true);
-            attacker.sendMessage(Component.text("You cannot attack players while your protection is active."));
+        if (attacker != null && event.getEntity() instanceof Player victim && attacker != victim) {
+            if (isProtected(attacker)) {
+                event.setCancelled(true);
+                attacker.sendMessage(Component.text("You cannot attack players while your protection is active."));
+                return;
+            }
+            if (!isProtected(victim)) {
+                tagCombat(attacker);
+                tagCombat(victim);
+            }
         }
     }
 
