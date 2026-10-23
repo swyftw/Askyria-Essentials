@@ -3,7 +3,7 @@ version: 1.0.0
 main: com.askyria.essentials.AskyriaEssentials
 api-version: '1.21'
 author: Askyria
- description: Askyria server essentials
+description: Askyria server essentials
 commands:
   protection:
     description: Clear your own new-player protection
