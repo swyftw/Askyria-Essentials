@@ -10,6 +10,7 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
@@ -25,11 +26,13 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-public final class AskyriaEssentials extends JavaPlugin implements Listener {
+public final class AskyriaEssentials extends JavaPlugin implements Listener, TabCompleter {
     private final Map<UUID, Long> protectedUntil = new HashMap<>();
     private final Map<UUID, Component> tags = new HashMap<>();
     private final Map<UUID, String> rawTags = new HashMap<>();
@@ -192,7 +195,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener {
                 if (c1 == null || c2 == null || c3 == null) {
                     sender.sendMessage(Component.text("Use three hex colors, for example #FF0000 #FF00FF #0000FF.")); return true;
                 }
-                String raw = "<gradient:" + c1 + ":" + c2 + ":" + c3 + ">" + tagText + "</gradient>";
+                String raw = "<bold><gradient:" + c1 + ":" + c2 + ":" + c3 + ">" + tagText + "</gradient></bold>";
                 rawTags.put(target.getUniqueId(), raw);
                 getConfig().set("player-tags." + target.getUniqueId(), raw);
                 saveConfig();
@@ -222,6 +225,33 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener {
             }
             default -> { return false; }
         }
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        List<String> suggestions = new ArrayList<>();
+        if (command.getName().equalsIgnoreCase("playertag")) {
+            if (!sender.isOp()) return suggestions;
+            if (args.length == 1) {
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    if (player.getName().toLowerCase().startsWith(args[0].toLowerCase())) suggestions.add(player.getName());
+                }
+            } else if (args.length == 2) {
+                for (String tag : List.of("[OWNER]", "[ADMIN]", "[MOD]", "[HELPER]", "[VIP]", "[MEMBER]")) {
+                    if (tag.toLowerCase().startsWith(args[1].toLowerCase())) suggestions.add(tag);
+                }
+            } else if (args.length >= 3 && args.length <= 5) {
+                String color = args.length == 3 ? "#FFFF00" : args.length == 4 ? "#FFEA00" : "#FFD700";
+                if (color.toLowerCase().startsWith(args[args.length - 1].toLowerCase())) suggestions.add(color);
+            }
+        } else if (command.getName().equalsIgnoreCase("protection") && args.length == 1 && sender instanceof Player) {
+            if ("clear".startsWith(args[0].toLowerCase())) suggestions.add("clear");
+        } else if ((command.getName().equalsIgnoreCase("invsee") || command.getName().equalsIgnoreCase("endersee")) && args.length == 1) {
+            if (sender.isOp()) for (Player player : Bukkit.getOnlinePlayers()) {
+                if (player.getName().toLowerCase().startsWith(args[0].toLowerCase())) suggestions.add(player.getName());
+            }
+        }
+        return suggestions;
     }
 
     private String color(String value) {
