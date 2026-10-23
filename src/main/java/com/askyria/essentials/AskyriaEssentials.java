@@ -66,6 +66,9 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             }
         }
         Bukkit.getPluginManager().registerEvents(this, this);
+        OrbitalManager orbitalManager = new OrbitalManager(this);
+        Bukkit.getPluginManager().registerEvents(orbitalManager, this);
+        getCommand("orbital").setExecutor(orbitalManager);
         combatTicker = Bukkit.getScheduler().runTaskTimer(this, () -> {
             long nowTick = System.currentTimeMillis();
             for (Player player : Bukkit.getOnlinePlayers()) {
