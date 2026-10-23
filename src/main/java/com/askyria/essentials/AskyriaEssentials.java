@@ -220,15 +220,23 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             }
             case "playertag" -> {
                 if (!requireOp(sender)) return true;
-                if (args.length != 5) {
-                    sender.sendMessage(Component.text("Usage: /playertag <player> <tag> <fade1> <fade2> <fade3>")); return true;
+                if (args.length != 3 && args.length != 6) {
+                    sender.sendMessage(Component.text("Usage: /playertag <player> <tag> fade3 OR /playertag <player> <tag> fade <color1> <color2> <color3>")); return true;
                 }
                 Player target = Bukkit.getPlayerExact(args[0]);
                 if (target == null) { sender.sendMessage(Component.text("That player must be online.")); return true; }
-                String tagText = args[1];
-                String c1 = color(args[2]), c2 = color(args[3]), c3 = color(args[4]);
+                String tagText = args[1].toUpperCase();
+                if (!tagText.startsWith("[")) tagText = "[" + tagText + "]";
+                String c1, c2, c3;
+                if (args.length == 3 && args[2].equalsIgnoreCase("fade3")) {
+                    c1 = "#00FF00"; c2 = "#FFFFFF"; c3 = "#0000FF";
+                } else if (args.length == 6 && args[2].equalsIgnoreCase("fade")) {
+                    c1 = color(args[3]); c2 = color(args[4]); c3 = color(args[5]);
+                } else {
+                    sender.sendMessage(Component.text("Use fade3 or fade followed by three color names (green white blue).")); return true;
+                }
                 if (c1 == null || c2 == null || c3 == null) {
-                    sender.sendMessage(Component.text("Use three hex colors, for example #FF0000 #FF00FF #0000FF.")); return true;
+                    sender.sendMessage(Component.text("Colors: green, white, blue, red, purple, yellow, aqua, pink, orange, black, gray.")); return true;
                 }
                 String raw = "<bold><gradient:" + c1 + ":" + c2 + ":" + c3 + ">" + tagText + "</gradient></bold>";
                 rawTags.put(target.getUniqueId(), raw);
@@ -290,8 +298,20 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     }
 
     private String color(String value) {
-        if (!value.matches("#[0-9a-fA-F]{6}")) return null;
-        return value;
+        return switch (value.toLowerCase()) {
+            case "green" -> "#00FF00";
+            case "white" -> "#FFFFFF";
+            case "blue" -> "#0000FF";
+            case "red" -> "#FF0000";
+            case "purple" -> "#8000FF";
+            case "yellow" -> "#FFFF00";
+            case "aqua" -> "#00FFFF";
+            case "pink" -> "#FF69B4";
+            case "orange" -> "#FF8C00";
+            case "black" -> "#000000";
+            case "gray", "grey" -> "#808080";
+            default -> null;
+        };
     }
 
     private void applyTagToOnlinePlayer(UUID id, String raw) {
