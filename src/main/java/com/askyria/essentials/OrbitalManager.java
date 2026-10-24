@@ -235,37 +235,6 @@ public final class OrbitalManager implements CommandExecutor, Listener {
     }
 
     private void startLunar(World world, Location target) {
-        // LUNAR: a dense, filled TNT sphere that descends together toward the target.
-        final int points = 900;
-        final double radius = 22.0;
-        Location center = target.clone().add(0, Math.min(82, world.getMaxHeight() - target.getBlockY() - 24), 0);
-        world.spawnParticle(Particle.END_ROD, center, 240, radius, radius, radius, 0.04);
-        world.spawnParticle(Particle.REVERSE_PORTAL, center, 360, radius, radius, radius, 0.1);
-        world.playSound(center, Sound.BLOCK_BEACON_POWER_SELECT, 5.0f, 0.45f);
-        for (int i = 0; i < points; i++) {
-            final int point = i;
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                double goldenAngle = Math.PI * (3.0 - Math.sqrt(5.0));
-                double y = 1.0 - (2.0 * (point + 0.5) / points);
-                double ring = Math.sqrt(1.0 - y * y);
-                double theta = goldenAngle * point;
-                double x = Math.cos(theta) * ring;
-                double z = Math.sin(theta) * ring;
-                // Cube-root radial distribution fills the sphere volume rather than a shell.
-                double depth = Math.cbrt((point + 0.5) / points);
-                Location spawn = center.clone().add(x * radius * depth, y * radius * depth, z * radius * depth);
-                spawnTnt(world, spawn, 46, 6.0f, false, new Vector(x * 0.06, -3.0, z * 0.06));
-                world.spawnParticle(Particle.END_ROD, spawn, 2, 0.12, 0.12, 0.12, 0.01);
-            }, point / 12L);
-        }
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            world.spawnParticle(Particle.EXPLOSION, target, 90, 16, 4, 16, 0.1);
-            world.spawnParticle(Particle.REVERSE_PORTAL, target, 400, 20, 7, 20, 0.14);
-            world.playSound(target, Sound.ENTITY_GENERIC_EXPLODE, 9.0f, 0.5f);
-        }, 80L);
-    }
-
-    private void startLunar(World world, Location target) {
         // LUNAR: an even larger, denser filled sphere, released in quick batches
         // to keep the server scheduler responsive while still appearing packed.
         final int points = 1800;
