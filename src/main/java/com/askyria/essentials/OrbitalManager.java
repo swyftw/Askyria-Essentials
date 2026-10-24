@@ -131,7 +131,9 @@ public final class OrbitalManager implements CommandExecutor, Listener {
         world.playSound(hit, Sound.BLOCK_BEACON_ACTIVATE, 2.0f, 0.6f);
         world.spawnParticle(Particle.END_ROD, hit.clone().add(0, 1, 0), 45, 1, 1, 1, 0.08);
         // Give the player time to see the marked target before the strike begins.
-        Bukkit.getScheduler().runTaskLater(plugin, () -> strike(world, hit, type), 40L);
+        // Capture a stable copy because hit may be reassigned when a block is hit.
+        Location strikeTarget = hit.clone();
+        Bukkit.getScheduler().runTaskLater(plugin, () -> strike(world, strikeTarget, type), 40L);
     }
 
     private void strike(World world, Location target, String type) {
