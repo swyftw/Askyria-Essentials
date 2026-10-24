@@ -329,11 +329,18 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         if (player == null) return;
         Component prefix = mini.deserialize(raw + " ");
         tags.put(id, mini.deserialize(raw));
-        Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
+        // Tab-list name decoration is scoreboard-team based. Some plugins give
+        // each player a private scoreboard, so update the main board AND every
+        // online player's active scoreboard instead of only the main board.
         String teamName = "ask_" + id.toString().replace("-", "").substring(0, 12);
-        Team team = board.getTeam(teamName);
-        if (team == null) team = board.registerNewTeam(teamName);
-        team.prefix(prefix);
-        team.addEntry(player.getName());
+        java.util.Set<Scoreboard> boards = new java.util.HashSet<>();
+        boards.add(Bukkit.getScoreboardManager().getMainScoreboard());
+        for (Player viewer : Bukkit.getOnlinePlayers()) boards.add(viewer.getScoreboard());
+        for (Scoreboard board : boards) {
+            Team team = board.getTeam(teamName);
+            if (team == null) team = board.registerNewTeam(teamName);
+            team.prefix(prefix);
+            team.addEntry(player.getName());
+        }
     }
 }
