@@ -224,10 +224,15 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             case "playertag" -> {
                 if (!requireOp(sender)) return true;
                 if (args.length != 3 && args.length != 6) {
-                    sender.sendMessage(Component.text("Usage: /playertag <player> <tag> fade3 OR /playertag <player> <tag> fade <color1> <color2> <color3>")); return true;
+                    sender.sendMessage(Component.text("Usage: /playertag <player> [OWNER] fade yellow yellow orange"));
+                    sender.sendMessage(Component.text("Or: /playertag <player> [OWNER] fade3"));
+                    return true;
                 }
                 Player target = Bukkit.getPlayerExact(args[0]);
-                if (target == null) { sender.sendMessage(Component.text("That player must be online.")); return true; }
+                if (target == null) {
+                    sender.sendMessage(Component.text("Player '" + args[0] + "' is not online. Check spelling and join the server first."));
+                    return true;
+                }
                 String tagText = args[1].toUpperCase();
                 if (!tagText.startsWith("[")) tagText = "[" + tagText + "]";
                 String c1, c2, c3;
@@ -236,12 +241,14 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 } else if (args.length == 6 && args[2].equalsIgnoreCase("fade")) {
                     c1 = color(args[3]); c2 = color(args[4]); c3 = color(args[5]);
                 } else {
-                    sender.sendMessage(Component.text("Use fade3 or fade followed by three color names (green white blue).")); return true;
+                    sender.sendMessage(Component.text("Invalid format. Use /playertag " + args[0] + " [OWNER] fade yellow yellow orange"));
+                    return true;
                 }
                 if (c1 == null || c2 == null || c3 == null) {
                     sender.sendMessage(Component.text("Colors: green, white, blue, red, purple, yellow, aqua, pink, orange, black, gray.")); return true;
                 }
-                String raw = "<bold><gradient:" + c1 + ":" + c2 + ":" + c3 + ">" + tagText + "</gradient></bold>";
+                String safeTag = tagText.replace("<", "").replace(">", "");
+                String raw = "<bold><gradient:" + c1 + ":" + c2 + ":" + c3 + ">" + safeTag + "</gradient></bold>";
                 rawTags.put(target.getUniqueId(), raw);
                 getConfig().set("player-tags." + target.getUniqueId(), raw);
                 saveConfig();
