@@ -111,6 +111,11 @@ public final class OrbitalManager implements CommandExecutor, Listener {
         orb.setVelocity(player.getLocation().getDirection().normalize().multiply(1.8));
         orb.setItem(new ItemStack(Material.FIRE_CHARGE));
         orb.getPersistentDataContainer().set(orbitalKey, PersistentDataType.STRING, type);
+        Bukkit.getScheduler().runTaskTimer(plugin, task -> {
+            if (!orb.isValid() || orb.isDead()) { task.cancel(); return; }
+            orb.getWorld().spawnParticle(Particle.FLAME, orb.getLocation(), 4, 0.08, 0.08, 0.08, 0.01);
+            orb.getWorld().spawnParticle(Particle.SMOKE, orb.getLocation(), 2, 0.04, 0.04, 0.04, 0.01);
+        }, 1L, 1L);
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_BLAZE_SHOOT, 1.0f, 0.7f);
 
         if (item.getAmount() <= 1) {
@@ -164,7 +169,7 @@ public final class OrbitalManager implements CommandExecutor, Listener {
     private void startRain(World world, Location target) {
         // Three parallel lanes of fast orbital shots, staggered so the line is visible.
         int top = Math.min(world.getMaxHeight() - 8, target.getBlockY() + 70);
-        for (int shot = 0; shot < 45; shot++) {
+        for (int shot = 0; shot < 75; shot++) {
             final int n = shot;
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 int lane = n % 3 - 1;
@@ -173,7 +178,7 @@ public final class OrbitalManager implements CommandExecutor, Listener {
                 world.spawnParticle(Particle.FLAME, spawn, 10, 0.25, 0.2, 0.25, 0.02);
                 world.spawnParticle(Particle.SMOKE, spawn, 8, 0.3, 0.2, 0.3, 0.02);
                 world.playSound(spawn, Sound.ENTITY_BLAZE_SHOOT, 0.8f, 0.55f);
-                spawnTnt(world, spawn, 45, 4.5f, false, new Vector(0, -2.2, 0));
+                spawnTnt(world, spawn, 38, 6.0f, false, new Vector(0, -2.2, 0));
             }, n * 2L);
         }
     }
@@ -181,21 +186,21 @@ public final class OrbitalManager implements CommandExecutor, Listener {
     private void startStab(World world, Location target) {
         // A tight vertical drill. Short fuses make the TNT detonate at ground level.
         int top = Math.min(world.getMaxHeight() - 8, target.getBlockY() + 70);
-        for (int i = 0; i < 25; i++) {
+        for (int i = 0; i < 64; i++) {
             final int n = i;
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                double angle = n * (Math.PI * 2.0 / 25.0);
-                Location spawn = target.clone().add(Math.cos(angle) * 2.2, Math.max(8, top - target.getY()), Math.sin(angle) * 2.2);
+                double angle = n * (Math.PI * 2.0 / 64.0);
+                Location spawn = target.clone().add(Math.cos(angle) * 3.0, Math.max(8, top - target.getY()), Math.sin(angle) * 3.0);
                 world.spawnParticle(Particle.CRIT, spawn, 12, 0.3, 0.2, 0.3, 0.02);
-                spawnTnt(world, spawn, 45, 5.0f, false, new Vector(0, -2.4, 0));
+                spawnTnt(world, spawn, 32, 7.0f, false, new Vector(0, -2.4, 0));
             }, n);
         }
     }
 
     private void startNuke(World world, Location target) {
         // Huge circular orbital ring descends from directly above the marked target.
-        final int count = 72;
-        final double radius = 22.0;
+        final int count = 144;
+        final double radius = 36.0;
         final int startY = Math.min(world.getMaxHeight() - 10, target.getBlockY() + 65);
         for (int i = 0; i < count; i++) {
             final int n = i;
@@ -203,7 +208,7 @@ public final class OrbitalManager implements CommandExecutor, Listener {
                 double angle = (Math.PI * 2.0 * n) / count;
                 Location spawn = target.clone().add(Math.cos(angle) * radius, Math.max(10, startY - target.getY()), Math.sin(angle) * radius);
                 world.spawnParticle(Particle.FLAME, spawn, 12, 0.5, 0.3, 0.5, 0.02);
-                spawnTnt(world, spawn, 55, 5.0f, false, new Vector(-Math.cos(angle) * 0.12, -2.1, -Math.sin(angle) * 0.12));
+                spawnTnt(world, spawn, 42, 7.0f, false, new Vector(-Math.cos(angle) * 0.12, -2.1, -Math.sin(angle) * 0.12));
             }, i / 3L);
         }
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
@@ -215,8 +220,8 @@ public final class OrbitalManager implements CommandExecutor, Listener {
 
     private void startLunar(World world, Location target) {
         // A visible sphere of TNT forms high above the target, then the entire shell falls.
-        final int points = 180;
-        final double radius = 13.0;
+        final int points = 240;
+        final double radius = 15.0;
         Location center = target.clone().add(0, Math.min(58, world.getMaxHeight() - target.getBlockY() - 18), 0);
         world.spawnParticle(Particle.END_ROD, center, 180, radius, radius, radius, 0.03);
         world.spawnParticle(Particle.REVERSE_PORTAL, center, 260, radius, radius, radius, 0.08);
@@ -231,7 +236,7 @@ public final class OrbitalManager implements CommandExecutor, Listener {
                 double x = Math.cos(theta) * ring;
                 double z = Math.sin(theta) * ring;
                 Location spawn = center.clone().add(x * radius, y * radius, z * radius);
-                spawnTnt(world, spawn, 55, 4.0f, false, new Vector(x * 0.12, -1.8, z * 0.12));
+                spawnTnt(world, spawn, 42, 6.0f, false, new Vector(x * 0.12, -1.8, z * 0.12));
                 world.spawnParticle(Particle.END_ROD, spawn, 2, 0.1, 0.1, 0.1, 0.01);
             }, point / 5L);
         }
