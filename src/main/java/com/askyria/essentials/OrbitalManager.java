@@ -188,52 +188,50 @@ public final class OrbitalManager implements CommandExecutor, Listener {
     }
 
     private void startStab(World world, Location target) {
-        // STAB: a tight, focused sphere that keeps drilling down in successive waves.
+        // STAB: one uninterrupted, tightly packed drilling column. Every TNT is
+        // launched on the same tick so there are no pauses between waves.
         int top = Math.min(world.getMaxHeight() - 12, target.getBlockY() + 105);
-        final int waves = 8;
-        final int perWave = 42;
-        for (int wave = 0; wave < waves; wave++) {
-            final int currentWave = wave;
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                Location center = target.clone().add(0, Math.max(16, top - target.getY()) - currentWave * 10.0, 0);
-                world.spawnParticle(Particle.FLAME, center, 100, 1.0, 1.0, 1.0, 0.04);
-                world.spawnParticle(Particle.CLOUD, center, 130, 1.2, 1.0, 1.2, 0.04);
-                world.spawnParticle(Particle.CRIT, center, 60, 0.8, 0.8, 0.8, 0.035);
-                world.playSound(center, Sound.ENTITY_WITHER_SHOOT, 3.5f, 0.45f + currentWave * 0.06f);
-                for (int i = 0; i < perWave; i++) {
-                    double angle = i * 2.399963229728653;
-                    double radius = Math.sqrt(i / (double) perWave) * 2.4;
-                    Location spawn = center.clone().add(Math.cos(angle) * radius, (i % 3) * 0.3, Math.sin(angle) * radius);
-                    spawnTnt(world, spawn, 30, 7.0f, false, new Vector(0, -4.8, 0));
-                }
-            }, wave * 14L);
+        Location center = target.clone().add(0, Math.max(16, top - target.getY()), 0);
+        final int count = 420;
+        world.spawnParticle(Particle.FLAME, center, 220, 1.8, 2.0, 1.8, 0.05);
+        world.spawnParticle(Particle.CLOUD, center, 260, 2.0, 1.5, 2.0, 0.05);
+        world.spawnParticle(Particle.CRIT, center, 180, 1.2, 1.2, 1.2, 0.04);
+        world.playSound(center, Sound.ENTITY_WITHER_SHOOT, 5.0f, 0.35f);
+        for (int i = 0; i < count; i++) {
+            double angle = i * 2.399963229728653;
+            double radius = Math.sqrt(i / (double) count) * 3.0;
+            double height = -((i % 35) * 0.32);
+            Location spawn = center.clone().add(Math.cos(angle) * radius, height, Math.sin(angle) * radius);
+            spawnTnt(world, spawn, 30, 7.0f, false,
+                new Vector(-Math.cos(angle) * 0.08, -5.2, -Math.sin(angle) * 0.08));
         }
     }
 
     private void startNuke(World world, Location target) {
-        // NUKE: giant multi-turn expanding spiral, descending into a huge final blast.
-        final int count = 600;
-        final int startY = Math.min(world.getMaxHeight() - 10, target.getBlockY() + 110);
+        // NUKE: a much wider impact field with the whole TNT formation released
+        // immediately, rather than a slowly scheduled spiral.
+        final int count = 900;
+        final double maxRadius = 112.0;
+        int startHeight = Math.min(125, world.getMaxHeight() - target.getBlockY() - 12);
+        Location center = target.clone().add(0, Math.max(18, startHeight), 0);
+        world.spawnParticle(Particle.FLAME, center, 500, maxRadius * 0.45, 8, maxRadius * 0.45, 0.04);
+        world.spawnParticle(Particle.ELECTRIC_SPARK, center, 300, maxRadius * 0.4, 10, maxRadius * 0.4, 0.03);
+        world.spawnParticle(Particle.CLOUD, center, 600, maxRadius * 0.5, 12, maxRadius * 0.5, 0.04);
+        world.playSound(target, Sound.ENTITY_WITHER_SPAWN, 8.0f, 0.35f);
         for (int i = 0; i < count; i++) {
-            final int n = i;
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                double progress = n / (double) (count - 1);
-                double angle = n * 0.29;
-                double radius = 4.0 + progress * 82.0;
-                double y = Math.max(8, startY - target.getY()) - progress * 78.0;
-                Location spawn = target.clone().add(Math.cos(angle) * radius, y, Math.sin(angle) * radius);
-                world.spawnParticle(Particle.FLAME, spawn, 18, 0.55, 0.45, 0.55, 0.025);
-                world.spawnParticle(Particle.ELECTRIC_SPARK, spawn, 10, 0.35, 0.35, 0.35, 0.02);
-                world.spawnParticle(Particle.CLOUD, spawn, 10, 0.4, 0.35, 0.4, 0.025);
-                spawnTnt(world, spawn, 38, 7.0f, false,
-                    new Vector(-Math.cos(angle) * 0.25, -2.8, -Math.sin(angle) * 0.25));
-            }, n / 4L);
+            double angle = i * 2.399963229728653;
+            double radius = maxRadius * Math.sqrt((i + 0.5) / count);
+            double y = (i % 7) * 1.5;
+            Location spawn = target.clone().add(Math.cos(angle) * radius, startHeight + y, Math.sin(angle) * radius);
+            Vector velocity = new Vector(-Math.cos(angle) * 0.35, -3.4, -Math.sin(angle) * 0.35);
+            spawnTnt(world, spawn, 42, 8.0f, false, velocity);
         }
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            world.spawnParticle(Particle.EXPLOSION, target, 140, 20, 5, 20, 0.12);
-            world.spawnParticle(Particle.CLOUD, target, 450, 30, 10, 30, 0.08);
-            world.playSound(target, Sound.ENTITY_GENERIC_EXPLODE, 10.0f, 0.4f);
-        }, 150L);
+            world.spawnParticle(Particle.EXPLOSION, target, 240, 30, 7, 30, 0.14);
+            world.spawnParticle(Particle.CLOUD, target, 650, 42, 14, 42, 0.1);
+            world.spawnParticle(Particle.FLAME, target, 400, 35, 8, 35, 0.06);
+            world.playSound(target, Sound.ENTITY_GENERIC_EXPLODE, 10.0f, 0.35f);
+        }, 100L);
     }
 
     private void startLunar(World world, Location target) {
@@ -265,6 +263,40 @@ public final class OrbitalManager implements CommandExecutor, Listener {
             world.spawnParticle(Particle.REVERSE_PORTAL, target, 400, 20, 7, 20, 0.14);
             world.playSound(target, Sound.ENTITY_GENERIC_EXPLODE, 9.0f, 0.5f);
         }, 80L);
+    }
+
+    private void startLunar(World world, Location target) {
+        // LUNAR: an even larger, denser filled sphere, released in quick batches
+        // to keep the server scheduler responsive while still appearing packed.
+        final int points = 1800;
+        final double radius = 30.0;
+        int height = Math.min(88, world.getMaxHeight() - target.getBlockY() - 24);
+        Location center = target.clone().add(0, Math.max(12, height), 0);
+        world.spawnParticle(Particle.END_ROD, center, 420, radius, radius, radius, 0.05);
+        world.spawnParticle(Particle.REVERSE_PORTAL, center, 700, radius, radius, radius, 0.12);
+        world.spawnParticle(Particle.SOUL_FIRE_FLAME, center, 360, radius * 0.7, radius * 0.7, radius * 0.7, 0.04);
+        world.playSound(center, Sound.BLOCK_BEACON_POWER_SELECT, 8.0f, 0.3f);
+        for (int i = 0; i < points; i++) {
+            final int point = i;
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                double goldenAngle = Math.PI * (3.0 - Math.sqrt(5.0));
+                double y = 1.0 - (2.0 * (point + 0.5) / points);
+                double ring = Math.sqrt(1.0 - y * y);
+                double theta = goldenAngle * point;
+                double x = Math.cos(theta) * ring;
+                double z = Math.sin(theta) * ring;
+                double depth = Math.cbrt((point + 0.5) / points);
+                Location spawn = center.clone().add(x * radius * depth, y * radius * depth, z * radius * depth);
+                spawnTnt(world, spawn, 48, 7.0f, false, new Vector(x * 0.08, -3.8, z * 0.08));
+                world.spawnParticle(Particle.END_ROD, spawn, 3, 0.16, 0.16, 0.16, 0.015);
+            }, point / 24L);
+        }
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            world.spawnParticle(Particle.EXPLOSION, target, 180, 22, 6, 22, 0.12);
+            world.spawnParticle(Particle.REVERSE_PORTAL, target, 650, 30, 10, 30, 0.16);
+            world.spawnParticle(Particle.CLOUD, target, 500, 30, 8, 30, 0.08);
+            world.playSound(target, Sound.ENTITY_GENERIC_EXPLODE, 10.0f, 0.35f);
+        }, 100L);
     }
 
     private void spawnTnt(World world, Location location, int fuseTicks, float yield,
