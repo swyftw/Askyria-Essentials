@@ -25,7 +25,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.Vector;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 public final class OrbitalManager implements CommandExecutor, Listener {
     private final JavaPlugin plugin;
@@ -151,15 +150,15 @@ public final class OrbitalManager implements CommandExecutor, Listener {
         // Dense, staggered grid of TNT from near the world ceiling. Fuses are long enough
         // for the falling TNT to travel deep; spreading spawns over ticks limits server spikes.
         int top = world.getMaxHeight() - 8;
-        int width = 17;
+        int width = 19;
         int total = width * width;
         for (int i = 0; i < total; i++) {
             final int shot = i;
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 int gx = shot % width - width / 2;
                 int gz = shot / width - width / 2;
-                Location spawn = target.clone().add(gx * 1.7, Math.max(8, top - target.getBlockY()), gz * 1.7);
-                spawnTnt(world, spawn, 240, 4.5f, false, new Vector(gx * 0.005, -0.18, gz * 0.005));
+                Location spawn = target.clone().add(gx * 1.6, Math.max(8, top - target.getBlockY()), gz * 1.6);
+                spawnTnt(world, spawn, 240, 4.5f, false, new Vector(gx * 0.002, -0.2, gz * 0.002));
                 world.spawnParticle(Particle.SMOKE, spawn, 5, 0.25, 0.3, 0.25, 0.01);
             }, i / 5L);
         }
@@ -169,21 +168,22 @@ public final class OrbitalManager implements CommandExecutor, Listener {
         // 10-block-wide packed column. Several TNT descend together in each layer,
         // making a focused drill rather than a scattered carpet.
         int top = world.getMaxHeight() - 8;
-        int layerCount = Math.max(1, (top - world.getMinHeight()) / 5);
+        int bottom = Math.max(world.getMinHeight() + 2, target.getBlockY() - 8);
+        int layerCount = Math.min(28, Math.max(1, (top - bottom) / 10));
         for (int layer = 0; layer < layerCount; layer++) {
             final int currentLayer = layer;
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                double y = top - currentLayer * 5.0;
+                double y = top - currentLayer * 10.0;
                 if (y <= world.getMinHeight() + 2) return;
                 for (int x = -2; x <= 2; x++) {
                     for (int z = -2; z <= 2; z++) {
                         Location spawn = target.clone().add(x * 1.8, y - target.getY(), z * 1.8);
-                        spawnTnt(world, spawn, 240, 4.0f, false, new Vector(0, -0.28, 0));
+                        spawnTnt(world, spawn, 240, 4.0f, false, new Vector(0, -0.32, 0));
                     }
                 }
                 world.spawnParticle(Particle.CRIT, target.clone().add(0, y - target.getY(), 0),
                     18, 3.0, 0.3, 3.0, 0.05);
-            }, layer * 2L);
+            }, layer * 3L);
         }
     }
 
@@ -195,18 +195,18 @@ public final class OrbitalManager implements CommandExecutor, Listener {
             world.spawnParticle(Particle.CLOUD, target, 450, 30, 10, 30, 0.08);
             world.spawnParticle(Particle.FLAME, target, 300, 25, 8, 25, 0.03);
             world.playSound(target, Sound.ENTITY_GENERIC_EXPLODE, 10.0f, 0.45f);
-            world.createExplosion(target, 150.0f, true, true);
+            world.createExplosion(target, 18.0f, true, true);
         }, 30L);
     }
 
     private void startLunar(World world, Location target) {
         // Two distinct 50-block-diameter TNT spheres descend from opposite sides.
-        launchLunarSphere(world, target.clone().add(-28, 45, 0), target, 0L);
-        launchLunarSphere(world, target.clone().add(28, 45, 0), target, 35L);
+        launchLunarSphere(world, target.clone().add(-28, 48, 0), target, 0L);
+        launchLunarSphere(world, target.clone().add(28, 48, 0), target, 35L);
     }
 
     private void launchLunarSphere(World world, Location start, Location impact, long delay) {
-        final int points = 160;
+        final int points = 220;
         for (int i = 0; i < points; i++) {
             final int point = i;
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
@@ -218,9 +218,9 @@ public final class OrbitalManager implements CommandExecutor, Listener {
                 double x = Math.cos(theta) * ring;
                 double z = Math.sin(theta) * ring;
                 Location spawn = start.clone().add(x * 25, y * 25, z * 25);
-                spawnTnt(world, spawn, 65, 3.5f, false, impact.toVector().subtract(spawn.toVector()).normalize().multiply(0.45));
+                spawnTnt(world, spawn, 100, 3.5f, false, impact.toVector().subtract(spawn.toVector()).normalize().multiply(0.65));
                 world.spawnParticle(Particle.END_ROD, spawn, 2, 0.15, 0.15, 0.15, 0.01);
-            }, delay + point / 8L);
+            }, delay + point / 10L);
         }
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             world.spawnParticle(Particle.EXPLOSION, impact, 35, 8, 3, 8, 0.1);
