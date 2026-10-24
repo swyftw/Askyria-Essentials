@@ -159,7 +159,7 @@ public final class OrbitalManager implements CommandExecutor, Listener {
                 int gx = shot % width - width / 2;
                 int gz = shot / width - width / 2;
                 Location spawn = target.clone().add(gx * 1.7, Math.max(8, top - target.getBlockY()), gz * 1.7);
-                spawnTnt(world, spawn, 100, 4.5f, false, new Vector(gx * 0.005, -0.12, gz * 0.005));
+                spawnTnt(world, spawn, 240, 4.5f, false, new Vector(gx * 0.005, -0.18, gz * 0.005));
                 world.spawnParticle(Particle.SMOKE, spawn, 5, 0.25, 0.3, 0.25, 0.01);
             }, i / 5L);
         }
@@ -178,7 +178,7 @@ public final class OrbitalManager implements CommandExecutor, Listener {
                 for (int x = -2; x <= 2; x++) {
                     for (int z = -2; z <= 2; z++) {
                         Location spawn = target.clone().add(x * 1.8, y - target.getY(), z * 1.8);
-                        spawnTnt(world, spawn, 80, 4.0f, false, new Vector(0, -0.25, 0));
+                        spawnTnt(world, spawn, 240, 4.0f, false, new Vector(0, -0.28, 0));
                     }
                 }
                 world.spawnParticle(Particle.CRIT, target.clone().add(0, y - target.getY(), 0),
