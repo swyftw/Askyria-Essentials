@@ -18,6 +18,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -39,6 +41,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private final Map<UUID, String> rawTags = new HashMap<>();
     private final Map<UUID, Long> combatUntil = new HashMap<>();
     private BukkitTask combatTicker;
+    private BukkitTask tabTicker;
     private final MiniMessage mini = MiniMessage.miniMessage();
 
     @Override
@@ -83,12 +86,14 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 }
             }
         }, 0L, 5L);
+        tabTicker = Bukkit.getScheduler().runTaskTimer(this, this::updateTabLists, 20L, 100L);
         getLogger().info("Askyria Essentials enabled.");
     }
 
     @Override
     public void onDisable() {
         if (combatTicker != null) combatTicker.cancel();
+        if (tabTicker != null) tabTicker.cancel();
         saveProtectionData();
     }
 
@@ -130,16 +135,37 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         }
         String raw = rawTags.get(id);
         if (raw != null) applyTagToOnlinePlayer(id, raw);
+        updateTabLists();
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         event.quitMessage(null);
         Player player = event.getPlayer();
+        Bukkit.getScheduler().runTask(this, this::updateTabLists);
         Long until = combatUntil.remove(player.getUniqueId());
         if (until != null && until > System.currentTimeMillis()) {
             player.setHealth(0.0);
             Bukkit.broadcast(Component.text(player.getName() + " logged out during combat and was slain."));
+        }
+    }
+
+    private void updateTabLists() {
+        int count = Bukkit.getOnlinePlayers().size();
+        Component header = mini.deserialize("<gradient:#39D5FF:#7B61FF><bold>ASKYRIA</bold></gradient>\n<gray>Survive. Fight. Rise.</gray>");
+        Component footer = mini.deserialize("<gray>Players: </gray><white>" + count + "</white><gray>/</gray><white>" + Bukkit.getMaxPlayers() + "</white>\n<aqua>IP: </aqua><white>askyrias.smp.quest</white>");
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            player.sendPlayerListHeaderAndFooter(header, footer);
+        }
+    }
+
+    @EventHandler
+    public void onInvisibleKillerDeath(PlayerDeathEvent event) {
+        Player victim = event.getEntity();
+        Player killer = victim.getKiller();
+        if (killer != null && killer.hasPotionEffect(PotionEffectType.INVISIBILITY)) {
+            event.deathMessage(null);
+            Bukkit.broadcast(Component.text(victim.getName() + " was killed by an invisible player."));
         }
     }
 
