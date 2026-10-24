@@ -13,11 +13,14 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
+import org.bukkit.entity.Snowball;
 import org.bukkit.entity.TNTPrimed;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
@@ -90,11 +93,10 @@ public final class OrbitalManager implements CommandExecutor, Listener {
     @EventHandler
     public void onOrbitalUse(PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        if (event.getHand() == null) return;
         ItemStack item = event.getItem();
         if (item == null || !item.hasItemMeta()) return;
-
-        String type = item.getItemMeta().getPersistentDataContainer()
-            .get(orbitalKey, PersistentDataType.STRING);
+        String type = item.getItemMeta().getPersistentDataContainer().get(orbitalKey, PersistentDataType.STRING);
         if (type == null) return;
 
         event.setCancelled(true);
@@ -104,21 +106,32 @@ public final class OrbitalManager implements CommandExecutor, Listener {
             return;
         }
 
-        Location hit = player.getTargetBlockExact(100) == null
-            ? player.getLocation().add(player.getLocation().getDirection().multiply(12))
-            : player.getTargetBlockExact(100).getLocation().add(0.5, 1, 0.5);
-        strike(player.getWorld(), hit, type);
+        // Throw to aim: the orbital does not activate until this projectile hits something.
+        Snowball orb = player.launchProjectile(Snowball.class);
+        orb.setVelocity(player.getLocation().getDirection().normalize().multiply(1.8));
+        orb.setItem(new ItemStack(Material.FIRE_CHARGE));
+        orb.getPersistentDataContainer().set(orbitalKey, PersistentDataType.STRING, type);
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_BLAZE_SHOOT, 1.0f, 0.7f);
 
-        // Consume exactly one rod, regardless of stack size.
         if (item.getAmount() <= 1) {
-            if (event.getHand() == org.bukkit.inventory.EquipmentSlot.OFF_HAND) {
-                player.getInventory().setItemInOffHand(null);
-            } else {
-                player.getInventory().setItemInMainHand(null);
-            }
-        } else {
-            item.setAmount(item.getAmount() - 1);
-        }
+            if (event.getHand() == org.bukkit.inventory.EquipmentSlot.OFF_HAND) player.getInventory().setItemInOffHand(null);
+            else player.getInventory().setItemInMainHand(null);
+        } else item.setAmount(item.getAmount() - 1);
+    }
+
+    @EventHandler
+    public void onOrbitalProjectileHit(ProjectileHitEvent event) {
+        Projectile projectile = event.getEntity();
+        String type = projectile.getPersistentDataContainer().get(orbitalKey, PersistentDataType.STRING);
+        if (type == null) return;
+        Location hit = projectile.getLocation().clone();
+        if (event.getHitBlock() != null) hit = event.getHitBlock().getLocation().add(0.5, 1, 0.5);
+        projectile.remove();
+        World world = projectile.getWorld();
+        world.playSound(hit, Sound.BLOCK_BEACON_ACTIVATE, 2.0f, 0.6f);
+        world.spawnParticle(Particle.END_ROD, hit.clone().add(0, 1, 0), 45, 1, 1, 1, 0.08);
+        // Give the player time to see the marked target before the strike begins.
+        Bukkit.getScheduler().runTaskLater(plugin, () -> strike(world, hit, type), 40L);
     }
 
     private void strike(World world, Location target, String type) {
@@ -147,86 +160,84 @@ public final class OrbitalManager implements CommandExecutor, Listener {
     }
 
     private void startRain(World world, Location target) {
-        // Dense, staggered grid of TNT from near the world ceiling. Fuses are long enough
-        // for the falling TNT to travel deep; spreading spawns over ticks limits server spikes.
-        int top = world.getMaxHeight() - 8;
-        int width = 19;
-        int total = width * width;
-        for (int i = 0; i < total; i++) {
-            final int shot = i;
+        // Three parallel lanes of fast orbital shots, staggered so the line is visible.
+        int top = Math.min(world.getMaxHeight() - 8, target.getBlockY() + 70);
+        for (int shot = 0; shot < 45; shot++) {
+            final int n = shot;
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                int gx = shot % width - width / 2;
-                int gz = shot / width - width / 2;
-                Location spawn = target.clone().add(gx * 1.6, Math.max(8, top - target.getBlockY()), gz * 1.6);
-                spawnTnt(world, spawn, 240, 4.5f, false, new Vector(gx * 0.002, -0.2, gz * 0.002));
-                world.spawnParticle(Particle.SMOKE, spawn, 5, 0.25, 0.3, 0.25, 0.01);
-            }, i / 5L);
+                int lane = n % 3 - 1;
+                int step = n / 3 - 7;
+                Location spawn = target.clone().add(lane * 8.0, Math.max(10, top - target.getY()), step * 5.0);
+                world.spawnParticle(Particle.FLAME, spawn, 10, 0.25, 0.2, 0.25, 0.02);
+                world.spawnParticle(Particle.SMOKE, spawn, 8, 0.3, 0.2, 0.3, 0.02);
+                world.playSound(spawn, Sound.ENTITY_BLAZE_SHOOT, 0.8f, 0.55f);
+                spawnTnt(world, spawn, 45, 4.5f, false, new Vector(0, -2.2, 0));
+            }, n * 2L);
         }
     }
 
     private void startStab(World world, Location target) {
-        // 10-block-wide packed column. Several TNT descend together in each layer,
-        // making a focused drill rather than a scattered carpet.
-        int top = world.getMaxHeight() - 8;
-        int bottom = Math.max(world.getMinHeight() + 2, target.getBlockY() - 8);
-        int layerCount = Math.min(28, Math.max(1, (top - bottom) / 10));
-        for (int layer = 0; layer < layerCount; layer++) {
-            final int currentLayer = layer;
+        // A tight vertical drill. Short fuses make the TNT detonate at ground level.
+        int top = Math.min(world.getMaxHeight() - 8, target.getBlockY() + 70);
+        for (int i = 0; i < 25; i++) {
+            final int n = i;
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                double y = top - currentLayer * 10.0;
-                if (y <= world.getMinHeight() + 2) return;
-                for (int x = -2; x <= 2; x++) {
-                    for (int z = -2; z <= 2; z++) {
-                        Location spawn = target.clone().add(x * 1.8, y - target.getY(), z * 1.8);
-                        spawnTnt(world, spawn, 240, 4.0f, false, new Vector(0, -0.32, 0));
-                    }
-                }
-                world.spawnParticle(Particle.CRIT, target.clone().add(0, y - target.getY(), 0),
-                    18, 3.0, 0.3, 3.0, 0.05);
-            }, layer * 3L);
+                double angle = n * (Math.PI * 2.0 / 25.0);
+                Location spawn = target.clone().add(Math.cos(angle) * 2.2, Math.max(8, top - target.getY()), Math.sin(angle) * 2.2);
+                world.spawnParticle(Particle.CRIT, spawn, 12, 0.3, 0.2, 0.3, 0.02);
+                spawnTnt(world, spawn, 45, 5.0f, false, new Vector(0, -2.4, 0));
+            }, n);
         }
     }
 
     private void startNuke(World world, Location target) {
-        // A single large-radius explosion gives the 150-block nuke its intended scale
-        // without creating thousands of primed TNT entities at once.
+        // Huge circular orbital ring descends from directly above the marked target.
+        final int count = 72;
+        final double radius = 22.0;
+        final int startY = Math.min(world.getMaxHeight() - 10, target.getBlockY() + 65);
+        for (int i = 0; i < count; i++) {
+            final int n = i;
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                double angle = (Math.PI * 2.0 * n) / count;
+                Location spawn = target.clone().add(Math.cos(angle) * radius, Math.max(10, startY - target.getY()), Math.sin(angle) * radius);
+                world.spawnParticle(Particle.FLAME, spawn, 12, 0.5, 0.3, 0.5, 0.02);
+                spawnTnt(world, spawn, 55, 5.0f, false, new Vector(-Math.cos(angle) * 0.12, -2.1, -Math.sin(angle) * 0.12));
+            }, i / 3L);
+        }
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            world.spawnParticle(Particle.EXPLOSION, target, 80, 8, 3, 8, 0.1);
-            world.spawnParticle(Particle.CLOUD, target, 450, 30, 10, 30, 0.08);
-            world.spawnParticle(Particle.FLAME, target, 300, 25, 8, 25, 0.03);
-            world.playSound(target, Sound.ENTITY_GENERIC_EXPLODE, 10.0f, 0.45f);
-            world.createExplosion(target, 18.0f, true, true);
-        }, 30L);
+            world.spawnParticle(Particle.EXPLOSION, target, 70, 12, 3, 12, 0.1);
+            world.spawnParticle(Particle.CLOUD, target, 300, 22, 8, 22, 0.06);
+            world.playSound(target, Sound.ENTITY_GENERIC_EXPLODE, 8.0f, 0.45f);
+        }, 70L);
     }
 
     private void startLunar(World world, Location target) {
-        // Two distinct 50-block-diameter TNT spheres descend from opposite sides.
-        launchLunarSphere(world, target.clone().add(-28, 48, 0), target, 0L);
-        launchLunarSphere(world, target.clone().add(28, 48, 0), target, 35L);
-    }
-
-    private void launchLunarSphere(World world, Location start, Location impact, long delay) {
-        final int points = 220;
+        // A visible sphere of TNT forms high above the target, then the entire shell falls.
+        final int points = 180;
+        final double radius = 13.0;
+        Location center = target.clone().add(0, Math.min(58, world.getMaxHeight() - target.getBlockY() - 18), 0);
+        world.spawnParticle(Particle.END_ROD, center, 180, radius, radius, radius, 0.03);
+        world.spawnParticle(Particle.REVERSE_PORTAL, center, 260, radius, radius, radius, 0.08);
+        world.playSound(center, Sound.BLOCK_BEACON_POWER_SELECT, 4.0f, 0.5f);
         for (int i = 0; i < points; i++) {
             final int point = i;
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                // Fibonacci sphere distribution, radius 25 blocks (50-block diameter).
                 double goldenAngle = Math.PI * (3.0 - Math.sqrt(5.0));
                 double y = 1.0 - (2.0 * (point + 0.5) / points);
                 double ring = Math.sqrt(1.0 - y * y);
                 double theta = goldenAngle * point;
                 double x = Math.cos(theta) * ring;
                 double z = Math.sin(theta) * ring;
-                Location spawn = start.clone().add(x * 25, y * 25, z * 25);
-                spawnTnt(world, spawn, 100, 3.5f, false, impact.toVector().subtract(spawn.toVector()).normalize().multiply(0.65));
-                world.spawnParticle(Particle.END_ROD, spawn, 2, 0.15, 0.15, 0.15, 0.01);
-            }, delay + point / 10L);
+                Location spawn = center.clone().add(x * radius, y * radius, z * radius);
+                spawnTnt(world, spawn, 55, 4.0f, false, new Vector(x * 0.12, -1.8, z * 0.12));
+                world.spawnParticle(Particle.END_ROD, spawn, 2, 0.1, 0.1, 0.1, 0.01);
+            }, point / 5L);
         }
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            world.spawnParticle(Particle.EXPLOSION, impact, 35, 8, 3, 8, 0.1);
-            world.spawnParticle(Particle.REVERSE_PORTAL, impact, 250, 12, 5, 12, 0.15);
-            world.playSound(impact, Sound.ENTITY_GENERIC_EXPLODE, 8.0f, 0.55f);
-        }, delay + 100L);
+            world.spawnParticle(Particle.EXPLOSION, target, 45, 10, 3, 10, 0.1);
+            world.spawnParticle(Particle.REVERSE_PORTAL, target, 300, 14, 5, 14, 0.12);
+            world.playSound(target, Sound.ENTITY_GENERIC_EXPLODE, 8.0f, 0.55f);
+        }, 65L);
     }
 
     private void spawnTnt(World world, Location location, int fuseTicks, float yield,
