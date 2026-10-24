@@ -187,37 +187,39 @@ public final class OrbitalManager implements CommandExecutor, Listener {
     }
 
     private void startStab(World world, Location target) {
-        // STAB: a huge downward-facing TNT cannon with a broad, dense barrage.
-        int top = Math.min(world.getMaxHeight() - 12, target.getBlockY() + 85);
-        Location muzzle = target.clone().add(0, Math.max(16, top - target.getY()), 0);
-        world.spawnParticle(Particle.FLAME, muzzle, 100, 2.5, 1.5, 2.5, 0.04);
-        world.spawnParticle(Particle.CLOUD, muzzle, 140, 3, 1.5, 3, 0.04);
-        world.playSound(muzzle, Sound.ENTITY_WITHER_SHOOT, 4.0f, 0.5f);
-        for (int i = 0; i < 110; i++) {
-            final int n = i;
+        // STAB: focused compact TNT sphere repeatedly drilling the same location.
+        int top = Math.min(world.getMaxHeight() - 12, target.getBlockY() + 95);
+        final int waves = 5;
+        final int perWave = 36;
+        for (int wave = 0; wave < waves; wave++) {
+            final int currentWave = wave;
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                double angle = n * 2.399963229728653;
-                double radius = Math.sqrt(n / 110.0) * 9.0;
-                Location spawn = muzzle.clone().add(Math.cos(angle) * radius, -(n % 7) * 0.8, Math.sin(angle) * radius);
-                world.spawnParticle(Particle.CRIT, spawn, 8, 0.35, 0.3, 0.35, 0.02);
-                world.spawnParticle(Particle.FLAME, spawn, 5, 0.2, 0.2, 0.2, 0.01);
-                spawnTnt(world, spawn, 38, 6.0f, false,
-                    new Vector(-Math.cos(angle) * 0.12, -3.4, -Math.sin(angle) * 0.12));
-            }, n / 2L);
+                Location center = target.clone().add(0, Math.max(18, top - target.getY()) - currentWave * 12.0, 0);
+                world.spawnParticle(Particle.FLAME, center, 80, 1.2, 1.0, 1.2, 0.035);
+                world.spawnParticle(Particle.CLOUD, center, 100, 1.5, 1.0, 1.5, 0.035);
+                world.spawnParticle(Particle.CRIT, center, 45, 0.9, 0.8, 0.9, 0.03);
+                world.playSound(center, Sound.ENTITY_WITHER_SHOOT, 3.0f, 0.45f + currentWave * 0.08f);
+                for (int i = 0; i < perWave; i++) {
+                    double angle = i * 2.399963229728653;
+                    double radius = Math.sqrt(i / (double) perWave) * 2.8;
+                    Location spawn = center.clone().add(Math.cos(angle) * radius, (i % 3) * 0.35, Math.sin(angle) * radius);
+                    spawnTnt(world, spawn, 32, 6.0f, false, new Vector(0, -4.2, 0));
+                }
+            }, wave * 18L);
         }
     }
 
     private void startNuke(World world, Location target) {
         // NUKE: a giant expanding spiral of TNT that grows wider as it descends.
-        final int count = 240;
-        final int startY = Math.min(world.getMaxHeight() - 10, target.getBlockY() + 78);
+        final int count = 420;
+        final int startY = Math.min(world.getMaxHeight() - 10, target.getBlockY() + 100);
         for (int i = 0; i < count; i++) {
             final int n = i;
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 double progress = n / (double) (count - 1);
                 double angle = n * 0.32;
-                double radius = 2.0 + progress * 42.0;
-                double y = Math.max(8, startY - target.getY()) - progress * 48.0;
+                double radius = 3.0 + progress * 65.0;
+                double y = Math.max(8, startY - target.getY()) - progress * 65.0;
                 Location spawn = target.clone().add(Math.cos(angle) * radius, y, Math.sin(angle) * radius);
                 world.spawnParticle(Particle.FLAME, spawn, 14, 0.45, 0.4, 0.45, 0.02);
                 world.spawnParticle(Particle.ELECTRIC_SPARK, spawn, 8, 0.3, 0.3, 0.3, 0.02);
@@ -235,9 +237,9 @@ public final class OrbitalManager implements CommandExecutor, Listener {
 
     private void startLunar(World world, Location target) {
         // LUNAR: fill a sphere with TNT rather than only making a thin shell.
-        final int points = 420;
-        final double radius = 15.0;
-        Location center = target.clone().add(0, Math.min(58, world.getMaxHeight() - target.getBlockY() - 18), 0);
+        final int points = 560;
+        final double radius = 20.0;
+        Location center = target.clone().add(0, Math.min(76, world.getMaxHeight() - target.getBlockY() - 22), 0);
         world.spawnParticle(Particle.END_ROD, center, 180, radius, radius, radius, 0.03);
         world.spawnParticle(Particle.REVERSE_PORTAL, center, 260, radius, radius, radius, 0.08);
         world.playSound(center, Sound.BLOCK_BEACON_POWER_SELECT, 4.0f, 0.5f);
@@ -251,7 +253,7 @@ public final class OrbitalManager implements CommandExecutor, Listener {
                 double x = Math.cos(theta) * ring;
                 double z = Math.sin(theta) * ring;
                 // Distribute points throughout the volume for a filled sphere.
-                double depth = Math.cbrt((point % 37 + 1) / 37.0);
+                double depth = Math.cbrt((point % 53 + 1) / 53.0);
                 Location spawn = center.clone().add(x * radius * depth, y * radius * depth, z * radius * depth);
                 spawnTnt(world, spawn, 44, 5.0f, false, new Vector(x * 0.1, -1.9, z * 0.1));
                 world.spawnParticle(Particle.END_ROD, spawn, 2, 0.1, 0.1, 0.1, 0.01);
