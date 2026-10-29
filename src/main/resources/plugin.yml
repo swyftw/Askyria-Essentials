@@ -5,6 +5,21 @@ api-version: '1.21'
 author: Askyria
 description: Askyria server essentials
 commands:
+  top1:
+    description: Give a player the white TOP 1 rank
+    usage: /top1 <player>
+  top2:
+    description: Give a player the white TOP 2 rank
+    usage: /top2 <player>
+  top3:
+    description: Give a player the white TOP 3 rank
+    usage: /top3 <player>
+  top4:
+    description: Give a player the white TOP 4 rank
+    usage: /top4 <player>
+  top5:
+    description: Give a player the white TOP 5 rank
+    usage: /top5 <player>
   protection:
     description: Clear your own new-player protection
     usage: /protection clear
