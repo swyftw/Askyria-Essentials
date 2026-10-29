@@ -25,4 +25,4 @@ commands:
     usage: /endopen
   orbital:
     description: Give and use Orbital TNT strike items (OP only)
-    usage: /orbital [@s] <kit|rain|stab|nuke|lunar>
+    usage: /orbital [@s] <kit|rain|stab|nuke|lunar|grapple>
