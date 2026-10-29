@@ -198,79 +198,105 @@ public final class OrbitalManager implements CommandExecutor, Listener {
     }
 
     private void detonatePayload(World world, Location ground, String type) {
-        int blasts;
-        double radius;
-        float power;
-        Particle impactParticle;
-        Sound impactSound;
-
-        switch (type) {
-            case "rain" -> {
-                blasts = 180; radius = 28.0; power = 8.0f;
-                impactParticle = Particle.FLAME; impactSound = Sound.ENTITY_GENERIC_EXPLODE;
+        // Each orbital has a distinct delivery pattern; don't turn them all into
+        // the same instant carpet of explosions.
+        if (type.equals("rain")) {
+            // RAIN: a broad, literal rain of TNT over the target area.
+            spawnFallingRain(world, ground, 260, 30.0, 42.0, 65, 6.0f);
+            world.spawnParticle(Particle.FLAME, ground.clone().add(0, 2, 0),
+                260, 18, 2, 18, 0.06);
+            world.playSound(ground, Sound.ENTITY_TNT_PRIMED, 8.0f, 0.65f);
+            return;
+        }
+        if (type.equals("lunar")) {
+            // LUNAR: a filled sphere of TNT descends from the sky like a falling moon.
+            int count = 520;
+            double sphereRadius = 24.0;
+            double goldenAngle = Math.PI * (3.0 - Math.sqrt(5.0));
+            int skyBase = Math.min(world.getMaxHeight() - 35, ground.getBlockY() + 48);
+            for (int i = 0; i < count; i++) {
+                double yUnit = 1.0 - 2.0 * (i + 0.5) / count;
+                double ring = Math.sqrt(Math.max(0, 1.0 - yUnit * yUnit));
+                double angle = i * goldenAngle;
+                double dx = Math.cos(angle) * ring * sphereRadius;
+                double dz = Math.sin(angle) * ring * sphereRadius;
+                double dy = yUnit * sphereRadius;
+                Location at = ground.clone().add(dx, Math.max(ground.getY() + 5, skyBase + dy - ground.getY()), dz);
+                TNTPrimed tnt = spawnTnt(world, at, 58, 8.0f, false,
+                    new Vector(dx * 0.012, -0.8, dz * 0.012));
+                tnt.setFuseTicks(58);
             }
-            case "stab" -> {
-                blasts = 240; radius = 24.0; power = 9.0f;
-                impactParticle = Particle.SOUL_FIRE_FLAME; impactSound = Sound.ENTITY_WITHER_BREAK_BLOCK;
+            world.spawnParticle(Particle.REVERSE_PORTAL, ground.clone().add(0, 3, 0),
+                500, 24, 5, 24, 0.08);
+            world.playSound(ground, Sound.ENTITY_TNT_PRIMED, 10.0f, 0.4f);
+            return;
+        }
+        if (type.equals("stab")) {
+            // STAB: a tight vertical drill of TNT focused on one point, with
+            // destructive blasts stepping down into the terrain to carve a deep shaft.
+            int x = ground.getBlockX();
+            int z = ground.getBlockZ();
+            int surfaceY = world.getHighestBlockYAt(x, z);
+            for (int i = 0; i < 72; i++) {
+                double y = surfaceY + 42.0 - (i % 24) * 1.25;
+                Location at = new Location(world, x + 0.5, y, z + 0.5);
+                TNTPrimed tnt = spawnTnt(world, at, 42 + (i % 8), 7.0f, false,
+                    new Vector((i % 3 - 1) * 0.025, -1.35, (i % 2 == 0 ? 0.02 : -0.02)));
+                tnt.setFuseTicks(42 + (i % 8));
             }
-            case "nuke" -> {
-                blasts = 360; radius = 60.0; power = 12.0f;
-                impactParticle = Particle.EXPLOSION; impactSound = Sound.ENTITY_GENERIC_EXPLODE;
+            for (int depth = 1; depth <= 18; depth += 2) {
+                Location bore = new Location(world, x + 0.5, Math.max(world.getMinHeight() + 2, surfaceY - depth), z + 0.5);
+                world.createExplosion(bore, 7.0f, false, true);
+                for (int side = 0; side < 8; side++) {
+                    double a = side * Math.PI / 4.0;
+                    Location sideBlast = bore.clone().add(Math.cos(a) * Math.min(5, depth * 0.22), 0,
+                        Math.sin(a) * Math.min(5, depth * 0.22));
+                    world.createExplosion(sideBlast, 5.0f, false, true);
+                }
             }
-            case "lunar" -> {
-                blasts = 320; radius = 52.0; power = 11.0f;
-                impactParticle = Particle.REVERSE_PORTAL; impactSound = Sound.ENTITY_GENERIC_EXPLODE;
-            }
-            default -> { return; }
+            world.spawnParticle(Particle.SOUL_FIRE_FLAME, ground.clone().add(0, 2, 0),
+                180, 2, 8, 2, 0.04);
+            world.playSound(ground, Sound.ENTITY_WITHER_BREAK_BLOCK, 10.0f, 0.45f);
+            return;
         }
 
-        // One impact frame: all blast points are triggered in the same server tick,
-        // rather than raining TNT over several seconds. The payload is ground-locked.
-        world.spawnParticle(Particle.EXPLOSION, ground, type.equals("nuke") ? 220 : 100,
-            radius * 0.55, 1.8, radius * 0.55, 0.08);
-        world.spawnParticle(impactParticle, ground.clone().add(0, 1, 0),
-            type.equals("nuke") ? 700 : 350, radius * 0.7, 3.0, radius * 0.7, 0.08);
-        world.spawnParticle(Particle.CLOUD, ground, type.equals("nuke") ? 650 : 300,
-            radius * 0.8, 2.0, radius * 0.8, 0.07);
-        world.playSound(ground, impactSound, type.equals("nuke") ? 10.0f : 6.0f,
-            type.equals("lunar") ? 0.45f : 0.7f);
-
+        // NUKE remains the enormous radial detonation.
+        if (!type.equals("nuke")) return;
+        double radius = 60.0;
+        int blasts = 360;
+        float power = 12.0f;
+        world.spawnParticle(Particle.EXPLOSION, ground, 300, radius * 0.55, 2, radius * 0.55, 0.08);
+        world.spawnParticle(Particle.EXPLOSION, ground.clone().add(0, 2, 0),
+            900, radius * 0.7, 5, radius * 0.7, 0.08);
+        world.spawnParticle(Particle.CLOUD, ground, 850, radius * 0.8, 3, radius * 0.8, 0.07);
+        world.playSound(ground, Sound.ENTITY_GENERIC_EXPLODE, 10.0f, 0.55f);
         double goldenAngle = Math.PI * (3.0 - Math.sqrt(5.0));
         for (int i = 0; i < blasts; i++) {
             double distance = radius * Math.sqrt((i + 0.5) / blasts);
             double angle = i * goldenAngle;
             Location blast = ground.clone().add(Math.cos(angle) * distance, 0, Math.sin(angle) * distance);
-            int bx = blast.getBlockX();
-            int bz = blast.getBlockZ();
-            int by = world.getHighestBlockYAt(bx, bz);
-            blast.setY(by + 0.5);
-            // Create every explosion immediately on the terrain surface.
+            blast.setY(world.getHighestBlockYAt(blast.getBlockX(), blast.getBlockZ()) + 0.5);
             world.createExplosion(blast, power, false, true);
         }
+        spawnFallingRain(world, ground, 450, 60.0, 48.0, 55, 8.0f);
+    }
 
-        // Real TNT barrage layered on top of the impact explosions.
-        int tntCount;
-        float tntYield;
-        switch (type) {
-            case "rain" -> { tntCount = 160; tntYield = 6.0f; }
-            case "stab" -> { tntCount = 220; tntYield = 7.0f; }
-            case "nuke" -> { tntCount = 450; tntYield = 8.0f; }
-            case "lunar" -> { tntCount = 360; tntYield = 8.0f; }
-            default -> { return; }
+    private void spawnFallingRain(World world, Location ground, int count, double radius,
+                                  double height, int fuseTicks, float yield) {
+        double goldenAngle = Math.PI * (3.0 - Math.sqrt(5.0));
+        for (int i = 0; i < count; i++) {
+            double distance = radius * Math.sqrt((i + 0.5) / count);
+            double angle = i * goldenAngle;
+            double dx = Math.cos(angle) * distance;
+            double dz = Math.sin(angle) * distance;
+            int x = ground.getBlockX() + (int) Math.round(dx);
+            int z = ground.getBlockZ() + (int) Math.round(dz);
+            int surfaceY = world.getHighestBlockYAt(x, z);
+            Location at = new Location(world, x + 0.5, Math.max(surfaceY + 12, ground.getY() + height), z + 0.5);
+            TNTPrimed tnt = spawnTnt(world, at, fuseTicks, yield, false,
+                new Vector(dx * 0.004, -0.85, dz * 0.004));
+            tnt.setFuseTicks(fuseTicks);
         }
-        double tntAngleStep = Math.PI * (3.0 - Math.sqrt(5.0));
-        for (int i = 0; i < tntCount; i++) {
-            double distance = radius * Math.sqrt((i + 0.5) / tntCount);
-            double angle = i * tntAngleStep + 0.35;
-            int tx = ground.getBlockX() + (int) Math.round(Math.cos(angle) * distance);
-            int tz = ground.getBlockZ() + (int) Math.round(Math.sin(angle) * distance);
-            int surfaceY = world.getHighestBlockYAt(tx, tz);
-            Location tntLocation = new Location(world, tx + 0.5, surfaceY + 9.0, tz + 0.5);
-            Vector drift = new Vector(Math.cos(angle) * 0.12, -0.55, Math.sin(angle) * 0.12);
-            TNTPrimed payload = spawnTnt(world, tntLocation, 45, tntYield, false, drift);
-            payload.setFuseTicks(45);
-        }
-        world.playSound(ground, Sound.ENTITY_TNT_PRIMED, 4.0f, 0.55f);
     }
 
     private void warningBeam(World world, Location target, String type) {
