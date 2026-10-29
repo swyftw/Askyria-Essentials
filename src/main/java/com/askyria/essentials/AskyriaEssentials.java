@@ -201,7 +201,13 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         int rank = topRank(victim);
         if (rank == 0 || killer == null || killer.equals(victim)) return;
         setStoredTag(killer, rankTag(rank));
-        setStoredTag(victim, "<gray>[MEMBER]</gray>");
+        // Remove the defeated holder's tag entirely; don't assign a MEMBER tag.
+        rawTags.remove(victim.getUniqueId());
+        tags.remove(victim.getUniqueId());
+        getConfig().set("player-tags." + victim.getUniqueId(), null);
+        applyTagToOnlinePlayer(victim.getUniqueId(), "");
+        saveConfig();
+        updateTabLists();
         Bukkit.broadcast(Component.text(killer.getName() + " claimed TOP " + rank + " by defeating " + victim.getName() + "!"));
     }
 
