@@ -206,19 +206,19 @@ public final class OrbitalManager implements CommandExecutor, Listener {
 
         switch (type) {
             case "rain" -> {
-                blasts = 49; radius = 12.0; power = 5.5f;
+                blasts = 90; radius = 18.0; power = 6.0f;
                 impactParticle = Particle.FLAME; impactSound = Sound.ENTITY_GENERIC_EXPLODE;
             }
             case "stab" -> {
-                blasts = 64; radius = 8.0; power = 6.0f;
+                blasts = 120; radius = 14.0; power = 6.5f;
                 impactParticle = Particle.SOUL_FIRE_FLAME; impactSound = Sound.ENTITY_WITHER_BREAK_BLOCK;
             }
             case "nuke" -> {
-                blasts = 100; radius = 30.0; power = 8.5f;
+                blasts = 180; radius = 42.0; power = 9.0f;
                 impactParticle = Particle.EXPLOSION; impactSound = Sound.ENTITY_GENERIC_EXPLODE;
             }
             case "lunar" -> {
-                blasts = 100; radius = 25.0; power = 8.0f;
+                blasts = 160; radius = 36.0; power = 8.5f;
                 impactParticle = Particle.REVERSE_PORTAL; impactSound = Sound.ENTITY_GENERIC_EXPLODE;
             }
             default -> { return; }
@@ -252,10 +252,10 @@ public final class OrbitalManager implements CommandExecutor, Listener {
         int tntCount;
         float tntYield;
         switch (type) {
-            case "rain" -> { tntCount = 24; tntYield = 4.5f; }
-            case "stab" -> { tntCount = 32; tntYield = 5.0f; }
-            case "nuke" -> { tntCount = 56; tntYield = 6.0f; }
-            case "lunar" -> { tntCount = 48; tntYield = 5.5f; }
+            case "rain" -> { tntCount = 70; tntYield = 5.0f; }
+            case "stab" -> { tntCount = 100; tntYield = 5.5f; }
+            case "nuke" -> { tntCount = 220; tntYield = 7.0f; }
+            case "lunar" -> { tntCount = 180; tntYield = 6.5f; }
             default -> { return; }
         }
         double tntAngleStep = Math.PI * (3.0 - Math.sqrt(5.0));
