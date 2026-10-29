@@ -75,6 +75,15 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         combatTicker = Bukkit.getScheduler().runTaskTimer(this, () -> {
             long nowTick = System.currentTimeMillis();
             for (Player player : Bukkit.getOnlinePlayers()) {
+                if (isProtected(player)) {
+                    Long protectionExpiry = protectedUntil.get(player.getUniqueId());
+                    long seconds = protectionExpiry == null ? 0L
+                        : Math.max(0L, (protectionExpiry - nowTick + 999L) / 1000L);
+                    long minutes = seconds / 60L;
+                    long remainder = seconds % 60L;
+                    player.sendActionBar(Component.text("PROTECTED " + minutes + "m " + remainder + "s"));
+                    continue;
+                }
                 Long until = combatUntil.get(player.getUniqueId());
                 if (until == null) continue;
                 long seconds = Math.max(0L, (until - nowTick + 999L) / 1000L);
@@ -153,7 +162,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private void updateTabLists() {
         int count = Bukkit.getOnlinePlayers().size();
         Component header = mini.deserialize("<gradient:#39D5FF:#7B61FF><bold>ASKYRIA</bold></gradient>\n<gray>Survive. Fight. Rise.</gray>");
-        Component footer = mini.deserialize("<gray>Players: </gray><white>" + count + "</white><gray>/</gray><white>" + Bukkit.getMaxPlayers() + "</white>\n<aqua>IP: </aqua><white>askyrias.smp.quest</white>");
+        Component footer = mini.deserialize("<gray>Players: </gray><white>" + count + "</white><gray>/</gray><white>" + Bukkit.getMaxPlayers() + "</white>\n<aqua>IP: </aqua><white>askyria.smp.quest</white>");
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.sendPlayerListHeaderAndFooter(header, footer);
         }
@@ -181,7 +190,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     }
 
     private void tagCombat(Player player) {
-        combatUntil.put(player.getUniqueId(), System.currentTimeMillis() + 15_000L);
+        combatUntil.put(player.getUniqueId(), System.currentTimeMillis() + 30_000L);
     }
 
     @EventHandler
