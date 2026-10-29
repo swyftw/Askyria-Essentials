@@ -20,6 +20,8 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -40,6 +42,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private final Map<UUID, Component> tags = new HashMap<>();
     private final Map<UUID, String> rawTags = new HashMap<>();
     private final Map<UUID, Long> combatUntil = new HashMap<>();
+    private final Map<UUID, Long> rankAbilityCooldowns = new HashMap<>();
     private BukkitTask combatTicker;
     private BukkitTask tabTicker;
     private final MiniMessage mini = MiniMessage.miniMessage();
@@ -166,6 +169,81 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.sendPlayerListHeaderAndFooter(header, footer);
         }
+    }
+
+    private int topRank(Player player) {
+        String raw = rawTags.get(player.getUniqueId());
+        if (raw == null) return 0;
+        String normalized = raw.toUpperCase().replaceAll("<[^>]*>", "");
+        for (int rank = 1; rank <= 5; rank++) {
+            if (normalized.contains("TOP " + rank) || normalized.contains("TOP" + rank)) return rank;
+        }
+        return 0;
+    }
+
+    private String rankTag(int rank) {
+        return switch (rank) {
+            case 1 -> "<bold><gradient:#FFD700:#FFF1A8>[TOP 1]</gradient></bold>";
+            case 2 -> "<bold><gradient:#D9E1E8:#FFFFFF>[TOP 2]</gradient></bold>";
+            case 3 -> "<bold><gradient:#D88952:#F6C28B>[TOP 3]</gradient></bold>";
+            case 4 -> "<bold><gradient:#55D6BE:#B8FFF1>[TOP 4]</gradient></bold>";
+            default -> "<bold><gradient:#9B7BFF:#D6C7FF>[TOP 5]</gradient></bold>";
+        };
+    }
+
+    private void setStoredTag(Player player, String raw) {
+        UUID id = player.getUniqueId();
+        rawTags.put(id, raw);
+        getConfig().set("player-tags." + id, raw);
+        applyTagToOnlinePlayer(id, raw);
+        saveConfig();
+        updateTabLists();
+    }
+
+    @EventHandler
+    public void onTopRankDeath(PlayerDeathEvent event) {
+        Player victim = event.getEntity();
+        Player killer = victim.getKiller();
+        int rank = topRank(victim);
+        if (rank == 0 || killer == null || killer.equals(victim)) return;
+        setStoredTag(killer, rankTag(rank));
+        setStoredTag(victim, "<gray>[MEMBER]</gray>");
+        Bukkit.broadcast(Component.text(killer.getName() + " claimed TOP " + rank + " by defeating " + victim.getName() + "!"));
+    }
+
+    @EventHandler
+    public void onTopRankCrouchJump(PlayerMoveEvent event) {
+        Player player = event.getPlayer();
+        int rank = topRank(player);
+        if (rank == 0 || !player.isSneaking() || player.isOnGround()) return;
+        if (event.getTo() == null || event.getTo().getY() <= event.getFrom().getY()) return;
+        long now = System.currentTimeMillis();
+        long ready = rankAbilityCooldowns.getOrDefault(player.getUniqueId(), 0L);
+        if (now < ready) return;
+
+        switch (rank) {
+            case 1 -> player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 30 * 20, 1, true, true, true));
+            case 2 -> {
+                player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 20 * 20, 0, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 8 * 20, 0, true, true, true));
+            }
+            case 3 -> {
+                player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, 25 * 20, 0, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 5 * 20, 0, true, true, true));
+            }
+            case 4 -> {
+                player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 15 * 20, 0, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 15 * 20, 0, true, true, true));
+            }
+            case 5 -> {
+                player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 10 * 20, 0, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 12 * 20, 0, true, true, true));
+            }
+            default -> { return; }
+        }
+        long cooldown = rank == 1 ? 60_000L : rank == 2 ? 60_000L : rank == 3 ? 75_000L : rank == 4 ? 60_000L : 75_000L;
+        rankAbilityCooldowns.put(player.getUniqueId(), now + cooldown);
+        player.sendMessage(Component.text("TOP " + rank + " ability activated!"));
     }
 
     @EventHandler
