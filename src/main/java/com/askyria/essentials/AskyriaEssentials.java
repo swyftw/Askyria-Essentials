@@ -182,13 +182,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     }
 
     private String rankTag(int rank) {
-        return switch (rank) {
-            case 1 -> "<bold><gradient:#FFD700:#FFF1A8>[TOP 1]</gradient></bold>";
-            case 2 -> "<bold><gradient:#D9E1E8:#FFFFFF>[TOP 2]</gradient></bold>";
-            case 3 -> "<bold><gradient:#D88952:#F6C28B>[TOP 3]</gradient></bold>";
-            case 4 -> "<bold><gradient:#55D6BE:#B8FFF1>[TOP 4]</gradient></bold>";
-            default -> "<bold><gradient:#9B7BFF:#D6C7FF>[TOP 5]</gradient></bold>";
-        };
+        return "<white><bold>[TOP " + rank + "]</bold></white>";
     }
 
     private void setStoredTag(Player player, String raw) {
@@ -332,6 +326,37 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                     saveProtectionData();
                     player.sendMessage(Component.text("Your protection has been removed. You can now take damage."));
                 } else player.sendMessage(Component.text("You do not have active protection."));
+                return true;
+            }
+            case "top1", "top2", "top3", "top4", "top5" -> {
+                if (!requireOp(sender)) return true;
+                if (args.length != 1) {
+                    sender.sendMessage(Component.text("Usage: /" + command.getName().toLowerCase() + " <player>"));
+                    return true;
+                }
+                Player target = Bukkit.getPlayerExact(args[0]);
+                if (target == null) {
+                    sender.sendMessage(Component.text("Player '" + args[0] + "' is not online."));
+                    return true;
+                }
+                int rank = Integer.parseInt(command.getName().substring(3));
+                // Keep each TOP rank unique: remove it from its current holder first.
+                for (Map.Entry<UUID, String> entry : new HashMap<>(rawTags).entrySet()) {
+                    String normalized = entry.getValue().toUpperCase().replaceAll("<[^>]*>", "");
+                    if (normalized.contains("TOP " + rank) || normalized.contains("TOP" + rank)) {
+                        Player oldHolder = Bukkit.getPlayer(entry.getKey());
+                        if (oldHolder != null && !oldHolder.equals(target)) {
+                            setStoredTag(oldHolder, "<white>[MEMBER]</white>");
+                        } else if (oldHolder == null) {
+                            rawTags.put(entry.getKey(), "<white>[MEMBER]</white>");
+                            getConfig().set("player-tags." + entry.getKey(), "<white>[MEMBER]</white>");
+                        }
+                    }
+                }
+                setStoredTag(target, rankTag(rank));
+                saveConfig();
+                sender.sendMessage(Component.text("Gave " + target.getName() + " TOP " + rank + " (white)."));
+                Bukkit.broadcast(Component.text(target.getName() + " is now TOP " + rank + "!"));
                 return true;
             }
             case "playertag" -> {
