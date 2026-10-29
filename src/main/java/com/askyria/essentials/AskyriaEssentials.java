@@ -194,6 +194,26 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         updateTabLists();
     }
 
+    private void clearStoredTag(Player player) {
+        UUID id = player.getUniqueId();
+        rawTags.remove(id);
+        tags.remove(id);
+        getConfig().set("player-tags." + id, null);
+        String teamName = "ask_" + id.toString().replace("-", "").substring(0, 12);
+        java.util.Set<Scoreboard> boards = new java.util.HashSet<>();
+        boards.add(Bukkit.getScoreboardManager().getMainScoreboard());
+        for (Player viewer : Bukkit.getOnlinePlayers()) boards.add(viewer.getScoreboard());
+        for (Scoreboard board : boards) {
+            Team team = board.getTeam(teamName);
+            if (team != null) {
+                team.removeEntry(player.getName());
+                if (team.getEntries().isEmpty()) team.unregister();
+            }
+        }
+        saveConfig();
+        updateTabLists();
+    }
+
     @EventHandler
     public void onTopRankDeath(PlayerDeathEvent event) {
         Player victim = event.getEntity();
@@ -363,6 +383,21 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 saveConfig();
                 sender.sendMessage(Component.text("Gave " + target.getName() + " TOP " + rank + " (white)."));
                 Bukkit.broadcast(Component.text(target.getName() + " is now TOP " + rank + "!"));
+                return true;
+            }
+            case "cleartag" -> {
+                if (!requireOp(sender)) return true;
+                if (args.length != 1) {
+                    sender.sendMessage(Component.text("Usage: /cleartag <player>"));
+                    return true;
+                }
+                Player target = Bukkit.getPlayerExact(args[0]);
+                if (target == null) {
+                    sender.sendMessage(Component.text("That player must be online."));
+                    return true;
+                }
+                clearStoredTag(target);
+                sender.sendMessage(Component.text("Removed " + target.getName() + "'s tag."));
                 return true;
             }
             case "playertag" -> {
