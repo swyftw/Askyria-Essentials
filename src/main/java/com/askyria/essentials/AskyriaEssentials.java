@@ -182,7 +182,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     }
 
     private String rankTag(int rank) {
-        return rank == 1 ? "<gold><bold>[TOP 1]</bold></gold>" : "<white><bold>[TOP " + rank + "]</bold></white>";
+        return rank == 1 ? "<gold><bold>[TOP1]</bold></gold>" : "<white><bold>[TOP " + rank + "]</bold></white>";
     }
 
     private void setStoredTag(Player player, String raw) {
