@@ -80,9 +80,9 @@ public final class OrbitalManager implements CommandExecutor, Listener {
         };
         meta.setDisplayName(name);
         meta.setLore(List.of(
-            "§7Single-use orbital weapon",
+            "§7Reusable orbital weapon",
             "§fRight-click to throw at your target",
-            "§8Consumed on activation"
+            "§aReusable — not consumed"
         ));
         meta.addEnchant(Enchantment.UNBREAKING, 1, true);
         meta.getPersistentDataContainer().set(orbitalKey, PersistentDataType.STRING, type);
@@ -126,9 +126,21 @@ public final class OrbitalManager implements CommandExecutor, Listener {
         hook.getPersistentDataContainer().set(orbitalKey, PersistentDataType.STRING, type);
         hook.setPersistent(true);
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_BLAZE_SHOOT, 1.0f, 0.7f);
-        if (item.getAmount() <= 1) player.getInventory().setItem(hand, null);
-        else item.setAmount(item.getAmount() - 1);
-        player.sendMessage(Component.text(type.toUpperCase() + " Orbital launched. It is single-use."));
+        player.sendMessage(Component.text(type.toUpperCase() + " Orbital launched. Your rod is reusable."));
+    }
+
+    @EventHandler
+    public void onOrbitalHookLand(PlayerFishEvent event) {
+        if (event.getState() != PlayerFishEvent.State.IN_GROUND
+                && event.getState() != PlayerFishEvent.State.CAUGHT_ENTITY) return;
+        FishHook hook = event.getHook();
+        String type = hook.getPersistentDataContainer().get(orbitalKey, PersistentDataType.STRING);
+        if (type == null) return;
+        Location hit = hook.getLocation().clone();
+        if (event.getState() == PlayerFishEvent.State.IN_GROUND) {
+            hit = hit.getBlock().getLocation().add(0.5, 1, 0.5);
+        }
+        launchStrikeFromHook(hook, hit, type);
     }
 
     @EventHandler
@@ -138,12 +150,15 @@ public final class OrbitalManager implements CommandExecutor, Listener {
         if (type == null) return;
         Location hit = projectile.getLocation().clone();
         if (event.getHitBlock() != null) hit = event.getHitBlock().getLocation().add(0.5, 1, 0.5);
+        launchStrikeFromHook(projectile, hit, type);
+    }
+
+    private void launchStrikeFromHook(Projectile projectile, Location hit, String type) {
+        projectile.getPersistentDataContainer().remove(orbitalKey);
         projectile.remove();
         World world = projectile.getWorld();
         world.playSound(hit, Sound.BLOCK_BEACON_ACTIVATE, 2.0f, 0.6f);
         world.spawnParticle(Particle.END_ROD, hit.clone().add(0, 1, 0), 45, 1, 1, 1, 0.08);
-        // Give the player time to see the marked target before the strike begins.
-        // Capture a stable copy because hit may be reassigned when a block is hit.
         Location strikeTarget = hit.clone();
         Bukkit.getScheduler().runTaskLater(plugin, () -> strike(world, strikeTarget, type), 40L);
     }
