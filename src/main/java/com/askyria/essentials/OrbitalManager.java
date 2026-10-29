@@ -206,19 +206,19 @@ public final class OrbitalManager implements CommandExecutor, Listener {
 
         switch (type) {
             case "rain" -> {
-                blasts = 36; radius = 9.0; power = 4.5f;
+                blasts = 49; radius = 12.0; power = 5.5f;
                 impactParticle = Particle.FLAME; impactSound = Sound.ENTITY_GENERIC_EXPLODE;
             }
             case "stab" -> {
-                blasts = 49; radius = 5.0; power = 5.0f;
+                blasts = 64; radius = 8.0; power = 6.0f;
                 impactParticle = Particle.SOUL_FIRE_FLAME; impactSound = Sound.ENTITY_WITHER_BREAK_BLOCK;
             }
             case "nuke" -> {
-                blasts = 100; radius = 22.0; power = 6.0f;
+                blasts = 100; radius = 30.0; power = 8.5f;
                 impactParticle = Particle.EXPLOSION; impactSound = Sound.ENTITY_GENERIC_EXPLODE;
             }
             case "lunar" -> {
-                blasts = 81; radius = 15.0; power = 5.5f;
+                blasts = 100; radius = 25.0; power = 8.0f;
                 impactParticle = Particle.REVERSE_PORTAL; impactSound = Sound.ENTITY_GENERIC_EXPLODE;
             }
             default -> { return; }
