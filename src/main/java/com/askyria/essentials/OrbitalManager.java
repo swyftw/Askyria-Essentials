@@ -211,14 +211,29 @@ public final class OrbitalManager implements CommandExecutor, Listener {
     }
 
     private void startNuke(World world, Location target) {
-        // One single huge orbital TNT drop instead of a formation of TNT.
-        int height = Math.min(100, world.getMaxHeight() - target.getBlockY() - 12);
-        Location spawn = target.clone().add(0, Math.max(18, height), 0);
-        world.spawnParticle(Particle.FLAME, spawn, 180, 3.5, 2.5, 3.5, 0.04);
-        world.spawnParticle(Particle.ELECTRIC_SPARK, spawn, 120, 3.0, 2.0, 3.0, 0.03);
-        world.spawnParticle(Particle.CLOUD, spawn, 160, 3.5, 2.0, 3.5, 0.035);
-        world.playSound(spawn, Sound.ENTITY_WITHER_SPAWN, 6.0f, 0.35f);
-        spawnTnt(world, spawn, 60, 80.0f, true, new Vector(0, -3.2, 0));
+        // Restore the previous large-area orbital barrage.
+        final int count = 900;
+        final double maxRadius = 112.0;
+        int startHeight = Math.min(125, world.getMaxHeight() - target.getBlockY() - 12);
+        Location center = target.clone().add(0, Math.max(18, startHeight), 0);
+        world.spawnParticle(Particle.FLAME, center, 500, maxRadius * 0.45, 8, maxRadius * 0.45, 0.04);
+        world.spawnParticle(Particle.ELECTRIC_SPARK, center, 300, maxRadius * 0.4, 10, maxRadius * 0.4, 0.03);
+        world.spawnParticle(Particle.CLOUD, center, 600, maxRadius * 0.5, 12, maxRadius * 0.5, 0.04);
+        world.playSound(target, Sound.ENTITY_WITHER_SPAWN, 8.0f, 0.35f);
+        for (int i = 0; i < count; i++) {
+            double angle = i * 2.399963229728653;
+            double radius = maxRadius * Math.sqrt((i + 0.5) / count);
+            double y = (i % 7) * 1.5;
+            Location spawn = target.clone().add(Math.cos(angle) * radius, startHeight + y, Math.sin(angle) * radius);
+            Vector velocity = new Vector(-Math.cos(angle) * 0.35, -3.4, -Math.sin(angle) * 0.35);
+            spawnTnt(world, spawn, 42, 8.0f, false, velocity);
+        }
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            world.spawnParticle(Particle.EXPLOSION, target, 240, 30, 7, 30, 0.14);
+            world.spawnParticle(Particle.CLOUD, target, 650, 42, 14, 42, 0.1);
+            world.spawnParticle(Particle.FLAME, target, 400, 35, 8, 35, 0.06);
+            world.playSound(target, Sound.ENTITY_GENERIC_EXPLODE, 10.0f, 0.35f);
+        }, 100L);
     }
 
     private void startLunar(World world, Location target) {
