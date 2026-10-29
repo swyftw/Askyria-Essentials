@@ -182,7 +182,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     }
 
     private String rankTag(int rank) {
-        return rank == 1 ? "<gold><bold>[TOP1]</bold></gold>" : "<white><bold>[TOP " + rank + "]</bold></white>";
+        return rank == 1 ? "<gold><bold>[TOP 1]</bold></gold>" : "<white><bold>[TOP " + rank + "]</bold></white>";
     }
 
     private void setStoredTag(Player player, String raw) {
@@ -242,7 +242,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         if (now < ready) return;
 
         switch (rank) {
-            case 1 -> player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 30 * 20, 1, true, true, true));
+            case 1 -> {\n                player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 35 * 20, 2, true, true, true));\n                player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 10 * 20, 0, true, true, true));\n            }
             case 2 -> {
                 player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 20 * 20, 0, true, true, true));
                 player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 8 * 20, 0, true, true, true));
