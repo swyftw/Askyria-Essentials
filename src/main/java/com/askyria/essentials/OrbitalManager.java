@@ -14,12 +14,13 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
-import org.bukkit.entity.Snowball;
+import org.bukkit.entity.FishHook;
 import org.bukkit.entity.TNTPrimed;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerFishEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -98,25 +99,36 @@ public final class OrbitalManager implements CommandExecutor, Listener {
         if (item == null || !item.hasItemMeta()) return;
         String type = item.getItemMeta().getPersistentDataContainer().get(orbitalKey, PersistentDataType.STRING);
         if (type == null) return;
-        event.setCancelled(true);
         Player player = event.getPlayer();
-        if (!player.isOp()) { player.sendMessage(Component.text("Only operators can use Orbitals.")); return; }
-        // The held weapon is a rod; the projectile is rendered as a rod too.
-        // The scheduled strike is server-side and continues if the player switches slots.
-        Snowball orb = player.launchProjectile(Snowball.class);
-        orb.setVelocity(player.getLocation().getDirection().normalize().multiply(1.8));
-        orb.setItem(new ItemStack(Material.FISHING_ROD));
-        orb.getPersistentDataContainer().set(orbitalKey, PersistentDataType.STRING, type);
-        Bukkit.getScheduler().runTaskTimer(plugin, task -> {
-            if (!orb.isValid() || orb.isDead()) { task.cancel(); return; }
-            orb.getWorld().spawnParticle(Particle.FLAME, orb.getLocation(), 4, 0.08, 0.08, 0.08, 0.01);
-            orb.getWorld().spawnParticle(Particle.SMOKE, orb.getLocation(), 2, 0.04, 0.04, 0.04, 0.01);
-        }, 1L, 1L);
+        if (!player.isOp()) {
+            event.setCancelled(true);
+            player.sendMessage(Component.text("Only operators can use Orbitals."));
+        }
+        // Vanilla casts the real fishing hook; the hook is tagged in PlayerFishEvent.
+    }
+
+    @EventHandler
+    public void onOrbitalCast(PlayerFishEvent event) {
+        if (event.getState() != PlayerFishEvent.State.FISHING) return;
+        Player player = event.getPlayer();
+        org.bukkit.inventory.EquipmentSlot hand = event.getHand() == null
+            ? org.bukkit.inventory.EquipmentSlot.HAND : event.getHand();
+        ItemStack item = player.getInventory().getItem(hand);
+        if (item == null || !item.hasItemMeta()) return;
+        String type = item.getItemMeta().getPersistentDataContainer().get(orbitalKey, PersistentDataType.STRING);
+        if (type == null) return;
+        if (!player.isOp()) {
+            event.setCancelled(true);
+            player.sendMessage(Component.text("Only operators can use Orbitals."));
+            return;
+        }
+        FishHook hook = event.getHook();
+        hook.getPersistentDataContainer().set(orbitalKey, PersistentDataType.STRING, type);
+        hook.setPersistent(true);
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_BLAZE_SHOOT, 1.0f, 0.7f);
-        if (item.getAmount() <= 1) {
-            if (event.getHand() == org.bukkit.inventory.EquipmentSlot.OFF_HAND) player.getInventory().setItemInOffHand(null);
-            else player.getInventory().setItemInMainHand(null);
-        } else item.setAmount(item.getAmount() - 1);
+        if (item.getAmount() <= 1) player.getInventory().setItem(hand, null);
+        else item.setAmount(item.getAmount() - 1);
+        player.sendMessage(Component.text(type.toUpperCase() + " Orbital launched. It is single-use."));
     }
 
     @EventHandler
@@ -183,11 +195,11 @@ public final class OrbitalManager implements CommandExecutor, Listener {
     }
 
     private void startStab(World world, Location target) {
-        // STAB: repeated square TNT layers from high altitude down to just above bedrock.
-        int topY = Math.min(world.getMaxHeight() - 12, target.getBlockY() + 100);
-        int bottomY = world.getMinHeight() + 2;
+        // STAB: a compact orbital spear, from above the target down to ground level only.
+        int topY = Math.min(world.getMaxHeight() - 12, target.getBlockY() + 42);
+        int bottomY = Math.max(world.getMinHeight() + 2, target.getBlockY() + 2);
         final int width = 5;
-        final int layerSpacing = 8;
+        final int layerSpacing = 6;
         final int ticksBetweenLayers = 2;
         int layer = 0;
         for (int y = topY; y >= bottomY; y -= layerSpacing) {
@@ -226,7 +238,15 @@ public final class OrbitalManager implements CommandExecutor, Listener {
             double y = (i % 7) * 1.5;
             Location spawn = target.clone().add(Math.cos(angle) * radius, startHeight + y, Math.sin(angle) * radius);
             Vector velocity = new Vector(-Math.cos(angle) * 0.35, -3.4, -Math.sin(angle) * 0.35);
-            spawnTnt(world, spawn, 42, 8.0f, false, velocity);
+            TNTPrimed tnt = spawnTnt(world, spawn, 120, 8.0f, false, velocity);
+            // Nuke payload detonates on first ground contact instead of using a timed fuse.
+            Bukkit.getScheduler().runTaskTimer(plugin, task -> {
+                if (!tnt.isValid() || tnt.isDead()) { task.cancel(); return; }
+                if (tnt.isOnGround()) {
+                    tnt.setFuseTicks(1);
+                    task.cancel();
+                }
+            }, 1L, 1L);
         }
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             world.spawnParticle(Particle.EXPLOSION, target, 240, 30, 7, 30, 0.14);
@@ -270,12 +290,13 @@ public final class OrbitalManager implements CommandExecutor, Listener {
         }, 100L);
     }
 
-    private void spawnTnt(World world, Location location, int fuseTicks, float yield,
-                          boolean incendiary, Vector velocity) {
+    private TNTPrimed spawnTnt(World world, Location location, int fuseTicks, float yield,
+                                boolean incendiary, Vector velocity) {
         TNTPrimed tnt = world.spawn(location, TNTPrimed.class);
         tnt.setFuseTicks(fuseTicks);
         tnt.setYield(yield);
         tnt.setIsIncendiary(incendiary);
         tnt.setVelocity(velocity);
+        return tnt;
     }
 }
