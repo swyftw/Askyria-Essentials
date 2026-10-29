@@ -23,6 +23,9 @@ commands:
   protection:
     description: Clear your own new-player protection
     usage: /protection clear
+  cleartag:
+    description: Completely remove a player's tag
+    usage: /cleartag <player>
   playertag:
     description: Set a player's gradient tag
     usage: /playertag <player> <tag> fade3 OR /playertag <player> <tag> fade <color1> <color2> <color3>
