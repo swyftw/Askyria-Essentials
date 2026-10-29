@@ -98,28 +98,21 @@ public final class OrbitalManager implements CommandExecutor, Listener {
         if (item == null || !item.hasItemMeta()) return;
         String type = item.getItemMeta().getPersistentDataContainer().get(orbitalKey, PersistentDataType.STRING);
         if (type == null) return;
-
         event.setCancelled(true);
         Player player = event.getPlayer();
-        if (!player.isOp()) {
-            player.sendMessage(Component.text("Only operators can use Orbitals."));
-            return;
-        }
-
-        // Throw to aim: the orbital does not activate until this projectile hits something.
+        if (!player.isOp()) { player.sendMessage(Component.text("Only operators can use Orbitals.")); return; }
+        // The held weapon is a rod; the projectile is rendered as a rod too.
+        // The scheduled strike is server-side and continues if the player switches slots.
         Snowball orb = player.launchProjectile(Snowball.class);
         orb.setVelocity(player.getLocation().getDirection().normalize().multiply(1.8));
-        orb.setItem(new ItemStack(Material.SNOWBALL));
+        orb.setItem(new ItemStack(Material.FISHING_ROD));
         orb.getPersistentDataContainer().set(orbitalKey, PersistentDataType.STRING, type);
         Bukkit.getScheduler().runTaskTimer(plugin, task -> {
             if (!orb.isValid() || orb.isDead()) { task.cancel(); return; }
             orb.getWorld().spawnParticle(Particle.FLAME, orb.getLocation(), 4, 0.08, 0.08, 0.08, 0.01);
             orb.getWorld().spawnParticle(Particle.SMOKE, orb.getLocation(), 2, 0.04, 0.04, 0.04, 0.01);
-                }
-            }
         }, 1L, 1L);
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_BLAZE_SHOOT, 1.0f, 0.7f);
-
         if (item.getAmount() <= 1) {
             if (event.getHand() == org.bukkit.inventory.EquipmentSlot.OFF_HAND) player.getInventory().setItemInOffHand(null);
             else player.getInventory().setItemInMainHand(null);
@@ -190,50 +183,34 @@ public final class OrbitalManager implements CommandExecutor, Listener {
     }
 
     private void startStab(World world, Location target) {
-        // STAB: one uninterrupted, tightly packed drilling column. Every TNT is
-        // launched on the same tick so there are no pauses between waves.
+        // Continuous visible TNT stream, scheduled independently of the player's held item.
         int top = Math.min(world.getMaxHeight() - 12, target.getBlockY() + 105);
         Location center = target.clone().add(0, Math.max(16, top - target.getY()), 0);
-        final int count = 420;
-        world.spawnParticle(Particle.FLAME, center, 220, 1.8, 2.0, 1.8, 0.05);
-        world.spawnParticle(Particle.CLOUD, center, 260, 2.0, 1.5, 2.0, 0.05);
-        world.spawnParticle(Particle.CRIT, center, 180, 1.2, 1.2, 1.2, 0.04);
+        final int count = 140;
         world.playSound(center, Sound.ENTITY_WITHER_SHOOT, 5.0f, 0.35f);
         for (int i = 0; i < count; i++) {
-            double angle = i * 2.399963229728653;
-            double radius = Math.sqrt(i / (double) count) * 3.0;
-            double height = -((i % 35) * 0.32);
-            Location spawn = center.clone().add(Math.cos(angle) * radius, height, Math.sin(angle) * radius);
-            spawnTnt(world, spawn, 30, 7.0f, false,
-                new Vector(-Math.cos(angle) * 0.08, -5.2, -Math.sin(angle) * 0.08));
+            final int shot = i;
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                double angle = shot * 2.399963229728653;
+                double radius = Math.sqrt(shot / (double) count) * 3.0;
+                Location spawn = center.clone().add(Math.cos(angle) * radius, -(shot % 18) * 0.45, Math.sin(angle) * radius);
+                world.spawnParticle(Particle.FLAME, spawn, 12, 0.35, 0.25, 0.35, 0.025);
+                world.spawnParticle(Particle.SMOKE, spawn, 10, 0.3, 0.2, 0.3, 0.02);
+                world.spawnParticle(Particle.CLOUD, spawn, 8, 0.25, 0.2, 0.25, 0.02);
+                spawnTnt(world, spawn, 50, 7.0f, false, new Vector(-Math.cos(angle) * 0.08, -4.8, -Math.sin(angle) * 0.08));
+            }, shot);
         }
     }
 
     private void startNuke(World world, Location target) {
-        // NUKE: a much wider impact field with the whole TNT formation released
-        // immediately, rather than a slowly scheduled spiral.
-        final int count = 900;
-        final double maxRadius = 112.0;
-        int startHeight = Math.min(125, world.getMaxHeight() - target.getBlockY() - 12);
-        Location center = target.clone().add(0, Math.max(18, startHeight), 0);
-        world.spawnParticle(Particle.FLAME, center, 500, maxRadius * 0.45, 8, maxRadius * 0.45, 0.04);
-        world.spawnParticle(Particle.ELECTRIC_SPARK, center, 300, maxRadius * 0.4, 10, maxRadius * 0.4, 0.03);
-        world.spawnParticle(Particle.CLOUD, center, 600, maxRadius * 0.5, 12, maxRadius * 0.5, 0.04);
-        world.playSound(target, Sound.ENTITY_WITHER_SPAWN, 8.0f, 0.35f);
-        for (int i = 0; i < count; i++) {
-            double angle = i * 2.399963229728653;
-            double radius = maxRadius * Math.sqrt((i + 0.5) / count);
-            double y = (i % 7) * 1.5;
-            Location spawn = target.clone().add(Math.cos(angle) * radius, startHeight + y, Math.sin(angle) * radius);
-            Vector velocity = new Vector(-Math.cos(angle) * 0.35, -3.4, -Math.sin(angle) * 0.35);
-            spawnTnt(world, spawn, 42, 8.0f, false, velocity);
-        }
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            world.spawnParticle(Particle.EXPLOSION, target, 240, 30, 7, 30, 0.14);
-            world.spawnParticle(Particle.CLOUD, target, 650, 42, 14, 42, 0.1);
-            world.spawnParticle(Particle.FLAME, target, 400, 35, 8, 35, 0.06);
-            world.playSound(target, Sound.ENTITY_GENERIC_EXPLODE, 10.0f, 0.35f);
-        }, 100L);
+        // One single huge orbital TNT drop instead of a formation of TNT.
+        int height = Math.min(100, world.getMaxHeight() - target.getBlockY() - 12);
+        Location spawn = target.clone().add(0, Math.max(18, height), 0);
+        world.spawnParticle(Particle.FLAME, spawn, 180, 3.5, 2.5, 3.5, 0.04);
+        world.spawnParticle(Particle.ELECTRIC_SPARK, spawn, 120, 3.0, 2.0, 3.0, 0.03);
+        world.spawnParticle(Particle.CLOUD, spawn, 160, 3.5, 2.0, 3.5, 0.035);
+        world.playSound(spawn, Sound.ENTITY_WITHER_SPAWN, 6.0f, 0.35f);
+        spawnTnt(world, spawn, 60, 80.0f, true, new Vector(0, -3.2, 0));
     }
 
     private void startLunar(World world, Location target) {
