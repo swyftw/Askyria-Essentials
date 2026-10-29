@@ -195,30 +195,34 @@ public final class OrbitalManager implements CommandExecutor, Listener {
     }
 
     private void startStab(World world, Location target) {
-        // STAB: a compact orbital spear, from above the target down to ground level only.
-        int topY = Math.min(world.getMaxHeight() - 12, target.getBlockY() + 42);
-        int bottomY = Math.max(world.getMinHeight() + 2, target.getBlockY() + 2);
+        // STAB: a descending orbital spear that stops well above the target surface,
+        // rather than drilling all the way toward bedrock.
+        int topY = Math.min(world.getMaxHeight() - 12, target.getBlockY() + 64);
+        int bottomY = Math.min(world.getMaxHeight() - 12, target.getBlockY() + 12);
         final int width = 5;
-        final int layerSpacing = 6;
+        final int layerSpacing = 8;
         final int ticksBetweenLayers = 2;
         int layer = 0;
+        world.spawnParticle(Particle.END_ROD, target.clone().add(0, 18, 0), 100, 2.0, 10.0, 2.0, 0.025);
+        world.playSound(target, Sound.BLOCK_BEACON_POWER_SELECT, 3.0f, 0.45f);
         for (int y = topY; y >= bottomY; y -= layerSpacing) {
             final int layerY = y;
             final int delay = layer++ * ticksBetweenLayers;
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 Location layerCenter = new Location(world, target.getBlockX() + 0.5, layerY, target.getBlockZ() + 0.5);
-                world.spawnParticle(Particle.FLAME, layerCenter, 70, 2.0, 0.6, 2.0, 0.035);
-                world.spawnParticle(Particle.SMOKE, layerCenter, 45, 2.0, 0.5, 2.0, 0.025);
-                world.spawnParticle(Particle.CLOUD, layerCenter, 35, 2.0, 0.5, 2.0, 0.025);
+                world.spawnParticle(Particle.FLAME, layerCenter, 55, 1.8, 0.35, 1.8, 0.025);
+                world.spawnParticle(Particle.SMOKE, layerCenter, 35, 1.8, 0.35, 1.8, 0.02);
+                world.spawnParticle(Particle.ELECTRIC_SPARK, layerCenter, 25, 1.8, 0.4, 1.8, 0.04);
                 for (int x = -width / 2; x <= width / 2; x++) {
                     for (int z = -width / 2; z <= width / 2; z++) {
                         Location spawn = layerCenter.clone().add(x, 0, z);
-                        spawnTnt(world, spawn, 55, 5.0f, false, new Vector(x * 0.025, -3.5, z * 0.025));
+                        spawnTnt(world, spawn, 45, 5.0f, false, new Vector(x * 0.025, -3.8, z * 0.025));
                     }
                 }
                 world.playSound(layerCenter, Sound.ENTITY_TNT_PRIMED, 1.4f, 0.55f);
             }, delay);
         }
+        world.spawnParticle(Particle.CLOUD, target, 100, 3.0, 0.5, 3.0, 0.04);
         world.playSound(target, Sound.ENTITY_WITHER_SHOOT, 5.0f, 0.35f);
     }
 
@@ -242,7 +246,11 @@ public final class OrbitalManager implements CommandExecutor, Listener {
             // Nuke payload detonates on first ground contact instead of using a timed fuse.
             Bukkit.getScheduler().runTaskTimer(plugin, task -> {
                 if (!tnt.isValid() || tnt.isDead()) { task.cancel(); return; }
-                if (tnt.isOnGround()) {
+                Location at = tnt.getLocation();
+                boolean touchingGround = at.getY() <= world.getMinHeight() + 1
+                    || (tnt.getVelocity().getY() <= 0
+                        && at.clone().subtract(0, 0.15, 0).getBlock().getRelative(0, -1, 0).getType().isSolid());
+                if (touchingGround) {
                     tnt.setFuseTicks(1);
                     task.cancel();
                 }
