@@ -237,45 +237,41 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         int rank = topRank(player);
         if (rank == 0 || !player.isSneaking() || player.isOnGround()) return;
         if (event.getTo() == null || event.getTo().getY() <= event.getFrom().getY()) return;
-
         long now = System.currentTimeMillis();
-        long ready = rankAbilityCooldowns.getOrDefault(player.getUniqueId(), 0L);
-        if (now < ready) return;
-
+        if (now < rankAbilityCooldowns.getOrDefault(player.getUniqueId(), 0L)) return;
         switch (rank) {
             case 1 -> {
-                player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 35 * 20, 2, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 15 * 20, 1, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 20 * 20, 0, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 35 * 20, 0, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 25 * 20, 1, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 10 * 20, 0, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 15 * 20, 0, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 25 * 20, 0, true, true, true));
             }
             case 2 -> {
-                player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 30 * 20, 2, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 20 * 20, 1, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 15 * 20, 0, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 25 * 20, 1, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 22 * 20, 1, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 15 * 20, 0, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 10 * 20, 0, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 18 * 20, 0, true, true, true));
             }
             case 3 -> {
-                player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 25 * 20, 1, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 12 * 20, 1, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, 35 * 20, 1, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 25 * 20, 1, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 18 * 20, 0, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 8 * 20, 0, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, 25 * 20, 0, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 18 * 20, 0, true, true, true));
             }
             case 4 -> {
-                player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 30 * 20, 2, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 30 * 20, 2, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 20 * 20, 0, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 20 * 20, 0, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 22 * 20, 1, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 22 * 20, 1, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 15 * 20, 0, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 15 * 20, 0, true, true, true));
             }
             case 5 -> {
-                player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 25 * 20, 1, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 35 * 20, 2, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 15 * 20, 1, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 20 * 20, 0, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 18 * 20, 0, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 25 * 20, 1, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 10 * 20, 0, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 15 * 20, 0, true, true, true));
             }
             default -> { return; }
         }
-
         long cooldown = rank == 3 || rank == 5 ? 75_000L : 60_000L;
         rankAbilityCooldowns.put(player.getUniqueId(), now + cooldown);
         player.sendMessage(Component.text("TOP " + rank + " ability activated!"));
