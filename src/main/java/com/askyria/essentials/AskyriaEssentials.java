@@ -372,10 +372,11 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                     if (normalized.contains("TOP " + rank) || normalized.contains("TOP" + rank)) {
                         Player oldHolder = Bukkit.getPlayer(entry.getKey());
                         if (oldHolder != null && !oldHolder.equals(target)) {
-                            setStoredTag(oldHolder, "<white>[MEMBER]</white>");
+                            clearStoredTag(oldHolder);
                         } else if (oldHolder == null) {
-                            rawTags.put(entry.getKey(), "<white>[MEMBER]</white>");
-                            getConfig().set("player-tags." + entry.getKey(), "<white>[MEMBER]</white>");
+                            rawTags.remove(entry.getKey());
+                            tags.remove(entry.getKey());
+                            getConfig().set("player-tags." + entry.getKey(), null);
                         }
                     }
                 }
@@ -402,9 +403,20 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             }
             case "playertag" -> {
                 if (!requireOp(sender)) return true;
+                if (args.length == 2 && args[0].equalsIgnoreCase("clear")) {
+                    Player clearTarget = Bukkit.getPlayerExact(args[1]);
+                    if (clearTarget == null) {
+                        sender.sendMessage(Component.text("That player must be online."));
+                        return true;
+                    }
+                    clearStoredTag(clearTarget);
+                    sender.sendMessage(Component.text("Removed " + clearTarget.getName() + "'s tag."));
+                    return true;
+                }
                 if (args.length != 3 && args.length != 6) {
                     sender.sendMessage(Component.text("Usage: /playertag <player> [OWNER] fade yellow yellow orange"));
                     sender.sendMessage(Component.text("Or: /playertag <player> [OWNER] fade3"));
+                    sender.sendMessage(Component.text("Or: /playertag clear <player>"));
                     return true;
                 }
                 Player target = Bukkit.getPlayerExact(args[0]);
