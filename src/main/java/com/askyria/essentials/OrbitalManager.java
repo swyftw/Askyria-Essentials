@@ -247,6 +247,30 @@ public final class OrbitalManager implements CommandExecutor, Listener {
             // Create every explosion immediately on the terrain surface.
             world.createExplosion(blast, power, false, true);
         }
+
+        // Real TNT barrage layered on top of the impact explosions.
+        int tntCount;
+        float tntYield;
+        switch (type) {
+            case "rain" -> { tntCount = 24; tntYield = 4.5f; }
+            case "stab" -> { tntCount = 32; tntYield = 5.0f; }
+            case "nuke" -> { tntCount = 56; tntYield = 6.0f; }
+            case "lunar" -> { tntCount = 48; tntYield = 5.5f; }
+            default -> { return; }
+        }
+        double tntAngleStep = Math.PI * (3.0 - Math.sqrt(5.0));
+        for (int i = 0; i < tntCount; i++) {
+            double distance = radius * Math.sqrt((i + 0.5) / tntCount);
+            double angle = i * tntAngleStep + 0.35;
+            int tx = ground.getBlockX() + (int) Math.round(Math.cos(angle) * distance);
+            int tz = ground.getBlockZ() + (int) Math.round(Math.sin(angle) * distance);
+            int surfaceY = world.getHighestBlockYAt(tx, tz);
+            Location tntLocation = new Location(world, tx + 0.5, surfaceY + 9.0, tz + 0.5);
+            Vector drift = new Vector(Math.cos(angle) * 0.12, -0.55, Math.sin(angle) * 0.12);
+            TNTPrimed payload = spawnTnt(world, tntLocation, 45, tntYield, false, drift);
+            payload.setFuseTicks(45);
+        }
+        world.playSound(ground, Sound.ENTITY_TNT_PRIMED, 4.0f, 0.55f);
     }
 
     private void warningBeam(World world, Location target, String type) {
