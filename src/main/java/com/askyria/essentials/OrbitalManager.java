@@ -183,23 +183,31 @@ public final class OrbitalManager implements CommandExecutor, Listener {
     }
 
     private void startStab(World world, Location target) {
-        // Continuous visible TNT stream, scheduled independently of the player's held item.
-        int top = Math.min(world.getMaxHeight() - 12, target.getBlockY() + 105);
-        Location center = target.clone().add(0, Math.max(16, top - target.getY()), 0);
-        final int count = 140;
-        world.playSound(center, Sound.ENTITY_WITHER_SHOOT, 5.0f, 0.35f);
-        for (int i = 0; i < count; i++) {
-            final int shot = i;
+        // STAB: repeated square TNT layers from high altitude down to just above bedrock.
+        int topY = Math.min(world.getMaxHeight() - 12, target.getBlockY() + 100);
+        int bottomY = world.getMinHeight() + 2;
+        final int width = 5;
+        final int layerSpacing = 8;
+        final int ticksBetweenLayers = 2;
+        int layer = 0;
+        for (int y = topY; y >= bottomY; y -= layerSpacing) {
+            final int layerY = y;
+            final int delay = layer++ * ticksBetweenLayers;
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                double angle = shot * 2.399963229728653;
-                double radius = Math.sqrt(shot / (double) count) * 3.0;
-                Location spawn = center.clone().add(Math.cos(angle) * radius, -(shot % 18) * 0.45, Math.sin(angle) * radius);
-                world.spawnParticle(Particle.FLAME, spawn, 12, 0.35, 0.25, 0.35, 0.025);
-                world.spawnParticle(Particle.SMOKE, spawn, 10, 0.3, 0.2, 0.3, 0.02);
-                world.spawnParticle(Particle.CLOUD, spawn, 8, 0.25, 0.2, 0.25, 0.02);
-                spawnTnt(world, spawn, 50, 7.0f, false, new Vector(-Math.cos(angle) * 0.08, -4.8, -Math.sin(angle) * 0.08));
-            }, shot);
+                Location layerCenter = new Location(world, target.getBlockX() + 0.5, layerY, target.getBlockZ() + 0.5);
+                world.spawnParticle(Particle.FLAME, layerCenter, 70, 2.0, 0.6, 2.0, 0.035);
+                world.spawnParticle(Particle.SMOKE, layerCenter, 45, 2.0, 0.5, 2.0, 0.025);
+                world.spawnParticle(Particle.CLOUD, layerCenter, 35, 2.0, 0.5, 2.0, 0.025);
+                for (int x = -width / 2; x <= width / 2; x++) {
+                    for (int z = -width / 2; z <= width / 2; z++) {
+                        Location spawn = layerCenter.clone().add(x, 0, z);
+                        spawnTnt(world, spawn, 55, 5.0f, false, new Vector(x * 0.025, -3.5, z * 0.025));
+                    }
+                }
+                world.playSound(layerCenter, Sound.ENTITY_TNT_PRIMED, 1.4f, 0.55f);
+            }, delay);
         }
+        world.playSound(target, Sound.ENTITY_WITHER_SHOOT, 5.0f, 0.35f);
     }
 
     private void startNuke(World world, Location target) {
