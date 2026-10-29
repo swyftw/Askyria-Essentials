@@ -51,19 +51,19 @@ public final class OrbitalManager implements CommandExecutor, Listener {
 
         int index = args.length > 0 && args[0].equalsIgnoreCase("@s") ? 1 : 0;
         if (args.length <= index) {
-            player.sendMessage(Component.text("Usage: /orbital [@s] <kit|rain|stab|nuke|lunar|grapple>"));
+            player.sendMessage(Component.text("Usage: /orbital [@s] <kit|rain|stab|nuke|lunar>"));
             return true;
         }
 
         String type = args[index].toLowerCase();
         if (type.equals("kit")) {
-            for (String orbital : List.of("rain", "stab", "nuke", "lunar", "grapple")) give(player, orbital);
-            player.sendMessage(Component.text("Orbital kit delivered: RAIN, STAB, NUKE, LUNAR, GRAPPLE."));
-        } else if (List.of("rain", "stab", "nuke", "lunar", "grapple").contains(type)) {
+            for (String orbital : List.of("rain", "stab", "nuke", "lunar")) give(player, orbital);
+            player.sendMessage(Component.text("Orbital kit delivered: RAIN, STAB, NUKE, LUNAR."));
+        } else if (List.of("rain", "stab", "nuke", "lunar").contains(type)) {
             give(player, type);
             player.sendMessage(Component.text(type.toUpperCase() + " Orbital delivered."));
         } else {
-            player.sendMessage(Component.text("Choose kit, rain, stab, nuke, lunar, or grapple."));
+            player.sendMessage(Component.text("Choose kit, rain, stab, nuke, or lunar."));
         }
         return true;
     }
@@ -75,14 +75,13 @@ public final class OrbitalManager implements CommandExecutor, Listener {
             case "rain" -> "§b§lRAIN ORBITAL";
             case "stab" -> "§c§lSTAB ORBITAL";
             case "nuke" -> "§4§lNUKE ORBITAL";
-            case "grapple" -> "§a§lGRAPPLE ROD";
             default -> "§d§lLUNAR ORBITAL";
         };
         meta.setDisplayName(name);
         meta.setLore(List.of(
-            type.equals("grapple") ? "§7Reusable grappling rod" : "§7Single-use orbital weapon",
-            type.equals("grapple") ? "§fThrow, then pull toward the hook" : "§fRight-click to throw at your target",
-            type.equals("grapple") ? "§aThe line stays active if you switch slots" : "§8Consumed on activation"
+            "§7Single-use orbital weapon",
+            "§fRight-click to throw at your target",
+            "§8Consumed on activation"
         ));
         meta.addEnchant(Enchantment.UNBREAKING, 1, true);
         meta.getPersistentDataContainer().set(orbitalKey, PersistentDataType.STRING, type);
@@ -116,29 +115,15 @@ public final class OrbitalManager implements CommandExecutor, Listener {
             if (!orb.isValid() || orb.isDead()) { task.cancel(); return; }
             orb.getWorld().spawnParticle(Particle.FLAME, orb.getLocation(), 4, 0.08, 0.08, 0.08, 0.01);
             orb.getWorld().spawnParticle(Particle.SMOKE, orb.getLocation(), 2, 0.04, 0.04, 0.04, 0.01);
-            if (type.equals("grapple") && orb.getShooter() instanceof Player owner && owner.isOnline()
-                && owner.getWorld().equals(orb.getWorld())) {
-                Location from = owner.getEyeLocation();
-                Location to = orb.getLocation();
-                Vector delta = to.toVector().subtract(from.toVector());
-                double length = delta.length();
-                if (length > 0.1) {
-                    Vector increment = delta.normalize().multiply(0.7);
-                    for (double d = 0; d < length; d += 0.7) {
-                        Location point = from.clone().add(increment.clone().multiply(d / 0.7));
-                        orb.getWorld().spawnParticle(Particle.CRIT, point, 1, 0, 0, 0, 0);
-                    }
                 }
             }
         }, 1L, 1L);
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_BLAZE_SHOOT, 1.0f, 0.7f);
 
-        if (!type.equals("grapple")) {
-            if (item.getAmount() <= 1) {
-                if (event.getHand() == org.bukkit.inventory.EquipmentSlot.OFF_HAND) player.getInventory().setItemInOffHand(null);
-                else player.getInventory().setItemInMainHand(null);
-            } else item.setAmount(item.getAmount() - 1);
-        }
+        if (item.getAmount() <= 1) {
+            if (event.getHand() == org.bukkit.inventory.EquipmentSlot.OFF_HAND) player.getInventory().setItemInOffHand(null);
+            else player.getInventory().setItemInMainHand(null);
+        } else item.setAmount(item.getAmount() - 1);
     }
 
     @EventHandler
@@ -150,19 +135,6 @@ public final class OrbitalManager implements CommandExecutor, Listener {
         if (event.getHitBlock() != null) hit = event.getHitBlock().getLocation().add(0.5, 1, 0.5);
         projectile.remove();
         World world = projectile.getWorld();
-        if (type.equals("grapple")) {
-            if (projectile.getShooter() instanceof Player owner && owner.isOnline()
-                && owner.getWorld().equals(world)) {
-                Vector pull = hit.toVector().subtract(owner.getLocation().toVector());
-                if (pull.lengthSquared() > 1.0) {
-                    Vector velocity = pull.normalize().multiply(Math.min(3.2, 1.4 + pull.length() * 0.025));
-                    velocity.setY(Math.max(0.55, Math.min(1.15, velocity.getY() + 0.45)));
-                    owner.setVelocity(velocity);
-                    owner.playSound(owner.getLocation(), Sound.ENTITY_FISHING_BOBBER_RETRIEVE, 1.0f, 0.8f);
-                }
-            }
-            return;
-        }
         world.playSound(hit, Sound.BLOCK_BEACON_ACTIVATE, 2.0f, 0.6f);
         world.spawnParticle(Particle.END_ROD, hit.clone().add(0, 1, 0), 45, 1, 1, 1, 0.08);
         // Give the player time to see the marked target before the strike begins.
