@@ -125,7 +125,7 @@ public final class OrbitalManager implements CommandExecutor, Listener {
                 if (length > 0.1) {
                     Vector increment = delta.normalize().multiply(0.7);
                     for (double d = 0; d < length; d += 0.7) {
-                        Location point = from.clone().add(increment.clone().multiply(d));
+                        Location point = from.clone().add(increment.clone().multiply(d / 0.7));
                         orb.getWorld().spawnParticle(Particle.CRIT, point, 1, 0, 0, 0, 0);
                     }
                 }
