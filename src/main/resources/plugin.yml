@@ -28,7 +28,7 @@ commands:
     usage: /cleartag <player>
   playertag:
     description: Set a player's gradient tag
-    usage: /playertag <player> <tag> fade3 OR /playertag <player> <tag> fade <color1> <color2> <color3>
+    usage: /playertag <player> <tag> fade3 OR /playertag <player> <tag> fade <color1> <color2> <color3> OR /playertag clear <player>
   invsee:
     description: View a player's inventory
     usage: /invsee <player>
