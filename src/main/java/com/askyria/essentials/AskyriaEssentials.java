@@ -225,17 +225,21 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     public void onTopRankDeath(PlayerDeathEvent event) {
         Player victim = event.getEntity();
         Player killer = victim.getKiller();
-        int rank = topRank(victim);
-        if (rank == 0 || killer == null || killer.equals(victim)) return;
-        setStoredTag(killer, rankTag(rank));
-        // Remove the defeated holder's tag entirely; don't assign a MEMBER tag.
-        rawTags.remove(victim.getUniqueId());
-        tags.remove(victim.getUniqueId());
-        getConfig().set("player-tags." + victim.getUniqueId(), null);
-        applyTagToOnlinePlayer(victim.getUniqueId(), "");
-        saveConfig();
-        updateTabLists();
-        Bukkit.broadcast(Component.text(killer.getName() + " claimed TOP " + rank + " by defeating " + victim.getName() + "!"));
+        if (killer == null || killer.equals(victim)) return;
+
+        int victimRank = topRank(victim);
+        int killerRank = topRank(killer);
+        if (victimRank == 0 || killerRank == 0) return;
+
+        // Higher rank number means lower standing: only an upset by the lower-ranked
+        // player swaps the two ranks. Higher-ranked players killing lower-ranked
+        // players does not change either rank.
+        if (killerRank < victimRank) return;
+
+        setStoredTag(killer, rankTag(victimRank));
+        setStoredTag(victim, rankTag(killerRank));
+        Bukkit.broadcast(Component.text(killer.getName() + " defeated TOP" + victimRank
+            + " and swapped ranks with " + victim.getName() + "!"));
     }
 
     @EventHandler
