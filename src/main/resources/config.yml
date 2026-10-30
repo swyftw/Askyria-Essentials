@@ -1,3 +1,12 @@
 end-closed: false
 protected-players: {}
 player-tags: {}
+
+# Original Askyria Far Lands / Decay Lands terrain effect.
+# Applies only when new Overworld chunks are generated while the plugin is enabled.
+# Radius is measured from the world's spawn point.
+decay-lands:
+  enabled: true
+  start-radius: 50000
+  decay-radius: 65000
+  end-radius: 70000
