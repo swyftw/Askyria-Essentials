@@ -5,20 +5,23 @@ api-version: '1.21'
 author: Askyria
 description: Askyria server essentials
 commands:
+  discord:
+    description: Show the Askyria SMP Discord invite
+    usage: /discord
   top1:
-    description: Give a player the white TOP 1 rank
+    description: Give a player the yellow TOP1 rank
     usage: /top1 <player>
   top2:
-    description: Give a player the white TOP 2 rank
+    description: Give a player the gray TOP2 rank
     usage: /top2 <player>
   top3:
-    description: Give a player the white TOP 3 rank
+    description: Give a player the bronze TOP3 rank
     usage: /top3 <player>
   top4:
-    description: Give a player the white TOP 4 rank
+    description: Give a player the TOP4 rank
     usage: /top4 <player>
   top5:
-    description: Give a player the white TOP 5 rank
+    description: Give a player the TOP5 rank
     usage: /top5 <player>
   protection:
     description: Clear your own new-player protection
