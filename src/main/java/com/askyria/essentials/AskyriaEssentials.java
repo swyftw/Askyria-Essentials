@@ -78,7 +78,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         GodMaceManager godMaceManager = new GodMaceManager(this);
         Bukkit.getPluginManager().registerEvents(godMaceManager, this);
         getCommand("godmace").setExecutor(godMaceManager);
-        godMaceManager.registerRecipe();
         combatTicker = Bukkit.getScheduler().runTaskTimer(this, () -> {
             long nowTick = System.currentTimeMillis();
             for (Player player : Bukkit.getOnlinePlayers()) {
