@@ -30,6 +30,7 @@ public final class GodMaceManager implements Listener, CommandExecutor {
         ItemMeta meta = mace.getItemMeta();
         meta.displayName(Component.text("⚡ GOD MACE ⚡"));
         meta.setItemModel(NamespacedKey.fromString("askyria:god_mace"));
+        meta.setEnchantmentGlintOverride(false);
         meta.lore(List.of(
             Component.text("A legendary weapon of Askyria"),
             Component.text("Smash with the force of a storm.")
