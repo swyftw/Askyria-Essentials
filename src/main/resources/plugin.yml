@@ -38,12 +38,6 @@ commands:
   endersee:
     description: View a player's Ender Chest
     usage: /endersee <player>
-  endclosed:
-    description: Close access to the End
-    usage: /endclosed
-  endopen:
-    description: Open access to the End
-    usage: /endopen
   orbital:
     description: Give and use Orbital TNT strike items (OP only)
     usage: /orbital [@s] <kit|rain|stab|nuke|lunar|grapple>
