@@ -182,7 +182,14 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     }
 
     private String rankTag(int rank) {
-        return rank == 1 ? "<gold><bold>[TOP 1]</bold></gold>" : "<white><bold>[TOP " + rank + "]</bold></white>";
+        return switch (rank) {
+            case 1 -> "<#FFFF00><bold>[TOP1]</bold></#FFFF00>";
+            case 2 -> "<#808080><bold>[TOP2]</bold></#808080>";
+            case 3 -> "<#CD7F32><bold>[TOP3]</bold></#CD7F32>";
+            case 4 -> "<white><bold>[TOP4]</bold></white>";
+            case 5 -> "<white><bold>[TOP5]</bold></white>";
+            default -> "";
+        };
     }
 
     private void setStoredTag(Player player, String raw) {
@@ -245,30 +252,34 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 10 * 20, 0, true, true, true));
                 player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 15 * 20, 0, true, true, true));
                 player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 25 * 20, 0, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 5 * 20, 0, true, true, true));
             }
             case 2 -> {
                 player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 22 * 20, 1, true, true, true));
                 player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 15 * 20, 0, true, true, true));
                 player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 10 * 20, 0, true, true, true));
                 player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 18 * 20, 0, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 5 * 20, 0, true, true, true));
             }
             case 3 -> {
                 player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 18 * 20, 0, true, true, true));
                 player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 8 * 20, 0, true, true, true));
                 player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, 25 * 20, 0, true, true, true));
                 player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 18 * 20, 0, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 5 * 20, 0, true, true, true));
             }
             case 4 -> {
                 player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 22 * 20, 1, true, true, true));
                 player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 22 * 20, 1, true, true, true));
                 player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 15 * 20, 0, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 15 * 20, 0, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 5 * 20, 0, true, true, true));
             }
             case 5 -> {
                 player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 18 * 20, 0, true, true, true));
                 player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 25 * 20, 1, true, true, true));
                 player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 10 * 20, 0, true, true, true));
                 player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 15 * 20, 0, true, true, true));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 5 * 20, 0, true, true, true));
             }
             default -> { return; }
         }
@@ -355,6 +366,10 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         switch (command.getName().toLowerCase()) {
+            case "discord" -> {
+                sender.sendMessage(mini.deserialize("<gold><bold>Askyria SMP Discord:</bold></gold> <aqua><underlined>https://discord.gg/qh48uacM8</underlined></aqua>"));
+                return true;
+            }
             case "protection" -> {
                 if (!(sender instanceof Player player)) {
                     sender.sendMessage("Only players can use this command."); return true;
@@ -396,7 +411,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 }
                 setStoredTag(target, rankTag(rank));
                 saveConfig();
-                sender.sendMessage(Component.text("Gave " + target.getName() + " TOP " + rank + " (white)."));
+                sender.sendMessage(Component.text("Gave " + target.getName() + " TOP" + rank + ". "));
                 Bukkit.broadcast(Component.text(target.getName() + " is now TOP " + rank + "!"));
                 return true;
             }
