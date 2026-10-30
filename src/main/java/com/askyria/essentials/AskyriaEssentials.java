@@ -23,7 +23,6 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.inventory.ItemStack;
@@ -344,17 +343,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     }
 
     @EventHandler
-    public void onPortal(PlayerPortalEvent event) {
-        if (getConfig().getBoolean("end-closed", false)) {
-            Location to = event.getTo();
-            if (to != null && to.getWorld() != null && to.getWorld().getEnvironment() == World.Environment.THE_END) {
-                event.setCancelled(true);
-                event.getPlayer().sendMessage(Component.text("The End is currently closed."));
-            }
-        }
-    }
-
-    @EventHandler
     public void onChat(AsyncChatEvent event) {
         Component tag = tags.get(event.getPlayer().getUniqueId());
         if (tag != null) {
@@ -492,16 +480,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 if (command.getName().equalsIgnoreCase("invsee")) viewer.openInventory(target.getInventory());
                 else viewer.openInventory(target.getEnderChest());
                 return true;
-            }
-            case "endclosed" -> {
-                if (!requireOp(sender)) return true;
-                getConfig().set("end-closed", true); saveConfig();
-                sender.sendMessage(Component.text("The End is now closed.")); return true;
-            }
-            case "endopen" -> {
-                if (!requireOp(sender)) return true;
-                getConfig().set("end-closed", false); saveConfig();
-                sender.sendMessage(Component.text("The End is now open.")); return true;
             }
             default -> { return false; }
         }
