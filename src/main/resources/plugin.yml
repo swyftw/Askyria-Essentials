@@ -47,3 +47,6 @@ commands:
   orbital:
     description: Give and use Orbital TNT strike items (OP only)
     usage: /orbital [@s] <kit|rain|stab|nuke|lunar|grapple>
+  godmace:
+    description: Give yourself or another player the God Mace
+    usage: /godmace [@s|player]
