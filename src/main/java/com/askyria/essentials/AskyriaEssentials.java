@@ -166,8 +166,8 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
 
     private void updateTabLists() {
         int count = Bukkit.getOnlinePlayers().size();
-        Component header = mini.deserialize("<gradient:#39D5FF:#7B61FF><bold>ASKYRIA</bold></gradient>\n<gray>Survive. Fight. Rise.</gray>");
-        Component footer = mini.deserialize("<gray>Players: </gray><white>" + count + "</white><gray>/</gray><white>" + Bukkit.getMaxPlayers() + "</white>\n<aqua>IP: </aqua><white>askyria.smp.quest</white>");
+        Component header = mini.deserialize("<gradient:#FF7518:#8B2BE2><bold>☠ ASKYRIA SMP ☠</bold></gradient>\n<gradient:#FF9F1C:#C77DFF>Survive. Fight. Rise.</gradient>");
+        Component footer = mini.deserialize("<gray>Players: </gray><#FF7518>" + count + "</#FF7518><gray>/</gray><white>" + Bukkit.getMaxPlayers() + "</white>\n<#FF7518>IP: </#FF7518><white>askyria.smp.quest</white>\n<gradient:#9B5DE5:#FF7518><bold>/discord</bold></gradient> <dark_gray>•</dark_gray> <#C77DFF>discord.gg/qh48uacM8</#C77DFF>");
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.sendPlayerListHeaderAndFooter(header, footer);
         }
