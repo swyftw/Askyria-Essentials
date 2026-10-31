@@ -12,6 +12,7 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.NamespacedKey;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -28,7 +29,7 @@ public final class GodMaceManager implements Listener, CommandExecutor {
         ItemStack mace = new ItemStack(Material.MACE);
         ItemMeta meta = mace.getItemMeta();
         meta.displayName(Component.text("☠ JUDGEMENT ☠"));
-        // Keep the vanilla MACE item model so Minecraft uses its normal mace grip and animations.
+        meta.setItemModel(NamespacedKey.fromString("askyria:god_mace"));
         meta.setEnchantmentGlintOverride(false);
         meta.lore(List.of(
             Component.text("A legendary weapon of Askyria"),
@@ -46,7 +47,7 @@ public final class GodMaceManager implements Listener, CommandExecutor {
     private boolean isGodMace(ItemStack item) {
         if (item == null || item.getType() != Material.MACE || !item.hasItemMeta()) return false;
         ItemMeta meta = item.getItemMeta();
-        return meta.hasDisplayName() && Component.text("⚡ JUDGEMENT ⚡").equals(meta.displayName());
+        return meta.hasDisplayName() && Component.text("☠ JUDGEMENT ☠").equals(meta.displayName());
     }
 
     @Override
