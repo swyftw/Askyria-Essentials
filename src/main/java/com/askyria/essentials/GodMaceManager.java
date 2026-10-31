@@ -3,7 +3,6 @@ package com.askyria.essentials;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -28,8 +27,8 @@ public final class GodMaceManager implements Listener, CommandExecutor {
     private ItemStack createGodMace() {
         ItemStack mace = new ItemStack(Material.MACE);
         ItemMeta meta = mace.getItemMeta();
-        meta.displayName(Component.text("⚡ JUDGEMENT ⚡"));
-        meta.setItemModel(NamespacedKey.fromString("askyria:god_mace"));
+        meta.displayName(Component.text("☠ JUDGEMENT ☠"));
+        // Keep the vanilla MACE item model so Minecraft uses its normal mace grip and animations.
         meta.setEnchantmentGlintOverride(false);
         meta.lore(List.of(
             Component.text("A legendary weapon of Askyria"),
