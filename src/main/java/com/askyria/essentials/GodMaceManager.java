@@ -3,6 +3,9 @@ package com.askyria.essentials;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Particle;
+import org.bukkit.Sound;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -12,7 +15,6 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.NamespacedKey;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -21,6 +23,7 @@ import java.util.List;
 
 public final class GodMaceManager implements Listener, CommandExecutor {
     private final JavaPlugin plugin;
+
     public GodMaceManager(JavaPlugin plugin) {
         this.plugin = plugin;
     }
@@ -82,9 +85,16 @@ public final class GodMaceManager implements Listener, CommandExecutor {
         if (!(event.getDamager() instanceof Player player)) return;
         if (!(event.getEntity() instanceof LivingEntity target)) return;
         if (!isGodMace(player.getInventory().getItemInMainHand())) return;
+
         if (player.getFallDistance() > 1.5F) {
             event.setDamage(event.getDamage() + Math.min(12.0, player.getFallDistance() * 1.5));
         }
+
+        // Visual-only lightning: dramatic bolt and thunder audio without extra lightning damage or fire.
         target.getWorld().strikeLightningEffect(target.getLocation());
+        target.getWorld().playSound(target.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 2.0F, 1.0F);
+        target.getWorld().playSound(target.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 1.5F, 1.0F);
+        target.getWorld().spawnParticle(Particle.FLASH, target.getLocation().add(0, 1, 0), 1);
+        target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, target.getLocation().add(0, 1, 0), 35, 0.45, 0.7, 0.45, 0.15);
     }
 }
