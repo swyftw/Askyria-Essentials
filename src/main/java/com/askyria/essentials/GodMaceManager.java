@@ -28,7 +28,7 @@ public final class GodMaceManager implements Listener, CommandExecutor {
     private ItemStack createGodMace() {
         ItemStack mace = new ItemStack(Material.MACE);
         ItemMeta meta = mace.getItemMeta();
-        meta.displayName(Component.text("⚡ GOD MACE ⚡"));
+        meta.displayName(Component.text("⚡ JUDGEMENT ⚡"));
         meta.setItemModel(NamespacedKey.fromString("askyria:god_mace"));
         meta.setEnchantmentGlintOverride(false);
         meta.lore(List.of(
@@ -47,7 +47,7 @@ public final class GodMaceManager implements Listener, CommandExecutor {
     private boolean isGodMace(ItemStack item) {
         if (item == null || item.getType() != Material.MACE || !item.hasItemMeta()) return false;
         ItemMeta meta = item.getItemMeta();
-        return meta.hasDisplayName() && Component.text("⚡ GOD MACE ⚡").equals(meta.displayName());
+        return meta.hasDisplayName() && Component.text("⚡ JUDGEMENT ⚡").equals(meta.displayName());
     }
 
     @Override
