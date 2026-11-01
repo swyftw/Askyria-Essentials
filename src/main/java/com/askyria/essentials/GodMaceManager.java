@@ -9,9 +9,11 @@ import org.bukkit.Sound;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Warden;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -20,9 +22,14 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 
 public final class GodMaceManager implements Listener, CommandExecutor {
     private final JavaPlugin plugin;
+    private final Map<UUID, UUID> lastMeleeAttacker = new ConcurrentHashMap<>();
 
     public GodMaceManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -78,6 +85,27 @@ public final class GodMaceManager implements Listener, CommandExecutor {
         );
         sender.sendMessage(Component.text("Gave " + target.getName() + " the God Mace."));
         return true;
+    }
+
+    @EventHandler
+    public void trackWardenMeleeDamage(EntityDamageByEntityEvent event) {
+        if (!(event.getEntity() instanceof Warden warden)) return;
+        if (!(event.getDamager() instanceof Player player)) return;
+        lastMeleeAttacker.put(warden.getUniqueId(), player.getUniqueId());
+    }
+
+    @EventHandler
+    public void onWardenDeath(EntityDeathEvent event) {
+        if (!(event.getEntity() instanceof Warden warden)) return;
+        UUID lastAttacker = lastMeleeAttacker.remove(warden.getUniqueId());
+        Player killer = warden.getKiller();
+        if (killer == null || lastAttacker == null || !killer.getUniqueId().equals(lastAttacker)) return;
+        if (killer.getLocation().distanceSquared(warden.getLocation()) > 64.0) return;
+        // 0.1% chance (1 in 1,000), only for a close-range player melee kill.
+        if (ThreadLocalRandom.current().nextDouble() >= 0.001) return;
+        event.getDrops().add(createGodMace());
+        killer.sendMessage(Component.text("§5The Warden dropped the legendary JUDGEMENT God Mace!"));
+        killer.getWorld().playSound(killer.getLocation(), org.bukkit.Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.5f, 0.7f);
     }
 
     @EventHandler
