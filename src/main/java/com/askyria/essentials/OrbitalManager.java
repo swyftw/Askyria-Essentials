@@ -22,6 +22,7 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerFishEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
+import org.bukkit.event.world.LootGenerateEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
@@ -29,6 +30,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.Vector;
 
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 public final class OrbitalManager implements CommandExecutor, Listener {
     private final JavaPlugin plugin;
@@ -69,7 +71,7 @@ public final class OrbitalManager implements CommandExecutor, Listener {
         return true;
     }
 
-    private void give(Player player, String type) {
+    private ItemStack createOrbital(String type) {
         ItemStack item = new ItemStack(Material.FISHING_ROD);
         ItemMeta meta = item.getItemMeta();
         String name = switch (type) {
@@ -87,8 +89,22 @@ public final class OrbitalManager implements CommandExecutor, Listener {
         meta.addEnchant(Enchantment.UNBREAKING, 1, true);
         meta.getPersistentDataContainer().set(orbitalKey, PersistentDataType.STRING, type);
         item.setItemMeta(meta);
-        player.getInventory().addItem(item).values()
+        return item;
+    }
+
+    private void give(Player player, String type) {
+        player.getInventory().addItem(createOrbital(type)).values()
             .forEach(drop -> player.getWorld().dropItemNaturally(player.getLocation(), drop));
+    }
+
+    @EventHandler
+    public void onDesertTempleLoot(LootGenerateEvent event) {
+        if (!event.getLootTable().getKey().getKey().equals("chests/desert_pyramid")) return;
+        // 1% chance per desert temple chest to contain one random orbital.
+        if (ThreadLocalRandom.current().nextDouble() >= 0.01) return;
+        String type = List.of("rain", "stab", "nuke", "lunar")
+            .get(ThreadLocalRandom.current().nextInt(4));
+        event.getLoot().add(createOrbital(type));
     }
 
     @EventHandler
@@ -100,11 +116,8 @@ public final class OrbitalManager implements CommandExecutor, Listener {
         String type = item.getItemMeta().getPersistentDataContainer().get(orbitalKey, PersistentDataType.STRING);
         if (type == null) return;
         Player player = event.getPlayer();
-        if (!player.isOp()) {
-            event.setCancelled(true);
-            player.sendMessage(Component.text("Only operators can use Orbitals."));
-        }
         // Vanilla casts the real fishing hook; the hook is tagged in PlayerFishEvent.
+        // Orbitals found in loot are usable by every player.
     }
 
     @EventHandler
@@ -117,11 +130,6 @@ public final class OrbitalManager implements CommandExecutor, Listener {
         if (item == null || !item.hasItemMeta()) return;
         String type = item.getItemMeta().getPersistentDataContainer().get(orbitalKey, PersistentDataType.STRING);
         if (type == null) return;
-        if (!player.isOp()) {
-            event.setCancelled(true);
-            player.sendMessage(Component.text("Only operators can use Orbitals."));
-            return;
-        }
         FishHook hook = event.getHook();
         hook.getPersistentDataContainer().set(orbitalKey, PersistentDataType.STRING, type);
         hook.setPersistent(true);
