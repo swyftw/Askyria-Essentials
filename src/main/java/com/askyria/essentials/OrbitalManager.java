@@ -23,6 +23,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerFishEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.world.LootGenerateEvent;
+import org.bukkit.event.player.PlayerFishEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
@@ -30,11 +31,15 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.Vector;
 
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
 public final class OrbitalManager implements CommandExecutor, Listener {
     private final JavaPlugin plugin;
     private final NamespacedKey orbitalKey;
+    // Approximate desert-temple footprint buckets prevent multiple chests in one temple awarding multiple Orbitals.
+    private final Set<String> templesWithOrbital = ConcurrentHashMap.newKeySet();
 
     public OrbitalManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -82,9 +87,9 @@ public final class OrbitalManager implements CommandExecutor, Listener {
         };
         meta.setDisplayName(name);
         meta.setLore(List.of(
-            "§7Reusable orbital weapon",
+            "§7Single-use orbital weapon",
             "§fRight-click to throw at your target",
-            "§aReusable — not consumed"
+            "§cConsumed after one launch"
         ));
         meta.addEnchant(Enchantment.UNBREAKING, 1, true);
         meta.getPersistentDataContainer().set(orbitalKey, PersistentDataType.STRING, type);
@@ -100,8 +105,14 @@ public final class OrbitalManager implements CommandExecutor, Listener {
     @EventHandler
     public void onDesertTempleLoot(LootGenerateEvent event) {
         if (!event.getLootTable().getKey().getKey().equals("chests/desert_pyramid")) return;
-        // 1% chance per desert temple chest to contain one random orbital.
-        if (ThreadLocalRandom.current().nextDouble() >= 0.01) return;
+        // 0.5% chance per eligible temple loot chest; only one Orbital can be awarded per temple footprint.
+        Location chest = event.getLootContext().getLocation();
+        if (chest == null || chest.getWorld() == null) return;
+        String templeKey = chest.getWorld().getUID() + ":"
+            + Math.floorDiv(chest.getBlockX(), 32) + ":" + Math.floorDiv(chest.getBlockZ(), 32);
+        if (templesWithOrbital.contains(templeKey)) return;
+        if (ThreadLocalRandom.current().nextDouble() >= 0.005) return;
+        if (!templesWithOrbital.add(templeKey)) return;
         String type = List.of("rain", "stab", "nuke", "lunar")
             .get(ThreadLocalRandom.current().nextInt(4));
         event.getLoot().add(createOrbital(type));
@@ -133,8 +144,11 @@ public final class OrbitalManager implements CommandExecutor, Listener {
         FishHook hook = event.getHook();
         hook.getPersistentDataContainer().set(orbitalKey, PersistentDataType.STRING, type);
         hook.setPersistent(true);
+        // Each found Orbital is single-use: consume the item as soon as its hook is launched.
+        if (item.getAmount() <= 1) player.getInventory().setItem(hand, null);
+        else item.setAmount(item.getAmount() - 1);
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_BLAZE_SHOOT, 1.0f, 0.7f);
-        player.sendMessage(Component.text(type.toUpperCase() + " Orbital launched. Your rod is reusable."));
+        player.sendMessage(Component.text(type.toUpperCase() + " Orbital launched. It has been consumed."));
     }
 
     @EventHandler
