@@ -151,14 +151,27 @@ public final class OrbitalManager implements CommandExecutor, Listener {
         final String orbitalType = type;
         // Track the hook directly as a fallback: some server/event combinations do not
         // reliably deliver PlayerFishEvent.IN_GROUND for a fishing bobber.
+        final int[] age = {0};
+        final int[] stillTicks = {0};
         Bukkit.getScheduler().runTaskTimer(plugin, task -> {
+            age[0]++;
             if (!hook.isValid() || hook.isDead()) {
                 task.cancel();
                 return;
             }
-            if (hook.isOnGround() || hook.getHookedEntity() != null) {
-                Location impact = hook.getLocation().clone();
-                if (hook.getHookedEntity() != null) impact = hook.getHookedEntity().getLocation().clone();
+            boolean hookedEntity = hook.getHookedEntity() != null;
+            boolean grounded = hook.isOnGround();
+            if (hook.getVelocity().lengthSquared() < 0.0025) stillTicks[0]++;
+            else stillTicks[0] = 0;
+
+            // Trigger on a detected impact, a caught entity, or a settled hook.
+            // The age fallback guarantees a strike even on servers where the
+            // fishing-hook ground state is not exposed consistently.
+            if (grounded || hookedEntity || stillTicks[0] >= 8 || age[0] >= 100) {
+                Location impact = hookedEntity
+                    ? hook.getHookedEntity().getLocation().clone()
+                    : hook.getLocation().clone();
+                if (grounded) impact = hook.getLocation().getBlock().getLocation().add(0.5, 1, 0.5);
                 launchStrikeFromHook(hook, impact, orbitalType);
                 task.cancel();
             }
