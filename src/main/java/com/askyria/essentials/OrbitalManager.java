@@ -148,6 +148,7 @@ public final class OrbitalManager implements CommandExecutor, Listener {
         FishHook hook = event.getHook();
         hook.getPersistentDataContainer().set(orbitalKey, PersistentDataType.STRING, type);
         hook.setPersistent(true);
+        final String orbitalType = type;
         // Track the hook directly as a fallback: some server/event combinations do not
         // reliably deliver PlayerFishEvent.IN_GROUND for a fishing bobber.
         Bukkit.getScheduler().runTaskTimer(plugin, task -> {
@@ -158,7 +159,7 @@ public final class OrbitalManager implements CommandExecutor, Listener {
             if (hook.isOnGround() || hook.getHookedEntity() != null) {
                 Location impact = hook.getLocation().clone();
                 if (hook.getHookedEntity() != null) impact = hook.getHookedEntity().getLocation().clone();
-                launchStrikeFromHook(hook, impact, type);
+                launchStrikeFromHook(hook, impact, orbitalType);
                 task.cancel();
             }
         }, 1L, 1L);
