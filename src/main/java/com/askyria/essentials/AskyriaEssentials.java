@@ -430,8 +430,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                     if (target == null) { sender.sendMessage(Component.text("That player must be online.")); return true; }
                     rawIgnColors.remove(target.getUniqueId());
                     getConfig().set("ign-colors." + target.getUniqueId(), null);
-                    target.displayName(Component.text(target.getName()));
-                    target.playerListName(Component.text(target.getName()));
+                    applyIgnColor(target);
                     saveConfig();
                     sender.sendMessage(Component.text("Reset " + target.getName() + "'s username color."));
                     return true;
@@ -581,9 +580,12 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     }
     private void applyIgnColor(Player player) {
         String raw = rawIgnColors.get(player.getUniqueId());
-        Component name = raw == null ? Component.text(player.getName()) : mini.deserialize(raw);
-        player.displayName(name);
-        player.playerListName(name);
+        Component ign = raw == null
+            ? Component.text(player.getName()).decorate(net.kyori.adventure.text.format.TextDecoration.BOLD)
+            : mini.deserialize("<bold>" + raw + "</bold>");
+        player.displayName(ign);
+        Component tag = tags.get(player.getUniqueId());
+        player.playerListName(tag == null ? ign : tag.append(Component.space()).append(ign));
     }
     private String color(String value) {
         return switch (value.toLowerCase()) {
@@ -607,6 +609,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         if (player == null) return;
         Component prefix = mini.deserialize(raw + " ");
         tags.put(id, mini.deserialize(raw));
+        applyIgnColor(player);
         // Tab-list name decoration is scoreboard-team based. Some plugins give
         // each player a private scoreboard, so update the main board AND every
         // online player's active scoreboard instead of only the main board.
