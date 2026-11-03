@@ -39,6 +39,7 @@ public final class OrbitalManager implements CommandExecutor, Listener {
     private final NamespacedKey orbitalKey;
     // Approximate desert-temple footprint buckets prevent multiple chests in one temple awarding multiple Orbitals.
     private final Set<String> templesWithOrbital = ConcurrentHashMap.newKeySet();
+    private final java.util.Map<UUID, String> pendingOrbitalCasts = new ConcurrentHashMap<>();
 
     public OrbitalManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -126,26 +127,31 @@ public final class OrbitalManager implements CommandExecutor, Listener {
         String type = item.getItemMeta().getPersistentDataContainer().get(orbitalKey, PersistentDataType.STRING);
         if (type == null) return;
         Player player = event.getPlayer();
-        // Vanilla casts the real fishing hook; the hook is tagged in PlayerFishEvent.
-        // Orbitals found in loot are usable by every player.
+        // Capture the tagged item here; PlayerFishEvent may not reliably report the held item.
+        pendingOrbitalCasts.put(player.getUniqueId(), type);
     }
 
     @EventHandler
     public void onOrbitalCast(PlayerFishEvent event) {
         if (event.getState() != PlayerFishEvent.State.FISHING) return;
         Player player = event.getPlayer();
+        String type = pendingOrbitalCasts.remove(player.getUniqueId());
         org.bukkit.inventory.EquipmentSlot hand = event.getHand() == null
             ? org.bukkit.inventory.EquipmentSlot.HAND : event.getHand();
         ItemStack item = player.getInventory().getItem(hand);
-        if (item == null || !item.hasItemMeta()) return;
-        String type = item.getItemMeta().getPersistentDataContainer().get(orbitalKey, PersistentDataType.STRING);
+        if (type == null && item != null && item.hasItemMeta()) {
+            type = item.getItemMeta().getPersistentDataContainer()
+                .get(orbitalKey, PersistentDataType.STRING);
+        }
         if (type == null) return;
         FishHook hook = event.getHook();
         hook.getPersistentDataContainer().set(orbitalKey, PersistentDataType.STRING, type);
         hook.setPersistent(true);
         // Each found Orbital is single-use: consume the item as soon as its hook is launched.
-        if (item.getAmount() <= 1) player.getInventory().setItem(hand, null);
-        else item.setAmount(item.getAmount() - 1);
+        if (item != null) {
+            if (item.getAmount() <= 1) player.getInventory().setItem(hand, null);
+            else item.setAmount(item.getAmount() - 1);
+        }
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_BLAZE_SHOOT, 1.0f, 0.7f);
         player.sendMessage(Component.text(type.toUpperCase() + " Orbital launched. It has been consumed."));
     }
