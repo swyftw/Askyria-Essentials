@@ -101,8 +101,12 @@ public final class GodMaceManager implements Listener, CommandExecutor {
         Player killer = warden.getKiller();
         if (killer == null || lastAttacker == null || !killer.getUniqueId().equals(lastAttacker)) return;
         if (killer.getLocation().distanceSquared(warden.getLocation()) > 64.0) return;
+        // One global God Mace for the entire server: first qualifying Warden kill wins.
+        if (plugin.getConfig().getBoolean("god-mace.already-dropped", false)) return;
         // 0.1% chance (1 in 1,000), only for a close-range player melee kill.
         if (ThreadLocalRandom.current().nextDouble() >= 0.001) return;
+        plugin.getConfig().set("god-mace.already-dropped", true);
+        plugin.saveConfig();
         event.getDrops().add(createGodMace());
         killer.sendMessage(Component.text("§5The Warden dropped the legendary JUDGEMENT God Mace!"));
         killer.getWorld().playSound(killer.getLocation(), org.bukkit.Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.5f, 0.7f);
