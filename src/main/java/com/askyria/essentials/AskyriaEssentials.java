@@ -40,6 +40,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private final Map<UUID, Long> protectedUntil = new HashMap<>();
     private final Map<UUID, Component> tags = new HashMap<>();
     private final Map<UUID, String> rawTags = new HashMap<>();
+    private final Map<UUID, String> rawIgnColors = new HashMap<>();
     private final Map<UUID, Long> combatUntil = new HashMap<>();
     private final Map<UUID, Long> rankAbilityCooldowns = new HashMap<>();
     private BukkitTask combatTicker;
@@ -68,6 +69,12 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                         applyTagToOnlinePlayer(id, raw);
                     } catch (IllegalArgumentException ignored) { }
                 }
+            }
+        }
+        if (getConfig().isConfigurationSection("ign-colors")) {
+            for (String key : getConfig().getConfigurationSection("ign-colors").getKeys(false)) {
+                String raw = getConfig().getString("ign-colors." + key);
+                if (raw != null) { try { rawIgnColors.put(UUID.fromString(key), raw); } catch (IllegalArgumentException ignored) { } }
             }
         }
         Bukkit.getPluginManager().registerEvents(this, this);
@@ -149,6 +156,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         }
         String raw = rawTags.get(id);
         if (raw != null) applyTagToOnlinePlayer(id, raw);
+        applyIgnColor(player);
         updateTabLists();
     }
 
@@ -345,10 +353,15 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     @EventHandler
     public void onChat(AsyncChatEvent event) {
         Component tag = tags.get(event.getPlayer().getUniqueId());
-        if (tag != null) {
-            event.renderer((source, sourceDisplayName, message, viewer) ->
-                Component.empty().append(tag).append(Component.space()).append(sourceDisplayName)
-                    .append(Component.text(": ")).append(message));
+        String ignRaw = rawIgnColors.get(event.getPlayer().getUniqueId());
+        if (tag != null || ignRaw != null) {
+            Component ign = ignRaw == null ? event.getPlayer().displayName() : mini.deserialize(ignRaw);
+            event.renderer((source, sourceDisplayName, message, viewer) -> {
+                Component name = ignRaw == null ? sourceDisplayName : ign;
+                Component line = Component.empty();
+                if (tag != null) line = line.append(tag).append(Component.space());
+                return line.append(name).append(Component.text(": ")).append(message);
+            });
         }
     }
 
@@ -408,6 +421,43 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 saveConfig();
                 sender.sendMessage(Component.text("Gave " + target.getName() + " TOP" + rank + ". "));
                 Bukkit.broadcast(Component.text(target.getName() + " is now TOP " + rank + "!"));
+                return true;
+            }
+            case "igncolor" -> {
+                if (!requireOp(sender)) return true;
+                if (args.length == 2 && args[1].equalsIgnoreCase("clear")) {
+                    Player target = Bukkit.getPlayerExact(args[0]);
+                    if (target == null) { sender.sendMessage(Component.text("That player must be online.")); return true; }
+                    rawIgnColors.remove(target.getUniqueId());
+                    getConfig().set("ign-colors." + target.getUniqueId(), null);
+                    target.displayName(Component.text(target.getName()));
+                    target.playerListName(Component.text(target.getName()));
+                    saveConfig();
+                    sender.sendMessage(Component.text("Reset " + target.getName() + "'s username color."));
+                    return true;
+                }
+                if (args.length != 5 || !args[1].equalsIgnoreCase("fade3")) { sender.sendMessage(Component.text("Usage: /igncolor <player> fade3 <color1> <color2> <color3>")); return true; }
+                Player target = Bukkit.getPlayerExact(args[0]);
+                if (target == null) { sender.sendMessage(Component.text("Player must be online.")); return true; }
+                String c1=color(args[2]), c2=color(args[3]), c3=color(args[4]);
+                if (c1==null || c2==null || c3==null) { sender.sendMessage(Component.text("Invalid color. Use red, blue, green, purple, yellow, aqua, pink, orange, white, black, gray.")); return true; }
+                String raw="<gradient:"+c1+":"+c2+":"+c3+">"+target.getName()+"</gradient>";
+                rawIgnColors.put(target.getUniqueId(), raw);
+                getConfig().set("ign-colors."+target.getUniqueId(), raw);
+                saveConfig(); applyIgnColor(target);
+                sender.sendMessage(Component.text("Updated "+target.getName()+" username gradient."));
+                return true;
+            }
+            case "cheatban" -> {
+                if (!requireOp(sender)) return true;
+                if (args.length != 2) { sender.sendMessage(Component.text("Usage: /cheatban <player> <duration> (30m, 2h, 7d, perm)")); return true; }
+                java.time.Duration duration=parseBanDuration(args[1]);
+                if (duration==null) { sender.sendMessage(Component.text("Invalid duration. Use 30m, 2h, 7d, 1w, or perm.")); return true; }
+                java.util.Date expires=duration.isZero()?null:java.util.Date.from(java.time.Instant.now().plus(duration));
+                Bukkit.getBanList(org.bukkit.BanList.Type.NAME).addBan(args[0], "Cheating", expires, sender.getName());
+                Player online=Bukkit.getPlayerExact(args[0]);
+                if (online!=null) online.kick(Component.text("You are banned for cheating. Duration: "+args[1]));
+                sender.sendMessage(Component.text("Banned "+args[0]+" for "+args[1]+"."));
                 return true;
             }
             case "cleartag" -> {
@@ -512,6 +562,29 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         return suggestions;
     }
 
+    private java.time.Duration parseBanDuration(String input) {
+        if (input.equalsIgnoreCase("perm") || input.equalsIgnoreCase("permanent")) return java.time.Duration.ZERO;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?i)^([0-9]+)([smhdw])$").matcher(input);
+        if (!m.matches()) return null;
+        try {
+            long n = Long.parseLong(m.group(1));
+            if (n < 1 || n > 36500) return null;
+            return switch (m.group(2).toLowerCase()) {
+                case "s" -> java.time.Duration.ofSeconds(n);
+                case "m" -> java.time.Duration.ofMinutes(n);
+                case "h" -> java.time.Duration.ofHours(n);
+                case "d" -> java.time.Duration.ofDays(n);
+                case "w" -> java.time.Duration.ofDays(Math.multiplyExact(n, 7));
+                default -> null;
+            };
+        } catch (ArithmeticException | NumberFormatException ex) { return null; }
+    }
+    private void applyIgnColor(Player player) {
+        String raw = rawIgnColors.get(player.getUniqueId());
+        Component name = raw == null ? Component.text(player.getName()) : mini.deserialize(raw);
+        player.displayName(name);
+        player.playerListName(name);
+    }
     private String color(String value) {
         return switch (value.toLowerCase()) {
             case "green" -> "#00FF00";
