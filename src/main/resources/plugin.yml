@@ -44,3 +44,10 @@ commands:
   godmace:
     description: Give yourself or another player the God Mace
     usage: /godmace [@s|player]
+
+  igncolor:
+    description: Set a player's username gradient (OP only)
+    usage: /igncolor <player> fade3 <color1> <color2> <color3> OR /igncolor <player> clear
+  cheatban:
+    description: Ban a player for cheating for a chosen duration (OP only)
+    usage: /cheatban <player> <duration>
