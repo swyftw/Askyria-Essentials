@@ -174,8 +174,8 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
 
     private void updateTabLists() {
         int count = Bukkit.getOnlinePlayers().size();
-        Component header = mini.deserialize("<#64748B>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</#64748B>\n<gradient:#38BDF8:#E2E8F0><bold>ASKYRIA SMP</bold></gradient>\n<#94A3B8> SURVIVAL  •  COMMUNITY  •  COMPETITION </#94A3B8>");
-        Component footer = mini.deserialize("<#64748B>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</#64748B>\n<#CBD5E1>PLAYERS </#CBD5E1><#38BDF8><bold>" + count + "</bold></#38BDF8><#64748B>/</#64748B><white>" + Bukkit.getMaxPlayers() + "</white>   <dark_gray>│</dark_gray>   <#CBD5E1>SERVER </#CBD5E1><#38BDF8>askyria.smp.quest</#38BDF8>\n<#94A3B8>Discord: </#94A3B8><#E2E8F0>discord.gg/qh48uacM8</#E2E8F0>  <dark_gray>•</dark_gray>  <#38BDF8>/discord</#38BDF8>");
+        Component header = mini.deserialize("<#60A5FA><bold>ASKYRIA SMP</bold></#60A5FA>");
+        Component footer = mini.deserialize("<gray>Players: </gray><white>" + count + "/" + Bukkit.getMaxPlayers() + "</white>\n<gray>IP: </gray><white>askyria.smp.quest</white>\n<gray>Discord: </gray><#60A5FA>discord.gg/qh48uacM8</#60A5FA>");
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.sendPlayerListHeaderAndFooter(header, footer);
         }
