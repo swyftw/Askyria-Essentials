@@ -122,14 +122,26 @@ public final class OrbitalManager implements CommandExecutor, Listener {
     @EventHandler
     public void onOrbitalUse(PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
-        if (event.getHand() == null) return;
+        if (event.getHand() != org.bukkit.inventory.EquipmentSlot.HAND) return;
         ItemStack item = event.getItem();
         if (item == null || !item.hasItemMeta()) return;
         String type = item.getItemMeta().getPersistentDataContainer().get(orbitalKey, PersistentDataType.STRING);
         if (type == null) return;
+
+        // Use a real thrown projectile instead of a fishing bobber. Paper reliably
+        // fires ProjectileHitEvent for this projectile, which starts every Orbital type.
+        event.setCancelled(true);
         Player player = event.getPlayer();
-        // Capture the tagged item here; PlayerFishEvent may not reliably report the held item.
-        pendingOrbitalCasts.put(player.getUniqueId(), type);
+        org.bukkit.entity.Snowball projectile = player.launchProjectile(org.bukkit.entity.Snowball.class);
+        projectile.getPersistentDataContainer().set(orbitalKey, PersistentDataType.STRING, type);
+        projectile.setVelocity(player.getEyeLocation().getDirection().multiply(1.6));
+
+        // Orbital items are single-use: consume only after the projectile is created.
+        if (item.getAmount() <= 1) player.getInventory().setItemInMainHand(null);
+        else item.setAmount(item.getAmount() - 1);
+
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_BLAZE_SHOOT, 1.0f, 0.7f);
+        player.sendMessage(Component.text(type.toUpperCase() + " Orbital launched. It has been consumed."));
     }
 
     @EventHandler
