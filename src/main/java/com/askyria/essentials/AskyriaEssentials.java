@@ -253,7 +253,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 items.add(sword);
                 items.add(enchanted(Material.NETHERITE_AXE, Enchantment.SHARPNESS, 5));
                 items.add(new ItemStack(Material.TOTEM_OF_UNDYING, 2));
-                items.add(new ItemStack(Material.ENCHANTED_GOLDEN_APPLE, 4));
                 items.add(new ItemStack(Material.GOLDEN_CARROT, 64));
                 items.add(new ItemStack(Material.ENDER_PEARL, 16));
             }
@@ -261,7 +260,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 addNetheriteArmor(items);
                 addNetheriteSword(items);
                 items.add(new ItemStack(Material.TOTEM_OF_UNDYING, 4));
-                items.add(new ItemStack(Material.ENCHANTED_GOLDEN_APPLE, 8));
             }
             case BOW -> {
                 addNetheriteArmor(items);
@@ -284,7 +282,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 items.add(new ItemStack(Material.END_CRYSTAL, 64));
                 items.add(new ItemStack(Material.TOTEM_OF_UNDYING, 4));
                 items.add(new ItemStack(Material.ENCHANTED_GOLDEN_APPLE, 8));
-                items.add(new ItemStack(Material.GOLDEN_APPLE, 32));
                 items.add(new ItemStack(Material.ENDER_PEARL, 16));
             }
             case MACE -> {
@@ -321,7 +318,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 items.add(enchanted(Material.DIAMOND_SWORD, Enchantment.SHARPNESS, 3));
                 items.add(enchanted(Material.BOW, Enchantment.POWER, 3));
                 items.add(new ItemStack(Material.ARROW, 32));
-                items.add(new ItemStack(Material.GOLDEN_APPLE,  goldenAppleStack()));
                 items.add(new ItemStack(Material.COOKED_BEEF, 32));
                 items.add(new ItemStack(Material.WATER_BUCKET));
                 items.add(new ItemStack(Material.LAVA_BUCKET));
@@ -331,6 +327,12 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             default -> { return; }
         }
         addCommonPvPSupplies(items);
+        int gapCount = switch (clicked.getType()) {
+            case NETHERITE_CHESTPLATE, END_CRYSTAL -> 96;
+            case GOLDEN_APPLE -> 30;
+            default -> 64;
+        };
+        items.add(new ItemStack(Material.GOLDEN_APPLE, gapCount));
         for (ItemStack item : items) {
             Map<Integer, ItemStack> leftovers = player.getInventory().addItem(item);
             leftovers.values().forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
@@ -339,9 +341,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         player.sendMessage(Component.text("OP kit received."));
     }
 
-    private int goldenAppleStack() {
-        return 16;
-    }
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
