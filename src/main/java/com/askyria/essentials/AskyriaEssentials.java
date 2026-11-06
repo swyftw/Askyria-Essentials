@@ -46,6 +46,14 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private static final String DEATH_RESTORE_PATH = "death-restores.";
     private BukkitTask combatTicker;
     private BukkitTask tabTicker;
+    private BukkitTask simulatedPlayersTicker;
+    private boolean simulatedPlayersEnabled = false;
+    private final List<String> simulatedPlayerNames = new ArrayList<>();
+    private static final List<String> SIMULATED_NAME_POOL = List.of(
+        "lucass67", "dragonmoewww", "mysticfox21", "pixelrider", "notchfan88",
+        "enderbyte", "skyblocker", "craftynova", "voidwalker7", "redstonejay",
+        "moonlitmc", "cobbleking", "axolotlzz", "frostybuilds", "emeraldace"
+    );
     private final MiniMessage mini = MiniMessage.miniMessage();
 
     @Override
@@ -118,6 +126,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     public void onDisable() {
         if (combatTicker != null) combatTicker.cancel();
         if (tabTicker != null) tabTicker.cancel();
+        if (simulatedPlayersTicker != null) simulatedPlayersTicker.cancel();
         saveProtectionData();
     }
 
@@ -175,10 +184,42 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         }
     }
 
+    private void rotateSimulatedPlayers() {
+        List<String> shuffled = new ArrayList<>(SIMULATED_NAME_POOL);
+        java.util.Collections.shuffle(shuffled);
+        int amount = 4 + java.util.concurrent.ThreadLocalRandom.current().nextInt(4);
+        simulatedPlayerNames.clear();
+        simulatedPlayerNames.addAll(shuffled.subList(0, amount));
+        updateTabLists();
+    }
+
+    private void startSimulatedPlayers() {
+        simulatedPlayersEnabled = true;
+        if (simulatedPlayersTicker != null) simulatedPlayersTicker.cancel();
+        rotateSimulatedPlayers();
+        simulatedPlayersTicker = Bukkit.getScheduler().runTaskTimer(
+            this, this::rotateSimulatedPlayers, 216000L, 216000L
+        );
+    }
+
+    private void stopSimulatedPlayers() {
+        simulatedPlayersEnabled = false;
+        if (simulatedPlayersTicker != null) {
+            simulatedPlayersTicker.cancel();
+            simulatedPlayersTicker = null;
+        }
+        simulatedPlayerNames.clear();
+        updateTabLists();
+    }
+
     private void updateTabLists() {
         int count = Bukkit.getOnlinePlayers().size();
         Component header = mini.deserialize("<gradient:#38BDF8:#A78BFA><bold>ASKYRIA SMP</bold></gradient>");
-        Component footer = mini.deserialize("<#CBD5E1>Players: </#CBD5E1><white>" + count + "/" + Bukkit.getMaxPlayers() + "</white>\n<#94A3B8>IP: </#94A3B8><#38BDF8>askyria.smp.quest</#38BDF8>  <dark_gray>│</dark_gray>  <#A78BFA>/discord</#A78BFA>");
+        String simulatedLine = simulatedPlayersEnabled
+            ? "\\n<gray>Simulated activity (not connected): </gray><#A78BFA>" + String.join(", ", simulatedPlayerNames) + "</#A78BFA>"
+            : "";
+        Component footer = mini.deserialize("<#CBD5E1>Real players: </#CBD5E1><white>" + count + "/" + Bukkit.getMaxPlayers() + "</white>"
+            + simulatedLine + "\\n<#94A3B8>IP: </#94A3B8><#38BDF8>askyria.smp.quest</#38BDF8>  <dark_gray>│</dark_gray>  <#A78BFA>/discord</#A78BFA>");
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.sendPlayerListHeaderAndFooter(header, footer);
         }
@@ -428,6 +469,26 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 if (!requireOp(sender)) return true;
                 if (args.length != 1) { sender.sendMessage(Component.text("Usage: /deathrestore <player>")); return true; }
                 return restoreDeathInventory(sender, args[0]);
+            }
+            case "addplayers" -> {
+                if (!requireOp(sender)) return true;
+                if (simulatedPlayersEnabled) {
+                    sender.sendMessage(Component.text("Simulated activity display is already running."));
+                    return true;
+                }
+                startSimulatedPlayers();
+                sender.sendMessage(Component.text("Simulated activity display started. Names rotate every 3 hours."));
+                return true;
+            }
+            case "removeplayers" -> {
+                if (!requireOp(sender)) return true;
+                if (!simulatedPlayersEnabled && simulatedPlayerNames.isEmpty()) {
+                    sender.sendMessage(Component.text("Simulated activity display is already stopped."));
+                    return true;
+                }
+                stopSimulatedPlayers();
+                sender.sendMessage(Component.text("Simulated activity display stopped and cleared. Use /addplayers to restart it."));
+                return true;
             }
             case "discord" -> {
                 sender.sendMessage(mini.deserialize("<gold><bold>Askyria SMP Discord:</bold></gold> <aqua><underlined>https://discord.gg/qh48uacM8</underlined></aqua>"));
