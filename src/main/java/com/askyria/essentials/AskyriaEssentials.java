@@ -407,11 +407,11 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private void updateTabLists() {
         int count = Bukkit.getOnlinePlayers().size();
         Component header = mini.deserialize(
-            "<bold><gradient:#8B5CF6:#22D3EE>✦ ASKYRIA SMP ✦</gradient></bold>\\n" +
+            "<bold><gradient:#8B5CF6:#22D3EE>✦ ASKYRIA SMP ✦</gradient></bold>\n" +
             "<gray>Players</gray>"
         );
         Component footer = mini.deserialize(
-            "<bold><#22D3EE>" + count + "</#22D3EE></bold><dark_gray> / </dark_gray><#A78BFA>" + Bukkit.getMaxPlayers() + "</#A78BFA>\\n" +
+            "<bold><#22D3EE>" + count + "</#22D3EE></bold><dark_gray> / </dark_gray><#A78BFA>" + Bukkit.getMaxPlayers() + "</#A78BFA>\n" +
             "<gold><bold>/discord</bold></gold>"
         );
         for (Player player : Bukkit.getOnlinePlayers()) {
