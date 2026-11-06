@@ -43,6 +43,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private final Map<UUID, String> rawIgnColors = new HashMap<>();
     private final Map<UUID, Long> combatUntil = new HashMap<>();
     private final Map<UUID, Long> rankAbilityCooldowns = new HashMap<>();
+    private static final String DEATH_RESTORE_PATH = "death-restores.";
     private BukkitTask combatTicker;
     private BukkitTask tabTicker;
     private final MiniMessage mini = MiniMessage.miniMessage();
@@ -84,6 +85,8 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         GodMaceManager godMaceManager = new GodMaceManager(this);
         Bukkit.getPluginManager().registerEvents(godMaceManager, this);
         getCommand("godmace").setExecutor(godMaceManager);
+        getCommand("deathrestore").setExecutor(this);
+        getCommand("deathrestore").setTabCompleter(this);
         combatTicker = Bukkit.getScheduler().runTaskTimer(this, () -> {
             long nowTick = System.currentTimeMillis();
             for (Player player : Bukkit.getOnlinePlayers()) {
@@ -231,6 +234,53 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         updateTabLists();
     }
 
+
+    @EventHandler
+    public void saveDeathInventory(PlayerDeathEvent event) {
+        Player player = event.getEntity();
+        List<ItemStack> drops = new ArrayList<>();
+        for (ItemStack drop : event.getDrops()) {
+            if (drop != null && !drop.getType().isAir()) drops.add(drop.clone());
+        }
+        String path = DEATH_RESTORE_PATH + player.getUniqueId();
+        if (drops.isEmpty()) {
+            getConfig().set(path, null);
+            saveConfig();
+            return;
+        }
+        getConfig().set(path, drops);
+        // Remove the world drops so the saved restore cannot duplicate the same loot.
+        event.getDrops().clear();
+        saveConfig();
+        player.sendMessage(Component.text("Your death loot was saved for an operator to restore."));
+    }
+
+    private boolean restoreDeathInventory(CommandSender sender, String playerName) {
+        Player target = Bukkit.getPlayerExact(playerName);
+        if (target == null) {
+            sender.sendMessage(Component.text("That player must be online to receive their restored items."));
+            return true;
+        }
+        String path = DEATH_RESTORE_PATH + target.getUniqueId();
+        List<?> saved = getConfig().getList(path);
+        if (saved == null || saved.isEmpty()) {
+            sender.sendMessage(Component.text("No saved death loot found for " + target.getName() + "."));
+            return true;
+        }
+        for (Object value : saved) {
+            if (value instanceof ItemStack item && !item.getType().isAir()) {
+                Map<Integer, ItemStack> overflow = target.getInventory().addItem(item.clone());
+                overflow.values().forEach(leftover ->
+                    target.getWorld().dropItemNaturally(target.getLocation(), leftover));
+            }
+        }
+        getConfig().set(path, null);
+        saveConfig();
+        sender.sendMessage(Component.text("Restored " + target.getName() + "'s most recent death loot."));
+        target.sendMessage(Component.text("Your most recent death loot has been restored."));
+        return true;
+    }
+
     @EventHandler
     public void onTopRankDeath(PlayerDeathEvent event) {
         Player victim = event.getEntity();
@@ -374,6 +424,11 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         switch (command.getName().toLowerCase()) {
+            case "deathrestore" -> {
+                if (!requireOp(sender)) return true;
+                if (args.length != 1) { sender.sendMessage(Component.text("Usage: /deathrestore <player>")); return true; }
+                return restoreDeathInventory(sender, args[0]);
+            }
             case "discord" -> {
                 sender.sendMessage(mini.deserialize("<gold><bold>Askyria SMP Discord:</bold></gold> <aqua><underlined>https://discord.gg/qh48uacM8</underlined></aqua>"));
                 return true;
@@ -537,7 +592,11 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> suggestions = new ArrayList<>();
-        if (command.getName().equalsIgnoreCase("playertag")) {
+        if (command.getName().equalsIgnoreCase("deathrestore") && sender.isOp() && args.length == 1) {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                if (player.getName().toLowerCase().startsWith(args[0].toLowerCase())) suggestions.add(player.getName());
+            }
+        } else if (command.getName().equalsIgnoreCase("playertag")) {
             if (!sender.isOp()) return suggestions;
             if (args.length == 1) {
                 for (Player player : Bukkit.getOnlinePlayers()) {
