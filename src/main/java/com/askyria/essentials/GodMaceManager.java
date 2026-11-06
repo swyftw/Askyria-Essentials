@@ -38,6 +38,7 @@ public final class GodMaceManager implements Listener, CommandExecutor {
         ItemStack mace = new ItemStack(Material.MACE);
         ItemMeta meta = mace.getItemMeta();
         meta.displayName(Component.text("☠ JUDGEMENT ☠"));
+        meta.setItemModel(org.bukkit.NamespacedKey.fromString("askyria:god_mace"));
         meta.setEnchantmentGlintOverride(false);
         meta.lore(List.of(
             Component.text("A legendary weapon of Askyria"),
