@@ -5,6 +5,9 @@ api-version: '1.21'
 author: Askyria
 description: Askyria server essentials
 commands:
+  kits:
+    description: Open the operator-only kit selection menu
+    usage: /kits
   addplayers:
     description: Start the labeled simulated activity roster
     usage: /addplayers
