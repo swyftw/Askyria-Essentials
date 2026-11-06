@@ -189,6 +189,20 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         return item;
     }
 
+    private void addNetheriteArmor(List<ItemStack> items) {
+        items.add(armor(Material.NETHERITE_HELMET));
+        items.add(armor(Material.NETHERITE_CHESTPLATE));
+        items.add(armor(Material.NETHERITE_LEGGINGS));
+        items.add(armor(Material.NETHERITE_BOOTS));
+    }
+
+    private void addNetheriteSword(List<ItemStack> items) {
+        ItemStack sword = enchanted(Material.NETHERITE_SWORD, Enchantment.SHARPNESS, 5);
+        sword.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+        sword.addUnsafeEnchantment(Enchantment.MENDING, 1);
+        items.add(sword);
+    }
+
     @EventHandler
     public void onKitsMenuClick(InventoryClickEvent event) {
         if (!event.getView().title().equals(Component.text("Askyria OP Kits"))) return;
@@ -205,6 +219,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         List<ItemStack> items = new ArrayList<>();
         switch (clicked.getType()) {
             case NETHERITE_SWORD -> {
+                addNetheriteArmor(items);
                 ItemStack sword = enchanted(Material.NETHERITE_SWORD, Enchantment.SHARPNESS, 5);
                 sword.addUnsafeEnchantment(Enchantment.KNOCKBACK, 1);
                 sword.addUnsafeEnchantment(Enchantment.FIRE_ASPECT, 2);
@@ -218,14 +233,14 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 items.add(new ItemStack(Material.ENDER_PEARL, 16));
             }
             case NETHERITE_CHESTPLATE -> {
-                items.add(armor(Material.NETHERITE_HELMET));
-                items.add(armor(Material.NETHERITE_CHESTPLATE));
-                items.add(armor(Material.NETHERITE_LEGGINGS));
-                items.add(armor(Material.NETHERITE_BOOTS));
+                addNetheriteArmor(items);
+                addNetheriteSword(items);
                 items.add(new ItemStack(Material.TOTEM_OF_UNDYING, 4));
                 items.add(new ItemStack(Material.ENCHANTED_GOLDEN_APPLE, 8));
             }
             case BOW -> {
+                addNetheriteArmor(items);
+                addNetheriteSword(items);
                 ItemStack bow = enchanted(Material.BOW, Enchantment.POWER, 5);
                 bow.addUnsafeEnchantment(Enchantment.FLAME, 1);
                 bow.addUnsafeEnchantment(Enchantment.PUNCH, 2);
@@ -238,6 +253,8 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 items.add(new ItemStack(Material.ENDER_PEARL, 16));
             }
             case END_CRYSTAL -> {
+                addNetheriteArmor(items);
+                addNetheriteSword(items);
                 items.add(new ItemStack(Material.OBSIDIAN, 64));
                 items.add(new ItemStack(Material.END_CRYSTAL, 64));
                 items.add(new ItemStack(Material.TOTEM_OF_UNDYING, 4));
@@ -246,6 +263,8 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 items.add(new ItemStack(Material.ENDER_PEARL, 16));
             }
             case MACE -> {
+                addNetheriteArmor(items);
+                addNetheriteSword(items);
                 ItemStack mace = enchanted(Material.MACE, Enchantment.DENSITY, 5);
                 mace.addUnsafeEnchantment(Enchantment.WIND_BURST, 2);
                 mace.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
@@ -258,6 +277,8 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 items.add(new ItemStack(Material.ENDER_PEARL, 16));
             }
             case TRIDENT -> {
+                addNetheriteArmor(items);
+                addNetheriteSword(items);
                 ItemStack trident = enchanted(Material.TRIDENT, Enchantment.IMPALING, 5);
                 trident.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
                 trident.addUnsafeEnchantment(Enchantment.MENDING, 1);
