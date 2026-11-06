@@ -3,7 +3,6 @@ package com.askyria.essentials;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.enchantments.Enchantment;
@@ -39,7 +38,6 @@ public final class GodMaceManager implements Listener, CommandExecutor {
         ItemStack mace = new ItemStack(Material.MACE);
         ItemMeta meta = mace.getItemMeta();
         meta.displayName(Component.text("☠ JUDGEMENT ☠"));
-        meta.setItemModel(NamespacedKey.fromString("askyria:god_mace"));
         meta.setEnchantmentGlintOverride(false);
         meta.lore(List.of(
             Component.text("A legendary weapon of Askyria"),
