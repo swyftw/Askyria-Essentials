@@ -50,9 +50,11 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private boolean simulatedPlayersEnabled = false;
     private final List<String> simulatedPlayerNames = new ArrayList<>();
     private static final List<String> SIMULATED_NAME_POOL = List.of(
-        "lucass67", "dragonmoewww", "mysticfox21", "pixelrider", "notchfan88",
-        "enderbyte", "skyblocker", "craftynova", "voidwalker7", "redstonejay",
-        "moonlitmc", "cobbleking", "axolotlzz", "frostybuilds", "emeraldace"
+        "lucass67", "DragonMoewww", "xXShadow418", "ItsNour23",
+        "VoidCrafter", "M7mdPlays", "EnderWolf92", "CreeperToast",
+        "LunarKite", "PixelNomad", "RavenBuilds", "ZaidCraft",
+        "QuartzFox", "BlazeOrbit", "NoraPlaysMC", "CraftedByJay",
+        "FrostByte77", "MangoMiner", "SilentBirch", "KokoBlocks"
     );
     private final MiniMessage mini = MiniMessage.miniMessage();
 
@@ -214,12 +216,20 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
 
     private void updateTabLists() {
         int count = Bukkit.getOnlinePlayers().size();
-        Component header = mini.deserialize("<gradient:#38BDF8:#A78BFA><bold>ASKYRIA SMP</bold></gradient>");
+        Component header = mini.deserialize(
+            "<dark_gray><strikethrough>                                   </strikethrough></dark_gray>\\n" +
+            "<bold><gradient:#8B5CF6:#22D3EE>✦  ASKYRIA SMP  ✦</gradient></bold>\\n" +
+            "<gray>Survive  •  Build  •  Conquer</gray>"
+        );
         String simulatedLine = simulatedPlayersEnabled
-            ? "\\n<gray>Simulated activity (not connected): </gray><#A78BFA>" + String.join(", ", simulatedPlayerNames) + "</#A78BFA>"
+            ? "\\n<dark_gray>Roster preview (not connected):</dark_gray> <#C4B5FD>" + String.join("<gray>  •  </gray>", simulatedPlayerNames) + "</#C4B5FD>"
             : "";
-        Component footer = mini.deserialize("<#CBD5E1>Real players: </#CBD5E1><white>" + count + "/" + Bukkit.getMaxPlayers() + "</white>"
-            + simulatedLine + "\\n<#94A3B8>IP: </#94A3B8><#38BDF8>askyria.smp.quest</#38BDF8>  <dark_gray>│</dark_gray>  <#A78BFA>/discord</#A78BFA>");
+        Component footer = mini.deserialize(
+            "<dark_gray><strikethrough>                                   </strikethrough></dark_gray>\\n" +
+            "<#22D3EE>ONLINE </#22D3EE><bold><white>" + count + "</white></bold><dark_gray> / </dark_gray><#A78BFA>" + Bukkit.getMaxPlayers() + "</#A78BFA>" +
+            simulatedLine + "\\n" +
+            "<gray>play.askyria.smp.quest</gray> <dark_gray>│</dark_gray> <#FBBF24>/discord</#FBBF24>"
+        );
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.sendPlayerListHeaderAndFooter(header, footer);
         }
