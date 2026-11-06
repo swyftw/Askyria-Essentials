@@ -5,6 +5,12 @@ api-version: '1.21'
 author: Askyria
 description: Askyria server essentials
 commands:
+  addplayers:
+    description: Start the labeled simulated activity roster
+    usage: /addplayers
+  removeplayers:
+    description: Stop and clear the simulated activity roster
+    usage: /removeplayers
   discord:
     description: Show the Askyria SMP Discord invite
     usage: /discord
