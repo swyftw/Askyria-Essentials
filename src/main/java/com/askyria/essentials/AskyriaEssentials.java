@@ -26,6 +26,8 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
@@ -150,6 +152,75 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             return false;
         }
         return true;
+    }
+
+    private void openKitsMenu(Player player) {
+        Inventory menu = Bukkit.createInventory(null, 27, Component.text("Askyria Kits"));
+        menu.setItem(10, kitIcon(Material.IRON_SWORD, "Starter Kit", "Basic survival equipment"));
+        menu.setItem(12, kitIcon(Material.DIAMOND_SWORD, "PvP Kit", "Combat equipment"));
+        menu.setItem(14, kitIcon(Material.BOW, "Archer Kit", "Bow and ranged supplies"));
+        menu.setItem(16, kitIcon(Material.IRON_PICKAXE, "Miner Kit", "Mining tools and food"));
+        player.openInventory(menu);
+    }
+
+    private ItemStack kitIcon(Material material, String name, String description) {
+        ItemStack item = new ItemStack(material);
+        org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
+        meta.displayName(Component.text(name));
+        meta.lore(List.of(Component.text(description), Component.text("Click to receive")));
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    @EventHandler
+    public void onKitsMenuClick(InventoryClickEvent event) {
+        if (!event.getView().title().equals(Component.text("Askyria Kits"))) return;
+        event.setCancelled(true);
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (!player.isOp()) {
+            player.closeInventory();
+            player.sendMessage(Component.text("Only operators can use /kits."));
+            return;
+        }
+        ItemStack clicked = event.getCurrentItem();
+        if (clicked == null || clicked.getType().isAir()) return;
+        List<ItemStack> items = new ArrayList<>();
+        switch (clicked.getType()) {
+            case IRON_SWORD -> {
+                items.add(new ItemStack(Material.IRON_SWORD));
+                items.add(new ItemStack(Material.IRON_PICKAXE));
+                items.add(new ItemStack(Material.IRON_AXE));
+                items.add(new ItemStack(Material.COOKED_BEEF, 16));
+                items.add(new ItemStack(Material.SHIELD));
+            }
+            case DIAMOND_SWORD -> {
+                items.add(new ItemStack(Material.DIAMOND_SWORD));
+                items.add(new ItemStack(Material.IRON_CHESTPLATE));
+                items.add(new ItemStack(Material.IRON_LEGGINGS));
+                items.add(new ItemStack(Material.GOLDEN_APPLE, 2));
+                items.add(new ItemStack(Material.COOKED_BEEF, 16));
+            }
+            case BOW -> {
+                items.add(new ItemStack(Material.BOW));
+                items.add(new ItemStack(Material.ARROW, 64));
+                items.add(new ItemStack(Material.CROSSBOW));
+                items.add(new ItemStack(Material.COOKED_BEEF, 16));
+            }
+            case IRON_PICKAXE -> {
+                items.add(new ItemStack(Material.IRON_PICKAXE));
+                items.add(new ItemStack(Material.IRON_AXE));
+                items.add(new ItemStack(Material.IRON_SHOVEL));
+                items.add(new ItemStack(Material.TORCH, 32));
+                items.add(new ItemStack(Material.COOKED_BEEF, 16));
+            }
+            default -> { return; }
+        }
+        for (ItemStack item : items) {
+            Map<Integer, ItemStack> leftovers = player.getInventory().addItem(item);
+            leftovers.values().forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
+        }
+        player.closeInventory();
+        player.sendMessage(Component.text("Kit received."));
     }
 
     @EventHandler
@@ -475,6 +546,15 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         switch (command.getName().toLowerCase()) {
+            case "kits" -> {
+                if (!requireOp(sender)) return true;
+                if (!(sender instanceof Player player)) {
+                    sender.sendMessage(Component.text("Only players can open the kits menu."));
+                    return true;
+                }
+                openKitsMenu(player);
+                return true;
+            }
             case "deathrestore" -> {
                 if (!requireOp(sender)) return true;
                 if (args.length != 1) { sender.sendMessage(Component.text("Usage: /deathrestore <player>")); return true; }
