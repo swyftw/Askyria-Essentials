@@ -44,6 +44,9 @@ commands:
   godmace:
     description: Give yourself or another player the God Mace
     usage: /godmace [@s|player]
+  deathrestore:
+    description: Restore a player's most recently saved death loot
+    usage: /deathrestore <player>
 
   igncolor:
     description: Set a player's username gradient (OP only)
