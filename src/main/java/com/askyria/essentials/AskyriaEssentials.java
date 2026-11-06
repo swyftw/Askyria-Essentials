@@ -405,7 +405,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     }
 
     private void updateTabLists() {
-        int count = Bukkit.getOnlinePlayers().size();
+        int count = Bukkit.getOnlinePlayers().size() + (simulatedPlayersEnabled ? simulatedPlayerNames.size() : 0);
         Component header = mini.deserialize(
             "<bold><gradient:#8B5CF6:#22D3EE>✦ ASKYRIA SMP ✦</gradient></bold>\n" +
             "<gray>Players</gray>"
