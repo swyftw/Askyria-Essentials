@@ -20,6 +20,8 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.potion.PotionType;
+import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -176,6 +178,29 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         return item;
     }
 
+    private ItemStack potion(PotionType type) {
+        ItemStack item = new ItemStack(Material.POTION);
+        PotionMeta meta = (PotionMeta) item.getItemMeta();
+        meta.setBasePotionType(type);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private void addCommonPvPSupplies(List<ItemStack> items) {
+        // Every kit gets standard golden apples, food, pearls, and core PvP potions.
+        items.add(new ItemStack(Material.GOLDEN_APPLE, 16));
+        items.add(new ItemStack(Material.COOKED_BEEF, 32));
+        items.add(new ItemStack(Material.ENDER_PEARL, 16));
+        items.add(potion(PotionType.STRENGTH));
+        items.add(potion(PotionType.STRENGTH));
+        items.add(potion(PotionType.SWIFTNESS));
+        items.add(potion(PotionType.SWIFTNESS));
+        items.add(potion(PotionType.FIRE_RESISTANCE));
+        items.add(potion(PotionType.FIRE_RESISTANCE));
+        items.add(potion(PotionType.STRONG_HEALING));
+        items.add(potion(PotionType.STRONG_HEALING));
+    }
+
     private ItemStack enchanted(Material material, Enchantment enchantment, int level) {
         ItemStack item = new ItemStack(material);
         item.addUnsafeEnchantment(enchantment, level);
@@ -305,6 +330,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             }
             default -> { return; }
         }
+        addCommonPvPSupplies(items);
         for (ItemStack item : items) {
             Map<Integer, ItemStack> leftovers = player.getInventory().addItem(item);
             leftovers.values().forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
