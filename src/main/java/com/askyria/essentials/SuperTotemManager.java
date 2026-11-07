@@ -27,11 +27,9 @@ import org.bukkit.util.Vector;
 import java.util.List;
 
 public final class SuperTotemManager implements Listener, CommandExecutor {
-    private final JavaPlugin plugin;
     private final NamespacedKey superTotemKey;
 
     public SuperTotemManager(JavaPlugin plugin) {
-        this.plugin = plugin;
         this.superTotemKey = new NamespacedKey(plugin, "super_totem");
     }
 
@@ -103,7 +101,7 @@ public final class SuperTotemManager implements Listener, CommandExecutor {
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 3.0f, 0.8f);
         player.getWorld().playSound(player.getLocation(), Sound.ITEM_TOTEM_USE, 1.5f, 0.7f);
 
-        // Restore the original 90-second Super Totem buffs.
+        // Vanilla potion effects appear in the player's inventory status-effects panel.
         player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 90 * 20, 1));
         player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 90 * 20, 1));
         player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 90 * 20, 1));
@@ -122,16 +120,5 @@ public final class SuperTotemManager implements Listener, CommandExecutor {
         }
 
         player.sendMessage(Component.text("SUPER TOTEM ACTIVATED! All six effects last 1:30."));
-        showEffectCountdown(player, 90);
-    }
-
-    private void showEffectCountdown(Player player, int secondsLeft) {
-        if (!player.isOnline() || secondsLeft <= 0) return;
-
-        String message = "Strength II | Regeneration II | Speed II | Resistance I | Fire Resistance I | Absorption IV | "
-            + secondsLeft + "s";
-        player.sendActionBar(Component.text(message));
-
-        Bukkit.getScheduler().runTaskLater(plugin, () -> showEffectCountdown(player, secondsLeft - 1), 20L);
     }
 }
