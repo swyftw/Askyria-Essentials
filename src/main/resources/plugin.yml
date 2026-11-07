@@ -2,6 +2,7 @@ name: AskyriaEssentials
 version: 1.0.0
 main: com.askyria.essentials.AskyriaEssentials
 api-version: '1.21'
+depend: [packetevents]
 author: Askyria
 description: Askyria server essentials
 commands:
