@@ -39,7 +39,7 @@ import java.util.UUID;
 public final class GodSpearManager implements Listener, CommandExecutor {
     private static final long COOLDOWN_MS = 30_000L;
     private static final double PIERCER_RANGE = 28.0;
-    private static final double PIERCER_DAMAGE = 20.0;
+    private static final double PIERCER_DAMAGE = 10.0;
 
     private final JavaPlugin plugin;
     private final NamespacedKey spearKey;
@@ -178,7 +178,7 @@ public final class GodSpearManager implements Listener, CommandExecutor {
     public void onGodSpearHit(EntityDamageByEntityEvent event) {
         if (!(event.getDamager() instanceof Player player)) return;
         if (!isGodSpear(player.getInventory().getItemInMainHand())) return;
-        event.setDamage(event.getDamage() + 4.0);
+        event.setDamage(8.0);
     }
 
     public long getCooldownSeconds(Player player) {
