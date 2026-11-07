@@ -1,6 +1,21 @@
 package com.askyria.essentials;
 
 import io.papermc.paper.event.player.AsyncChatEvent;
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.event.PacketListenerAbstract;
+import com.github.retrooper.packetevents.event.PacketListenerPriority;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.player.GameMode;
+import com.github.retrooper.packetevents.protocol.player.UserProfile;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerInfoRemove;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerInfoUpdate;
+import com.github.retrooper.packetevents.wrapper.status.server.WrapperStatusServerResponse;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import java.nio.charset.StandardCharsets;
+import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.Set;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
@@ -54,6 +69,10 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private BukkitTask simulatedPlayersTicker;
     private boolean simulatedPlayersEnabled = false;
     private final List<String> simulatedPlayerNames = new ArrayList<>();
+    private final Map<UUID, Set<UUID>> sentFakeEntries = new HashMap<>();
+    private PacketListenerAbstract fakePlayerPacketListener;
+    private volatile List<String> statusPlayerNames = List.of();
+    private volatile int statusOnlineCount = 0;
     private static final List<String> SIMULATED_NAME_POOL = List.of(
         "lucass67", "DragonMoewww", "xXShadow418", "ItsNour23",
         "VoidCrafter", "M7mdPlays", "EnderWolf92", "CreeperToast",
@@ -94,6 +113,33 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             }
         }
         Bukkit.getPluginManager().registerEvents(this, this);
+        fakePlayerPacketListener = new PacketListenerAbstract(PacketListenerPriority.NORMAL) {
+            @Override
+            public void onPacketSend(com.github.retrooper.packetevents.event.PacketSendEvent event) {
+                if (event.getPacketType() != PacketType.Status.Server.RESPONSE) return;
+                WrapperStatusServerResponse wrapper = new WrapperStatusServerResponse(event);
+                JsonObject response = wrapper.getComponent();
+                JsonObject players = response.has("players") && response.get("players").isJsonObject()
+                    ? response.getAsJsonObject("players") : new JsonObject();
+                players.addProperty("max", Bukkit.getMaxPlayers());
+                players.addProperty("online", statusOnlineCount);
+                JsonArray sample = new JsonArray();
+                int added = 0;
+                for (String name : statusPlayerNames) {
+                    if (added >= 12) break;
+                    JsonObject profile = new JsonObject();
+                    profile.addProperty("name", name);
+                    profile.addProperty("id", fakeProfileId(name).toString());
+                    sample.add(profile);
+                    added++;
+                }
+                players.add("sample", sample);
+                response.add("players", players);
+                wrapper.setComponent(response);
+                event.setLastUsedWrapper(wrapper);
+            }
+        };
+        PacketEvents.getAPI().getEventManager().registerListener(fakePlayerPacketListener);
         OrbitalManager orbitalManager = new OrbitalManager(this);
         Bukkit.getPluginManager().registerEvents(orbitalManager, this);
         getCommand("orbital").setExecutor(orbitalManager);
@@ -134,6 +180,9 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         if (combatTicker != null) combatTicker.cancel();
         if (tabTicker != null) tabTicker.cancel();
         if (simulatedPlayersTicker != null) simulatedPlayersTicker.cancel();
+        if (fakePlayerPacketListener != null) {
+            PacketEvents.getAPI().getEventManager().unregisterListener(fakePlayerPacketListener);
+        }
         saveProtectionData();
     }
 
@@ -361,6 +410,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         String raw = rawTags.get(id);
         if (raw != null) applyTagToOnlinePlayer(id, raw);
         applyIgnColor(player);
+        sentFakeEntries.put(id, Set.of());
         updateTabLists();
     }
 
@@ -368,6 +418,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     public void onQuit(PlayerQuitEvent event) {
         event.quitMessage(null);
         Player player = event.getPlayer();
+        sentFakeEntries.remove(player.getUniqueId());
         Bukkit.getScheduler().runTask(this, this::updateTabLists);
         Long until = combatUntil.remove(player.getUniqueId());
         if (until != null && until > System.currentTimeMillis()) {
@@ -404,18 +455,63 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         updateTabLists();
     }
 
+    private UUID fakeProfileId(String name) {
+        return UUID.nameUUIDFromBytes(("askyria-display-player:" + name.toLowerCase()).getBytes(StandardCharsets.UTF_8));
+    }
+
+    private void sendFakeEntries(Player viewer, List<String> names) {
+        Set<UUID> previous = sentFakeEntries.getOrDefault(viewer.getUniqueId(), Set.of());
+        Set<UUID> current = new HashSet<>();
+        List<WrapperPlayServerPlayerInfoUpdate.PlayerInfo> additions = new ArrayList<>();
+        for (String name : names) {
+            UUID id = fakeProfileId(name);
+            current.add(id);
+            if (!previous.contains(id)) {
+                UserProfile profile = new UserProfile(id, name);
+                additions.add(new WrapperPlayServerPlayerInfoUpdate.PlayerInfo(
+                    profile, true, 0, GameMode.SURVIVAL, Component.text(name), null, 0, true
+                ));
+            }
+        }
+        List<UUID> removals = previous.stream().filter(id -> !current.contains(id)).toList();
+        if (!removals.isEmpty()) {
+            PacketEvents.getAPI().getPlayerManager().sendPacket(viewer, new WrapperPlayServerPlayerInfoRemove(removals));
+        }
+        if (!additions.isEmpty()) {
+            PacketEvents.getAPI().getPlayerManager().sendPacket(viewer, new WrapperPlayServerPlayerInfoUpdate(
+                EnumSet.of(
+                    WrapperPlayServerPlayerInfoUpdate.Action.ADD_PLAYER,
+                    WrapperPlayServerPlayerInfoUpdate.Action.UPDATE_GAME_MODE,
+                    WrapperPlayServerPlayerInfoUpdate.Action.UPDATE_LISTED,
+                    WrapperPlayServerPlayerInfoUpdate.Action.UPDATE_LATENCY,
+                    WrapperPlayServerPlayerInfoUpdate.Action.UPDATE_DISPLAY_NAME,
+                    WrapperPlayServerPlayerInfoUpdate.Action.UPDATE_LIST_ORDER,
+                    WrapperPlayServerPlayerInfoUpdate.Action.UPDATE_HAT
+                ), additions
+            ));
+        }
+        sentFakeEntries.put(viewer.getUniqueId(), current);
+    }
+
     private void updateTabLists() {
-        int count = Bukkit.getOnlinePlayers().size() + (simulatedPlayersEnabled ? simulatedPlayerNames.size() : 0);
+        List<String> fakeNames = simulatedPlayersEnabled ? List.copyOf(simulatedPlayerNames) : List.of();
+        List<String> allNames = new ArrayList<>();
+        for (Player online : Bukkit.getOnlinePlayers()) allNames.add(online.getName());
+        allNames.addAll(fakeNames);
+        statusPlayerNames = List.copyOf(allNames);
+        statusOnlineCount = allNames.size();
+
         Component header = mini.deserialize(
             "<bold><gradient:#8B5CF6:#22D3EE>✦ ASKYRIA SMP ✦</gradient></bold>\n" +
             "<gray>Players</gray>"
         );
         Component footer = mini.deserialize(
-            "<bold><#22D3EE>" + count + "</#22D3EE></bold><dark_gray> / </dark_gray><#A78BFA>" + Bukkit.getMaxPlayers() + "</#A78BFA>\n" +
+            "<bold><#22D3EE>" + statusOnlineCount + "</#22D3EE></bold><dark_gray> / </dark_gray><#A78BFA>" + Bukkit.getMaxPlayers() + "</#A78BFA>\n" +
             "<gold><bold>/discord</bold></gold>"
         );
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.sendPlayerListHeaderAndFooter(header, footer);
+            sendFakeEntries(player, fakeNames);
         }
     }
 
