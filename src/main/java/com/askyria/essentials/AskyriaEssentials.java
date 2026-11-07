@@ -254,7 +254,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     }
 
     private ItemStack potion(PotionType type) {
-        ItemStack item = new ItemStack(Material.POTION);
+        ItemStack item = new ItemStack(Material.SPLASH_POTION);
         PotionMeta meta = (PotionMeta) item.getItemMeta();
         meta.setBasePotionType(type);
         item.setItemMeta(meta);
