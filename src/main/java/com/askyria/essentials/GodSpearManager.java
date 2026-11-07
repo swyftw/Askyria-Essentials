@@ -6,9 +6,6 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
-import org.bukkit.boss.BarColor;
-import org.bukkit.boss.BarStyle;
-import org.bukkit.boss.BossBar;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -20,6 +17,9 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerToggleFlightEvent;
+import org.bukkit.GameMode;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.ShapedRecipe;
@@ -41,7 +41,6 @@ public final class GodSpearManager implements Listener, CommandExecutor {
     private final JavaPlugin plugin;
     private final NamespacedKey spearKey;
     private final Map<UUID, Long> cooldowns = new HashMap<>();
-    private final Map<UUID, BossBar> cooldownBars = new HashMap<>();
     private BukkitTask cooldownTicker;
 
     public GodSpearManager(JavaPlugin plugin) {
@@ -64,18 +63,16 @@ public final class GodSpearManager implements Listener, CommandExecutor {
 
     public void stop() {
         if (cooldownTicker != null) cooldownTicker.cancel();
-        for (BossBar bar : cooldownBars.values()) bar.removeAll();
-        cooldownBars.clear();
     }
 
     private ItemStack createGodSpear() {
         ItemStack spear = new ItemStack(Material.NETHERITE_SPEAR);
         ItemMeta meta = spear.getItemMeta();
-        meta.displayName(Component.text("✦ ASKYRIA GOD SPEAR ✦"));
+        meta.displayName(Component.text("SOUL REAPER"));
         meta.lore(List.of(
             Component.text("A weapon forged for Askyria's strongest."),
             Component.text("Ability: God's Impact"),
-            Component.text("Right-click to unleash a shockwave."),
+            Component.text("Double-jump to unleash a shockwave."),
             Component.text("Cooldown: 20 seconds")
         ));
         meta.getPersistentDataContainer().set(spearKey, PersistentDataType.BYTE, (byte) 1);
@@ -118,20 +115,25 @@ public final class GodSpearManager implements Listener, CommandExecutor {
 
     @EventHandler
     public void onGodSpearUse(PlayerInteractEvent event) {
-        if (event.getHand() != EquipmentSlot.HAND) return;
-        if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        // God's Impact is activated by double-jump, not right-click.
+    }
+
+    @EventHandler
+    public void onDoubleJump(PlayerToggleFlightEvent event) {
         Player player = event.getPlayer();
+        if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) return;
         if (!isGodSpear(player.getInventory().getItemInMainHand())) return;
         event.setCancelled(true);
+        player.setFlying(false);
+        player.setAllowFlight(false);
 
         long now = System.currentTimeMillis();
         long readyAt = cooldowns.getOrDefault(player.getUniqueId(), 0L);
         if (readyAt > now) {
-            showCooldownBar(player);
+            player.sendMessage(Component.text("God's Impact is on cooldown: " + ((readyAt - now + 999L) / 1000L) + "s"));
             return;
         }
         cooldowns.put(player.getUniqueId(), now + COOLDOWN_MS);
-        showCooldownBar(player);
 
         Vector direction = player.getEyeLocation().getDirection().normalize();
         org.bukkit.Location impact = player.getEyeLocation().add(direction.multiply(4.0));
@@ -161,38 +163,18 @@ public final class GodSpearManager implements Listener, CommandExecutor {
         event.setDamage(event.getDamage() + 4.0);
     }
 
-    private void showCooldownBar(Player player) {
-        BossBar bar = cooldownBars.computeIfAbsent(player.getUniqueId(), id -> {
-            BossBar created = Bukkit.createBossBar("GOD'S IMPACT", BarColor.PURPLE, BarStyle.SOLID);
-            created.addPlayer(player);
-            return created;
-        });
-        bar.setVisible(true);
+    public long getCooldownSeconds(Player player) {
+        long remaining = cooldowns.getOrDefault(player.getUniqueId(), 0L) - System.currentTimeMillis();
+        return Math.max(0L, (remaining + 999L) / 1000L);
     }
 
-    private void updateCooldownBars() {
-        long now = System.currentTimeMillis();
-        for (UUID id : List.copyOf(cooldownBars.keySet())) {
-            Player player = Bukkit.getPlayer(id);
-            BossBar bar = cooldownBars.get(id);
-            Long readyAt = cooldowns.get(id);
-            if (player == null || readyAt == null) {
-                bar.removeAll();
-                cooldownBars.remove(id);
-                continue;
-            }
-            long remaining = Math.max(0L, readyAt - now);
-            if (remaining <= 0L) {
-                player.sendMessage(Component.text("God's Impact is ready!"));
-                bar.removeAll();
-                cooldownBars.remove(id);
-                cooldowns.remove(id);
-                continue;
-            }
-            long seconds = (remaining + 999L) / 1000L;
-            bar.setTitle("GOD'S IMPACT • " + seconds + "s");
-            bar.setColor(BarColor.PURPLE);
-            bar.setProgress(Math.max(0.0, Math.min(1.0, (double) remaining / COOLDOWN_MS)));
+    @EventHandler
+    public void onGroundForDoubleJump(PlayerMoveEvent event) {
+        Player player = event.getPlayer();
+        if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) return;
+        if (isGodSpear(player.getInventory().getItemInMainHand()) && player.isOnGround()
+            && !player.getAllowFlight() && !player.isFlying()) {
+            player.setAllowFlight(true);
         }
     }
 }
