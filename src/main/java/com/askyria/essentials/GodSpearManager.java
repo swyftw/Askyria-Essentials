@@ -24,7 +24,6 @@ import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
 import java.util.HashMap;
@@ -39,7 +38,6 @@ public final class GodSpearManager implements Listener, CommandExecutor {
     private final JavaPlugin plugin;
     private final NamespacedKey spearKey;
     private final Map<UUID, Long> cooldowns = new HashMap<>();
-    private BukkitTask cooldownTicker;
 
     public GodSpearManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -56,11 +54,9 @@ public final class GodSpearManager implements Listener, CommandExecutor {
         recipe.setIngredient('B', Material.BLAZE_ROD);
         recipe.setIngredient('S', Material.NETHERITE_INGOT);
         Bukkit.addRecipe(recipe);
-        cooldownTicker = Bukkit.getScheduler().runTaskTimer(plugin, this::updateCooldownBars, 1L, 5L);
     }
 
     public void stop() {
-        if (cooldownTicker != null) cooldownTicker.cancel();
     }
 
     private ItemStack createGodSpear() {
