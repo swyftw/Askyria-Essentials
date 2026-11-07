@@ -43,7 +43,7 @@ public final class SuperTotemManager implements Listener, CommandExecutor {
             Component.text("A powerful relic of Askyria."),
             Component.text("On activation: thunder and repel nearby enemies."),
             Component.text("Strength II, Regeneration II, Speed II"),
-            Component.text("Resistance III, Fire Resistance I, Absorption IV"),
+            Component.text("Resistance I, Fire Resistance I, Absorption IV"),
             Component.text("All effects last 90 seconds.")
         ));
         meta.addEnchant(Enchantment.UNBREAKING, 1, true);
@@ -107,7 +107,7 @@ public final class SuperTotemManager implements Listener, CommandExecutor {
         player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 90 * 20, 1));
         player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 90 * 20, 1));
         player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 90 * 20, 1));
-        player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 90 * 20, 2));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 90 * 20, 0));
         player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 90 * 20, 0));
         player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 90 * 20, 3));
 
@@ -128,7 +128,7 @@ public final class SuperTotemManager implements Listener, CommandExecutor {
     private void showEffectCountdown(Player player, int secondsLeft) {
         if (!player.isOnline() || secondsLeft <= 0) return;
 
-        String message = "Strength II | Regeneration II | Speed II | Resistance III | Fire Resistance I | Absorption IV | "
+        String message = "Strength II | Regeneration II | Speed II | Resistance I | Fire Resistance I | Absorption IV | "
             + secondsLeft + "s";
         player.sendActionBar(Component.text(message));
 
