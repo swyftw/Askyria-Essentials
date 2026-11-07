@@ -39,7 +39,7 @@ import java.util.UUID;
 public final class GodSpearManager implements Listener, CommandExecutor {
     private static final long COOLDOWN_MS = 30_000L;
     private static final double PIERCER_RANGE = 28.0;
-    private static final double PIERCER_DAMAGE = 72.0;
+    private static final double PIERCER_DAMAGE = 10.0;
 
     private final JavaPlugin plugin;
     private final NamespacedKey spearKey;
@@ -75,6 +75,7 @@ public final class GodSpearManager implements Listener, CommandExecutor {
             Component.text("A weapon forged for Askyria's strongest."),
             Component.text("Ability: SPEAR PIERCER"),
             Component.text("Crouch + right-click to unleash a piercing shockwave."),
+            Component.text("Damage: 5 hearts before armor reduction"),
             Component.text("Cooldown: 30 seconds")
         ));
         meta.addEnchant(Enchantment.UNBREAKING, 1, true);
