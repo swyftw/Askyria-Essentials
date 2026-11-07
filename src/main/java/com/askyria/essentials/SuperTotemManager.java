@@ -13,8 +13,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.PlayerResurrectEvent;
-import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.event.entity.EntityResurrectEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
@@ -91,16 +90,13 @@ public final class SuperTotemManager implements Listener, CommandExecutor {
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
-    public void onSuperTotemActivate(PlayerResurrectEvent event) {
+    public void onSuperTotemActivate(EntityResurrectEvent event) {
         if (event.isCancelled()) return;
 
-        Player player = event.getPlayer();
-        EquipmentSlot hand = event.getHand();
-        ItemStack usedItem = hand == EquipmentSlot.OFF_HAND
-            ? player.getInventory().getItemInOffHand()
-            : player.getInventory().getItemInMainHand();
-
-        if (!isSuperTotem(usedItem)) return;
+        if (!(event.getEntity() instanceof Player player)) return;
+        ItemStack mainHand = player.getInventory().getItemInMainHand();
+        ItemStack offHand = player.getInventory().getItemInOffHand();
+        if (!isSuperTotem(mainHand) && !isSuperTotem(offHand)) return;
 
         player.getWorld().strikeLightningEffect(player.getLocation());
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 3.0f, 0.8f);
