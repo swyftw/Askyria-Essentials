@@ -79,6 +79,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private BukkitTask tabTicker;
     private BukkitTask simulatedPlayersTicker;
     private GodSpearManager godSpearManager;
+    private SuperTotemManager superTotemManager;
     private boolean simulatedPlayersEnabled = false;
     private final List<String> simulatedPlayerNames = new ArrayList<>();
     private final Map<UUID, Set<UUID>> sentFakeEntries = new HashMap<>();
@@ -170,6 +171,9 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         Bukkit.getPluginManager().registerEvents(godSpearManager, this);
         godSpearManager.start();
         getCommand("godspear").setExecutor(godSpearManager);
+        superTotemManager = new SuperTotemManager(this);
+        Bukkit.getPluginManager().registerEvents(superTotemManager, this);
+        getCommand("supertotem").setExecutor(superTotemManager);
         getCommand("deathrestore").setExecutor(this);
         getCommand("deathrestore").setTabCompleter(this);
         combatTicker = Bukkit.getScheduler().runTaskTimer(this, () -> {
