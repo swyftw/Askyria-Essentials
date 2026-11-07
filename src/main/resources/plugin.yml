@@ -54,6 +54,9 @@ commands:
   godmace:
     description: Give yourself or another player the God Mace
     usage: /godmace [@s|player]
+  godspear:
+    description: Give yourself or another player the Askyria God Spear
+    usage: /godspear [@s|player]
   deathrestore:
     description: Restore a player's most recently saved death loot
     usage: /deathrestore <player>
