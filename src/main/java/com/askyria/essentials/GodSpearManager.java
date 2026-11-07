@@ -29,6 +29,8 @@ import org.bukkit.util.Vector;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 public final class GodSpearManager implements Listener, CommandExecutor {
@@ -38,6 +40,7 @@ public final class GodSpearManager implements Listener, CommandExecutor {
     private final JavaPlugin plugin;
     private final NamespacedKey spearKey;
     private final Map<UUID, Long> cooldowns = new HashMap<>();
+    private final Set<UUID> grantedDoubleJump = new HashSet<>();
 
     public GodSpearManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -112,6 +115,7 @@ public final class GodSpearManager implements Listener, CommandExecutor {
         Player player = event.getPlayer();
         if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) return;
         if (!isGodSpear(player.getInventory().getItemInMainHand())) return;
+        if (!grantedDoubleJump.remove(player.getUniqueId())) return;
         event.setCancelled(true);
         player.setFlying(false);
         player.setAllowFlight(false);
@@ -160,9 +164,13 @@ public final class GodSpearManager implements Listener, CommandExecutor {
     @EventHandler
     public void onSelectGodSpear(PlayerItemHeldEvent event) {
         Player player = event.getPlayer();
-        if (player.getGameMode() != GameMode.CREATIVE && player.getGameMode() != GameMode.SPECTATOR
-            && player.isOnGround() && isGodSpear(player.getInventory().getItem(event.getNewSlot()))) {
+        if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) return;
+        boolean selectingSpear = isGodSpear(player.getInventory().getItem(event.getNewSlot()));
+        if (selectingSpear && player.isOnGround() && !player.getAllowFlight() && !player.isFlying()) {
             player.setAllowFlight(true);
+            grantedDoubleJump.add(player.getUniqueId());
+        } else if (!selectingSpear && grantedDoubleJump.remove(player.getUniqueId()) && !player.isFlying()) {
+            player.setAllowFlight(false);
         }
     }
 
@@ -170,9 +178,12 @@ public final class GodSpearManager implements Listener, CommandExecutor {
     public void onGroundForDoubleJump(PlayerMoveEvent event) {
         Player player = event.getPlayer();
         if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) return;
-        if (isGodSpear(player.getInventory().getItemInMainHand()) && player.isOnGround()
-            && !player.getAllowFlight() && !player.isFlying()) {
+        boolean holdingSpear = isGodSpear(player.getInventory().getItemInMainHand());
+        if (holdingSpear && player.isOnGround() && !player.getAllowFlight() && !player.isFlying()) {
             player.setAllowFlight(true);
+            grantedDoubleJump.add(player.getUniqueId());
+        } else if (!holdingSpear && grantedDoubleJump.remove(player.getUniqueId()) && !player.isFlying()) {
+            player.setAllowFlight(false);
         }
     }
 }
