@@ -12,29 +12,23 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Zombie;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityResurrectEvent;
-import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.util.Vector;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.util.Vector;
 
 import java.util.List;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
 
 public final class SuperTotemManager implements Listener, CommandExecutor {
     private final JavaPlugin plugin;
     private final NamespacedKey superTotemKey;
-    private final Map<UUID, UUID> guardianOwners = new HashMap<>();
 
     public SuperTotemManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -47,9 +41,10 @@ public final class SuperTotemManager implements Listener, CommandExecutor {
         meta.displayName(Component.text("SUPER TOTEM"));
         meta.lore(List.of(
             Component.text("A powerful relic of Askyria."),
-            Component.text("On activation: thunder, repel nearby enemies"),
-            Component.text("Summons four Askyria Guardian Zombies."),
-            Component.text("Guardians will never target their summoner.")
+            Component.text("On activation: thunder and repel nearby enemies."),
+            Component.text("Strength II, Regeneration II, Speed II"),
+            Component.text("Resistance I, Fire Resistance I, Absorption IV"),
+            Component.text("All effects last 90 seconds.")
         ));
         meta.addEnchant(Enchantment.UNBREAKING, 1, true);
         meta.getPersistentDataContainer().set(superTotemKey, PersistentDataType.BYTE, (byte) 1);
@@ -95,18 +90,11 @@ public final class SuperTotemManager implements Listener, CommandExecutor {
         return true;
     }
 
-    @EventHandler
-    public void protectSummonerFromGuardians(EntityTargetLivingEntityEvent event) {
-        UUID ownerId = guardianOwners.get(event.getEntity().getUniqueId());
-        if (ownerId == null || event.getTarget() == null) return;
-        if (event.getTarget().getUniqueId().equals(ownerId)) event.setCancelled(true);
-    }
-
     @EventHandler(priority = EventPriority.MONITOR)
     public void onSuperTotemActivate(EntityResurrectEvent event) {
         if (event.isCancelled()) return;
-
         if (!(event.getEntity() instanceof Player player)) return;
+
         ItemStack mainHand = player.getInventory().getItemInMainHand();
         ItemStack offHand = player.getInventory().getItemInOffHand();
         if (!isSuperTotem(mainHand) && !isSuperTotem(offHand)) return;
@@ -115,7 +103,15 @@ public final class SuperTotemManager implements Listener, CommandExecutor {
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 3.0f, 0.8f);
         player.getWorld().playSound(player.getLocation(), Sound.ITEM_TOTEM_USE, 1.5f, 0.7f);
 
-        // Blast nearby living enemies away from the totem user.
+        // Restore the original 90-second Super Totem buffs.
+        player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 90 * 20, 1));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 90 * 20, 1));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 90 * 20, 1));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 90 * 20, 0));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 90 * 20, 0));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 90 * 20, 3));
+
+        // Keep the enemy knockback, but do not summon any zombies.
         for (Entity nearby : player.getNearbyEntities(8.0, 5.0, 8.0)) {
             if (!(nearby instanceof LivingEntity enemy) || enemy.equals(player)) continue;
             if (enemy instanceof Player && !player.getWorld().getPVP()) continue;
@@ -125,31 +121,17 @@ public final class SuperTotemManager implements Listener, CommandExecutor {
             enemy.setVelocity(push);
         }
 
-        // Summon four temporary guardian zombies. They can attack other targets,
-        // but the target event below prevents them from ever targeting their owner.
-        for (int i = 0; i < 4; i++) {
-            double angle = (Math.PI * 2.0 * i) / 4.0;
-            org.bukkit.Location spawn = player.getLocation().clone().add(Math.cos(angle) * 2.0, 0, Math.sin(angle) * 2.0);
-            Zombie guardian = player.getWorld().spawn(spawn, Zombie.class);
-            guardian.customName(Component.text("Askyria Guardian"));
-            guardian.setCustomNameVisible(true);
-            guardian.setAdult();
-            guardianOwners.put(guardian.getUniqueId(), player.getUniqueId());
+        player.sendMessage(Component.text("SUPER TOTEM ACTIVATED! All six effects last 1:30."));
+        showEffectCountdown(player, 90);
+    }
 
-            Player enemyPlayer = Bukkit.getOnlinePlayers().stream()
-                .filter(other -> !other.getUniqueId().equals(player.getUniqueId()))
-                .filter(other -> other.getWorld().equals(player.getWorld()))
-                .filter(other -> player.getWorld().getPVP())
-                .min((a, b) -> Double.compare(a.getLocation().distanceSquared(spawn), b.getLocation().distanceSquared(spawn)))
-                .orElse(null);
-            if (enemyPlayer != null) guardian.setTarget(enemyPlayer);
+    private void showEffectCountdown(Player player, int secondsLeft) {
+        if (!player.isOnline() || secondsLeft <= 0) return;
 
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                guardianOwners.remove(guardian.getUniqueId());
-                if (guardian.isValid()) guardian.remove();
-            }, 90L * 20L);
-        }
+        String message = "Strength II | Regeneration II | Speed II | Resistance I | Fire Resistance I | Absorption IV | "
+            + secondsLeft + "s";
+        player.sendActionBar(Component.text(message));
 
-        player.sendMessage(Component.text("SUPER TOTEM ACTIVATED! Enemies repelled. Four guardians summoned!"));
+        Bukkit.getScheduler().runTaskLater(plugin, () -> showEffectCountdown(player, secondsLeft - 1), 20L);
     }
 }
