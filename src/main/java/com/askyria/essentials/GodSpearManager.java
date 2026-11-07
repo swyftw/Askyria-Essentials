@@ -103,7 +103,7 @@ public final class GodSpearManager implements Listener, CommandExecutor {
         target.getInventory().addItem(createGodSpear()).values().forEach(item ->
             target.getWorld().dropItemNaturally(target.getLocation(), item)
         );
-        sender.sendMessage(Component.text("Gave " + target.getName() + " the Askyria God Spear."));
+        sender.sendMessage(Component.text("Gave " + target.getName() + " Soul Reaper."));
         return true;
     }
 
@@ -142,7 +142,7 @@ public final class GodSpearManager implements Listener, CommandExecutor {
             knockback.normalize().multiply(1.35).setY(0.42);
             target.setVelocity(knockback);
         }
-        player.sendMessage(Component.text("✦ GOD'S IMPACT unleashed!"));
+        player.sendMessage(Component.text("GOD'S IMPACT unleashed!"));
     }
 
     @EventHandler
