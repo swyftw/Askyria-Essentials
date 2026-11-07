@@ -39,7 +39,7 @@ import java.util.UUID;
 public final class GodSpearManager implements Listener, CommandExecutor {
     private static final long COOLDOWN_MS = 30_000L;
     private static final double PIERCER_RANGE = 28.0;
-    private static final double PIERCER_DAMAGE = 10.0;
+    private static final double PIERCER_DAMAGE = 72.0;
 
     private final JavaPlugin plugin;
     private final NamespacedKey spearKey;
