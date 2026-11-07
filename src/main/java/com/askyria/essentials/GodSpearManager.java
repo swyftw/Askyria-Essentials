@@ -14,13 +14,11 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerToggleFlightEvent;
 import org.bukkit.GameMode;
-import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -114,11 +112,6 @@ public final class GodSpearManager implements Listener, CommandExecutor {
     }
 
     @EventHandler
-    public void onGodSpearUse(PlayerInteractEvent event) {
-        // God's Impact is activated by double-jump, not right-click.
-    }
-
-    @EventHandler
     public void onDoubleJump(PlayerToggleFlightEvent event) {
         Player player = event.getPlayer();
         if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) return;
@@ -166,6 +159,15 @@ public final class GodSpearManager implements Listener, CommandExecutor {
     public long getCooldownSeconds(Player player) {
         long remaining = cooldowns.getOrDefault(player.getUniqueId(), 0L) - System.currentTimeMillis();
         return Math.max(0L, (remaining + 999L) / 1000L);
+    }
+
+    @EventHandler
+    public void onSelectGodSpear(PlayerItemHeldEvent event) {
+        Player player = event.getPlayer();
+        if (player.getGameMode() != GameMode.CREATIVE && player.getGameMode() != GameMode.SPECTATOR
+            && player.isOnGround() && isGodSpear(player.getInventory().getItem(event.getNewSlot()))) {
+            player.setAllowFlight(true);
+        }
     }
 
     @EventHandler
