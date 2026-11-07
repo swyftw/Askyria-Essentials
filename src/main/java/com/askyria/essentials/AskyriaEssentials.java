@@ -74,6 +74,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private BukkitTask combatTicker;
     private BukkitTask tabTicker;
     private BukkitTask simulatedPlayersTicker;
+    private GodSpearManager godSpearManager;
     private boolean simulatedPlayersEnabled = false;
     private final List<String> simulatedPlayerNames = new ArrayList<>();
     private final Map<UUID, Set<UUID>> sentFakeEntries = new HashMap<>();
@@ -161,6 +162,10 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         GodMaceManager godMaceManager = new GodMaceManager(this);
         Bukkit.getPluginManager().registerEvents(godMaceManager, this);
         getCommand("godmace").setExecutor(godMaceManager);
+        godSpearManager = new GodSpearManager(this);
+        Bukkit.getPluginManager().registerEvents(godSpearManager, this);
+        godSpearManager.start();
+        getCommand("godspear").setExecutor(godSpearManager);
         getCommand("deathrestore").setExecutor(this);
         getCommand("deathrestore").setTabCompleter(this);
         combatTicker = Bukkit.getScheduler().runTaskTimer(this, () -> {
@@ -193,6 +198,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     @Override
     public void onDisable() {
         if (combatTicker != null) combatTicker.cancel();
+        if (godSpearManager != null) godSpearManager.stop();
         if (tabTicker != null) tabTicker.cancel();
         if (simulatedPlayersTicker != null) simulatedPlayersTicker.cancel();
         if (fakePlayerPacketListener != null) {
