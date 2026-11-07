@@ -37,7 +37,7 @@ import java.util.Set;
 import java.util.UUID;
 
 public final class GodSpearManager implements Listener, CommandExecutor {
-    private static final long COOLDOWN_MS = 30_000L;
+    private static final long COOLDOWN_MS = 45_000L;
     private static final double PIERCER_RANGE = 28.0;
     private static final double PIERCER_DAMAGE = 10.0;
 
@@ -75,8 +75,8 @@ public final class GodSpearManager implements Listener, CommandExecutor {
             Component.text("A weapon forged for Askyria's strongest."),
             Component.text("Ability: SPEAR PIERCER"),
             Component.text("Crouch + right-click to unleash a piercing shockwave."),
-            Component.text("Damage: 5 hearts before armor reduction"),
-            Component.text("Cooldown: 30 seconds")
+            Component.text("Damage: 4 hearts, regardless of armor"),
+            Component.text("Cooldown: 45 seconds")
         ));
         meta.addEnchant(Enchantment.UNBREAKING, 1, true);
         meta.addEnchant(Enchantment.WIND_BURST, 3, true);
@@ -163,14 +163,10 @@ public final class GodSpearManager implements Listener, CommandExecutor {
                 if (target instanceof Player && !player.getWorld().getPVP()) continue;
                 if (!hitEntities.add(target.getUniqueId())) continue;
 
-                // Mark this target so the normal melee-damage handler below
-                // does not overwrite the ability's damage with the 8-damage melee value.
-                piercingDamageTargets.add(target.getUniqueId());
-                try {
-                    target.damage(PIERCER_DAMAGE, player);
-                } finally {
-                    piercingDamageTargets.remove(target.getUniqueId());
-                }
+                // Apply exactly 4 hearts directly so armor does not reduce
+                // SPEAR PIERCER's damage. Normal melee damage still uses Bukkit's
+                // regular armor calculations.
+                target.setHealth(Math.max(0.0, target.getHealth() - 8.0));
                 Vector knockback = direction.clone().multiply(1.65).setY(0.28);
                 target.setVelocity(knockback);
                 target.getWorld().spawnParticle(Particle.FLASH, target.getLocation().add(0, 1, 0), 1);
