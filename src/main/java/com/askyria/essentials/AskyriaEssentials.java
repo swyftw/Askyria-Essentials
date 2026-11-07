@@ -648,7 +648,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 Team copy = board.registerNewTeam(source.getName());
                 copy.prefix(source.prefix());
                 copy.suffix(source.suffix());
-                copy.color(source.color());
                 for (String entry : source.getEntries()) copy.addEntry(entry);
             }
             cooldownOriginalBoards.put(id, original);
@@ -661,7 +660,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             objective = board.registerNewObjective("ask_cd", org.bukkit.scoreboard.Criteria.DUMMY, Component.text("COOLDOWNS"));
             objective.setDisplaySlot(DisplaySlot.SIDEBAR);
         }
-        for (String entry : objective.getEntries()) board.resetScores(entry);
+        for (String entry : board.getEntries()) board.resetScores(entry);
         if (showSpear) objective.getScore("SOUL REAPER: " + spearRemaining + "s").setScore(2);
         if (showRank) objective.getScore("TOP " + topRank(player) + ": " + rankRemaining + "s").setScore(1);
     }
