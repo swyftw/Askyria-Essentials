@@ -708,22 +708,11 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
 
     @EventHandler
     public void saveDeathInventory(PlayerDeathEvent event) {
-        Player player = event.getEntity();
-        List<ItemStack> drops = new ArrayList<>();
-        for (ItemStack drop : event.getDrops()) {
-            if (drop != null && !drop.getType().isAir()) drops.add(drop.clone());
-        }
-        String path = DEATH_RESTORE_PATH + player.getUniqueId();
-        if (drops.isEmpty()) {
-            getConfig().set(path, null);
-            saveConfig();
-            return;
-        }
-        getConfig().set(path, drops);
-        // Remove the world drops so the saved restore cannot duplicate the same loot.
-        event.getDrops().clear();
+        // Let Bukkit/Paper handle normal death drops. Do not copy the inventory
+        // into the restore cache or clear the event drops.
+        String path = DEATH_RESTORE_PATH + event.getEntity().getUniqueId();
+        getConfig().set(path, null);
         saveConfig();
-        player.sendMessage(Component.text("Your death loot was saved for an operator to restore."));
     }
 
     private boolean restoreDeathInventory(CommandSender sender, String playerName) {
