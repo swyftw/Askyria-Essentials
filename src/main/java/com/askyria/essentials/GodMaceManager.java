@@ -108,6 +108,7 @@ public final class GodMaceManager implements Listener, CommandExecutor {
         plugin.saveConfig();
         event.getDrops().add(createGodMace());
         killer.sendMessage(Component.text("§5The Warden dropped the legendary JUDGEMENT God Mace!"));
+        Bukkit.broadcast(Component.text("☠ " + killer.getName() + " has obtained the legendary GOD MACE: JUDGEMENT! ☠"));
         killer.getWorld().playSound(killer.getLocation(), org.bukkit.Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.5f, 0.7f);
     }
 
