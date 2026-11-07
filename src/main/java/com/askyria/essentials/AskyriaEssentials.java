@@ -56,6 +56,8 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
+import org.bukkit.scoreboard.Objective;
+import org.bukkit.scoreboard.DisplaySlot;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -70,6 +72,8 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private final Map<UUID, String> rawIgnColors = new HashMap<>();
     private final Map<UUID, Long> combatUntil = new HashMap<>();
     private final Map<UUID, Long> rankAbilityCooldowns = new HashMap<>();
+    private final Map<UUID, Scoreboard> cooldownOriginalBoards = new HashMap<>();
+    private final Map<UUID, Scoreboard> cooldownBoards = new HashMap<>();
     private static final String DEATH_RESTORE_PATH = "death-restores.";
     private BukkitTask combatTicker;
     private BukkitTask tabTicker;
@@ -171,6 +175,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         combatTicker = Bukkit.getScheduler().runTaskTimer(this, () -> {
             long nowTick = System.currentTimeMillis();
             for (Player player : Bukkit.getOnlinePlayers()) {
+                updateAbilityCooldownSidebar(player);
                 if (isProtected(player)) {
                     Long protectionExpiry = protectedUntil.get(player.getUniqueId());
                     long seconds = protectionExpiry == null ? 0L
@@ -440,6 +445,8 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         event.quitMessage(null);
         Player player = event.getPlayer();
         sentFakeEntries.remove(player.getUniqueId());
+        cooldownOriginalBoards.remove(player.getUniqueId());
+        cooldownBoards.remove(player.getUniqueId());
         Bukkit.getScheduler().runTask(this, this::updateTabLists);
         Long until = combatUntil.remove(player.getUniqueId());
         if (until != null && until > System.currentTimeMillis()) {
@@ -612,6 +619,51 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             if (normalized.contains("TOP " + rank) || normalized.contains("TOP" + rank)) return rank;
         }
         return 0;
+    }
+
+    private void updateAbilityCooldownSidebar(Player player) {
+        UUID id = player.getUniqueId();
+        long now = System.currentTimeMillis();
+        long rankRemaining = Math.max(0L, (rankAbilityCooldowns.getOrDefault(id, 0L) - now + 999L) / 1000L);
+        long spearRemaining = godSpearManager == null ? 0L : godSpearManager.getCooldownSeconds(player);
+        boolean showRank = topRank(player) > 0 && rankRemaining > 0L;
+        boolean showSpear = spearRemaining > 0L;
+
+        Scoreboard board = cooldownBoards.get(id);
+        if (!showRank && !showSpear) {
+            if (board != null) {
+                Objective objective = board.getObjective("ask_cd");
+                if (objective != null) objective.unregister();
+                Scoreboard original = cooldownOriginalBoards.remove(id);
+                cooldownBoards.remove(id);
+                if (original != null && player.getScoreboard() == board) player.setScoreboard(original);
+            }
+            return;
+        }
+
+        if (board == null) {
+            Scoreboard original = player.getScoreboard();
+            board = Bukkit.getScoreboardManager().getNewScoreboard();
+            for (Team source : original.getTeams()) {
+                Team copy = board.registerNewTeam(source.getName());
+                copy.prefix(source.prefix());
+                copy.suffix(source.suffix());
+                copy.color(source.color());
+                for (String entry : source.getEntries()) copy.addEntry(entry);
+            }
+            cooldownOriginalBoards.put(id, original);
+            cooldownBoards.put(id, board);
+            player.setScoreboard(board);
+        }
+
+        Objective objective = board.getObjective("ask_cd");
+        if (objective == null) {
+            objective = board.registerNewObjective("ask_cd", org.bukkit.scoreboard.Criteria.DUMMY, Component.text("COOLDOWNS"));
+            objective.setDisplaySlot(DisplaySlot.SIDEBAR);
+        }
+        for (String entry : objective.getEntries()) board.resetScores(entry);
+        if (showSpear) objective.getScore("SOUL REAPER: " + spearRemaining + "s").setScore(2);
+        if (showRank) objective.getScore("TOP " + topRank(player) + ": " + rankRemaining + "s").setScore(1);
     }
 
     private String rankTag(int rank) {
