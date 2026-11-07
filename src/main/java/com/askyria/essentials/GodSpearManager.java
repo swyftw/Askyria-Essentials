@@ -77,6 +77,7 @@ public final class GodSpearManager implements Listener, CommandExecutor {
             Component.text("Cooldown: 30 seconds")
         ));
         meta.addEnchant(Enchantment.UNBREAKING, 1, true);
+        meta.addEnchant(Enchantment.WIND_BURST, 3, true);
         meta.getPersistentDataContainer().set(spearKey, PersistentDataType.BYTE, (byte) 1);
         spear.setItemMeta(meta);
         return spear;
