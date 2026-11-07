@@ -501,8 +501,18 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                     getLogger().fine("Could not load a display skin from " + account + ": " + ex.getMessage());
                 }
             }
+            // Deduplicate by the actual signed skin texture so two source accounts
+            // that share a default skin cannot produce duplicate-looking entries.
+            java.util.LinkedHashMap<String, List<TextureProperty>> unique = new java.util.LinkedHashMap<>();
+            for (List<TextureProperty> skin : loaded) {
+                String textureKey = skin.stream()
+                    .filter(property -> "textures".equals(property.getName()))
+                    .map(TextureProperty::getValue)
+                    .findFirst().orElse("");
+                if (!textureKey.isEmpty()) unique.putIfAbsent(textureKey, skin);
+            }
             Bukkit.getScheduler().runTask(this, () -> {
-                randomSkinPool = List.copyOf(loaded);
+                randomSkinPool = List.copyOf(unique.values());
                 assignRandomSkins();
                 // Re-send profile entries so clients receive the skin textures after loading.
                 sentFakeEntries.clear();
@@ -515,9 +525,15 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private void assignRandomSkins() {
         simulatedPlayerSkins.clear();
         if (randomSkinPool.isEmpty()) return;
-        for (String name : simulatedPlayerNames) {
-            int index = java.util.concurrent.ThreadLocalRandom.current().nextInt(randomSkinPool.size());
-            simulatedPlayerSkins.put(name, randomSkinPool.get(index));
+        List<List<TextureProperty>> shuffledSkins = new ArrayList<>(randomSkinPool);
+        java.util.Collections.shuffle(shuffledSkins);
+        int skinCount = Math.min(simulatedPlayerNames.size(), shuffledSkins.size());
+        for (int i = 0; i < skinCount; i++) {
+            simulatedPlayerSkins.put(simulatedPlayerNames.get(i), shuffledSkins.get(i));
+        }
+        if (skinCount < simulatedPlayerNames.size()) {
+            getLogger().warning("Only " + skinCount + " unique skins loaded for "
+                + simulatedPlayerNames.size() + " display names; remaining names will use the default skin.");
         }
     }
 
