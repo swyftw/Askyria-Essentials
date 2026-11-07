@@ -7,12 +7,19 @@ import com.github.retrooper.packetevents.event.PacketListenerPriority;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.GameMode;
 import com.github.retrooper.packetevents.protocol.player.UserProfile;
+import com.github.retrooper.packetevents.protocol.player.TextureProperty;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerInfoRemove;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerInfoUpdate;
 import com.github.retrooper.packetevents.wrapper.status.server.WrapperStatusServerResponse;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import java.nio.charset.StandardCharsets;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Set;
@@ -70,9 +77,16 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private boolean simulatedPlayersEnabled = false;
     private final List<String> simulatedPlayerNames = new ArrayList<>();
     private final Map<UUID, Set<UUID>> sentFakeEntries = new HashMap<>();
+    private final Map<String, List<TextureProperty>> simulatedPlayerSkins = new HashMap<>();
+    private volatile List<List<TextureProperty>> randomSkinPool = List.of();
     private PacketListenerAbstract fakePlayerPacketListener;
     private volatile List<String> statusPlayerNames = List.of();
     private volatile int statusOnlineCount = 0;
+    private static final List<String> SKIN_SOURCE_ACCOUNTS = List.of(
+        "Notch", "jeb_", "Dinnerbone", "Grumm", "Dream", "Technoblade",
+        "CaptainSparklez", "Grian", "MumboJumbo", "GoodTimesWithScar",
+        "DanTDM", "Stampy", "Aphmau", "LDShadowLady", "PrestonPlayz"
+    );
     private static final List<String> SIMULATED_NAME_POOL = List.of(
         "lucass67", "DragonMoewww", "xXShadow418", "ItsNour23",
         "VoidCrafter", "M7mdPlays", "EnderWolf92", "CreeperToast",
@@ -140,6 +154,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             }
         };
         PacketEvents.getAPI().getEventManager().registerListener(fakePlayerPacketListener);
+        loadRandomSkinPool();
         OrbitalManager orbitalManager = new OrbitalManager(this);
         Bukkit.getPluginManager().registerEvents(orbitalManager, this);
         getCommand("orbital").setExecutor(orbitalManager);
@@ -433,6 +448,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         int amount = 4 + java.util.concurrent.ThreadLocalRandom.current().nextInt(4);
         simulatedPlayerNames.clear();
         simulatedPlayerNames.addAll(shuffled.subList(0, amount));
+        assignRandomSkins();
         updateTabLists();
     }
 
@@ -455,6 +471,56 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         updateTabLists();
     }
 
+    private void loadRandomSkinPool() {
+        Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
+            List<List<TextureProperty>> loaded = new ArrayList<>();
+            HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+            for (String account : SKIN_SOURCE_ACCOUNTS) {
+                try {
+                    HttpRequest lookup = HttpRequest.newBuilder(URI.create(
+                        "https://api.mojang.com/users/profiles/minecraft/" + account
+                    )).timeout(Duration.ofSeconds(8)).header("User-Agent", "AskyriaEssentials/1.0").GET().build();
+                    HttpResponse<String> lookupResponse = client.send(lookup, HttpResponse.BodyHandlers.ofString());
+                    if (lookupResponse.statusCode() != 200) continue;
+                    String uuid = JsonParser.parseString(lookupResponse.body()).getAsJsonObject().get("id").getAsString();
+                    HttpRequest profile = HttpRequest.newBuilder(URI.create(
+                        "https://sessionserver.mojang.com/session/minecraft/profile/" + uuid + "?unsigned=false"
+                    )).timeout(Duration.ofSeconds(8)).header("User-Agent", "AskyriaEssentials/1.0").GET().build();
+                    HttpResponse<String> profileResponse = client.send(profile, HttpResponse.BodyHandlers.ofString());
+                    if (profileResponse.statusCode() != 200) continue;
+                    JsonArray properties = JsonParser.parseString(profileResponse.body()).getAsJsonObject().getAsJsonArray("properties");
+                    List<TextureProperty> textures = new ArrayList<>();
+                    for (int i = 0; i < properties.size(); i++) {
+                        JsonObject property = properties.get(i).getAsJsonObject();
+                        if (!"textures".equals(property.get("name").getAsString())) continue;
+                        String signature = property.has("signature") ? property.get("signature").getAsString() : null;
+                        textures.add(new TextureProperty("textures", property.get("value").getAsString(), signature));
+                    }
+                    if (!textures.isEmpty()) loaded.add(List.copyOf(textures));
+                } catch (Exception ex) {
+                    getLogger().fine("Could not load a display skin from " + account + ": " + ex.getMessage());
+                }
+            }
+            Bukkit.getScheduler().runTask(this, () -> {
+                randomSkinPool = List.copyOf(loaded);
+                assignRandomSkins();
+                // Re-send profile entries so clients receive the skin textures after loading.
+                sentFakeEntries.clear();
+                updateTabLists();
+                getLogger().info("Loaded " + randomSkinPool.size() + " random display skins.");
+            });
+        });
+    }
+
+    private void assignRandomSkins() {
+        simulatedPlayerSkins.clear();
+        if (randomSkinPool.isEmpty()) return;
+        for (String name : simulatedPlayerNames) {
+            int index = java.util.concurrent.ThreadLocalRandom.current().nextInt(randomSkinPool.size());
+            simulatedPlayerSkins.put(name, randomSkinPool.get(index));
+        }
+    }
+
     private UUID fakeProfileId(String name) {
         return UUID.nameUUIDFromBytes(("askyria-display-player:" + name.toLowerCase()).getBytes(StandardCharsets.UTF_8));
     }
@@ -466,8 +532,9 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         for (String name : names) {
             UUID id = fakeProfileId(name);
             current.add(id);
-            if (!previous.contains(id)) {
-                UserProfile profile = new UserProfile(id, name);
+            {
+                UserProfile profile = new UserProfile(id, name,
+                    simulatedPlayerSkins.getOrDefault(name, List.of()));
                 additions.add(new WrapperPlayServerPlayerInfoUpdate.PlayerInfo(
                     profile, true, 0, GameMode.SURVIVAL, Component.text(name), null, 0, true
                 ));
