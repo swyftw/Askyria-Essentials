@@ -54,10 +54,10 @@ public final class GodSpearManager implements Listener, CommandExecutor {
         Bukkit.removeRecipe(recipeKey);
         ShapedRecipe recipe = new ShapedRecipe(recipeKey, createGodSpear());
         recipe.shape("NEN", " B ", " S ");
-        recipe.setIngredient('N', Material.NETHERITE_INGOT);
-        recipe.setIngredient('E', Material.ECHO_SHARD);
+        recipe.setIngredient('N', Material.NETHERITE_BLOCK);
+        recipe.setIngredient('E', Material.NETHER_STAR);
         recipe.setIngredient('B', Material.BLAZE_ROD);
-        recipe.setIngredient('S', Material.STICK);
+        recipe.setIngredient('S', Material.NETHERITE_INGOT);
         Bukkit.addRecipe(recipe);
         cooldownTicker = Bukkit.getScheduler().runTaskTimer(plugin, this::updateCooldownBars, 1L, 5L);
     }
