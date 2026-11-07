@@ -57,6 +57,9 @@ commands:
   godspear:
     description: Give yourself or another player the Askyria God Spear
     usage: /godspear [@s|player]
+  supertotem:
+    description: Give yourself or another player a Super Totem (OP only)
+    usage: /supertotem [player]
   deathrestore:
     description: Restore a player's most recently saved death loot
     usage: /deathrestore <player>
