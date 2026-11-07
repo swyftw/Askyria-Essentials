@@ -44,6 +44,7 @@ public final class GodSpearManager implements Listener, CommandExecutor {
     private final JavaPlugin plugin;
     private final NamespacedKey spearKey;
     private final Map<UUID, Long> cooldowns = new HashMap<>();
+    private final Set<UUID> piercingDamageTargets = new HashSet<>();
 
     public GodSpearManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -161,7 +162,14 @@ public final class GodSpearManager implements Listener, CommandExecutor {
                 if (target instanceof Player && !player.getWorld().getPVP()) continue;
                 if (!hitEntities.add(target.getUniqueId())) continue;
 
-                target.damage(PIERCER_DAMAGE, player);
+                // Mark this target so the normal melee-damage handler below
+                // does not overwrite the ability's damage with the 8-damage melee value.
+                piercingDamageTargets.add(target.getUniqueId());
+                try {
+                    target.damage(PIERCER_DAMAGE, player);
+                } finally {
+                    piercingDamageTargets.remove(target.getUniqueId());
+                }
                 Vector knockback = direction.clone().multiply(1.65).setY(0.28);
                 target.setVelocity(knockback);
                 target.getWorld().spawnParticle(Particle.FLASH, target.getLocation().add(0, 1, 0), 1);
@@ -179,6 +187,8 @@ public final class GodSpearManager implements Listener, CommandExecutor {
     public void onGodSpearHit(EntityDamageByEntityEvent event) {
         if (!(event.getDamager() instanceof Player player)) return;
         if (!isGodSpear(player.getInventory().getItemInMainHand())) return;
+        // SPEAR PIERCER has its own damage value; only normal melee hits use 8.0.
+        if (piercingDamageTargets.contains(event.getEntity().getUniqueId())) return;
         event.setDamage(8.0);
     }
 
