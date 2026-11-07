@@ -26,9 +26,9 @@ import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -37,16 +37,13 @@ import java.util.Set;
 import java.util.UUID;
 
 public final class GodSpearManager implements Listener, CommandExecutor {
-    private static final long COOLDOWN_MS = 20_000L;
-    private static final long DOUBLE_CLICK_MS = 400L;
-    private static final int BEAM_TICKS = 80;
-    private static final double BEAM_RANGE = 28.0;
-    private static final double BEAM_DAMAGE = 10.0;
+    private static final long COOLDOWN_MS = 30_000L;
+    private static final double PIERCER_RANGE = 28.0;
+    private static final double PIERCER_DAMAGE = 10.0;
+
     private final JavaPlugin plugin;
     private final NamespacedKey spearKey;
     private final Map<UUID, Long> cooldowns = new HashMap<>();
-    private final Map<UUID, Long> lastRightClick = new HashMap<>();
-    private final Map<UUID, BukkitTask> activeBeams = new HashMap<>();
 
     public GodSpearManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -66,9 +63,7 @@ public final class GodSpearManager implements Listener, CommandExecutor {
     }
 
     public void stop() {
-        for (BukkitTask task : activeBeams.values()) task.cancel();
-        activeBeams.clear();
-        lastRightClick.clear();
+        // No repeating tasks are used by Spear Piercer.
     }
 
     private ItemStack createGodSpear() {
@@ -77,9 +72,9 @@ public final class GodSpearManager implements Listener, CommandExecutor {
         meta.displayName(Component.text("SOUL REAPER"));
         meta.lore(List.of(
             Component.text("A weapon forged for Askyria's strongest."),
-            Component.text("Ability: GOD'S IMPACT"),
-            Component.text("Double right-click to channel a 4-second beam."),
-            Component.text("Cooldown: 20 seconds")
+            Component.text("Ability: SPEAR PIERCER"),
+            Component.text("Crouch + right-click to unleash a piercing shockwave."),
+            Component.text("Cooldown: 30 seconds")
         ));
         meta.addEnchant(Enchantment.UNBREAKING, 1, true);
         meta.getPersistentDataContainer().set(spearKey, PersistentDataType.BYTE, (byte) 1);
@@ -124,65 +119,59 @@ public final class GodSpearManager implements Listener, CommandExecutor {
     public void onRightClick(PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND) return;
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+
         Player player = event.getPlayer();
-        UUID id = player.getUniqueId();
-        if (!isGodSpear(player.getInventory().getItemInMainHand())) return;
-        if (activeBeams.containsKey(id)) {
-            event.setCancelled(true);
-            return;
-        }
-        long now = System.currentTimeMillis();
-        Long previous = lastRightClick.put(id, now);
-        if (previous == null || now - previous > DOUBLE_CLICK_MS) return;
-        lastRightClick.remove(id);
+        if (!player.isSneaking() || !isGodSpear(player.getInventory().getItemInMainHand())) return;
+
         event.setCancelled(true);
-        long readyAt = cooldowns.getOrDefault(id, 0L);
+        long now = System.currentTimeMillis();
+        long readyAt = cooldowns.getOrDefault(player.getUniqueId(), 0L);
         if (readyAt > now) {
-            player.sendMessage(Component.text("GOD'S IMPACT cooldown: " + ((readyAt - now + 999L) / 1000L) + "s"));
+            player.sendMessage(Component.text("SPEAR PIERCER cooldown: " + ((readyAt - now + 999L) / 1000L) + "s"));
             return;
         }
-        cooldowns.put(id, now + COOLDOWN_MS);
-        startBeam(player);
+
+        cooldowns.put(player.getUniqueId(), now + COOLDOWN_MS);
+        fireSpearPiercer(player);
     }
 
-    private void startBeam(Player player) {
-        UUID id = player.getUniqueId();
+    private void fireSpearPiercer(Player player) {
+        Location origin = player.getEyeLocation();
+        Vector direction = origin.getDirection().normalize();
+        RayTraceResult blockHit = player.getWorld().rayTraceBlocks(
+            origin, direction, PIERCER_RANGE, FluidCollisionMode.NEVER, true
+        );
+        double maxDistance = blockHit == null ? PIERCER_RANGE
+            : Math.max(0.0, origin.distance(blockHit.getHitPosition().toLocation(player.getWorld())) - 0.15);
+
         Set<UUID> hitEntities = new HashSet<>();
-        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WARDEN_SONIC_CHARGE, 1.2f, 1.35f);
-        player.sendMessage(Component.text("GOD'S IMPACT — BEAM CHANNELING"));
-        final int[] elapsed = {0};
-        BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            if (!player.isOnline() || !isGodSpear(player.getInventory().getItemInMainHand()) || elapsed[0] >= BEAM_TICKS) {
-                BukkitTask running = activeBeams.remove(id);
-                if (running != null) running.cancel();
-                return;
+        player.getWorld().playSound(player.getLocation(), Sound.ITEM_TRIDENT_RIPTIDE_3, 1.2f, 0.75f);
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1.0f, 0.65f);
+        player.sendMessage(Component.text("SPEAR PIERCER!"));
+
+        for (double distance = 0.5; distance <= maxDistance; distance += 0.35) {
+            Location point = origin.clone().add(direction.clone().multiply(distance));
+            player.getWorld().spawnParticle(Particle.SWEEP_ATTACK, point, 1, 0.05, 0.05, 0.05, 0.0);
+            player.getWorld().spawnParticle(Particle.CRIT, point, 5, 0.08, 0.08, 0.08, 0.12);
+            player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, point, 3, 0.06, 0.06, 0.06, 0.02);
+
+            for (Entity entity : player.getWorld().getNearbyEntities(point, 0.65, 0.65, 0.65)) {
+                if (!(entity instanceof LivingEntity target) || target.equals(player)) continue;
+                if (target instanceof Player && !player.getWorld().getPVP()) continue;
+                if (!hitEntities.add(target.getUniqueId())) continue;
+
+                target.damage(PIERCER_DAMAGE, player);
+                Vector knockback = direction.clone().multiply(1.65).setY(0.28);
+                target.setVelocity(knockback);
+                target.getWorld().spawnParticle(Particle.FLASH, target.getLocation().add(0, 1, 0), 1);
             }
-            Location origin = player.getEyeLocation();
-            Vector direction = origin.getDirection().normalize();
-            RayTraceResult blockHit = player.getWorld().rayTraceBlocks(origin, direction, BEAM_RANGE, FluidCollisionMode.NEVER, true);
-            double maxDistance = blockHit == null ? BEAM_RANGE
-                : Math.max(0.0, origin.distance(blockHit.getHitPosition().toLocation(player.getWorld())) - 0.15);
-            for (double distance = 0.4; distance <= maxDistance; distance += 0.35) {
-                Location point = origin.clone().add(direction.clone().multiply(distance));
-                player.getWorld().spawnParticle(Particle.END_ROD, point, 3, 0.035, 0.035, 0.035, 0.005);
-                player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, point, 2, 0.045, 0.045, 0.045, 0.01);
-                player.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, point, 1, 0.025, 0.025, 0.025, 0.001);
-                for (Entity entity : player.getWorld().getNearbyEntities(point, 0.45, 0.45, 0.45)) {
-                    if (!(entity instanceof LivingEntity target) || target.equals(player)) continue;
-                    if (target instanceof Player && !player.getWorld().getPVP()) continue;
-                    if (!hitEntities.add(target.getUniqueId())) continue;
-                    target.damage(BEAM_DAMAGE, player);
-                    target.getWorld().spawnParticle(Particle.FLASH, target.getLocation().add(0, 1, 0), 1);
-                }
-            }
-            if (blockHit != null && blockHit.getHitPosition() != null) {
-                Location end = blockHit.getHitPosition().toLocation(player.getWorld());
-                player.getWorld().spawnParticle(Particle.FLASH, end, 1);
-            }
-            if (elapsed[0] % 10 == 0) player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_AMBIENT, 0.45f, 1.8f);
-            elapsed[0]++;
-        }, 0L, 1L);
-        activeBeams.put(id, task);
+        }
+
+        if (blockHit != null && blockHit.getHitPosition() != null) {
+            Location end = blockHit.getHitPosition().toLocation(player.getWorld());
+            player.getWorld().spawnParticle(Particle.EXPLOSION, end, 1);
+            player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, end, 18, 0.25, 0.25, 0.25, 0.08);
+        }
     }
 
     @EventHandler
