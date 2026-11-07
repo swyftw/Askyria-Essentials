@@ -445,7 +445,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private void rotateSimulatedPlayers() {
         List<String> shuffled = new ArrayList<>(SIMULATED_NAME_POOL);
         java.util.Collections.shuffle(shuffled);
-        int amount = 4 + java.util.concurrent.ThreadLocalRandom.current().nextInt(4);
+        int amount = 8 + java.util.concurrent.ThreadLocalRandom.current().nextInt(5);
         simulatedPlayerNames.clear();
         simulatedPlayerNames.addAll(shuffled.subList(0, amount));
         assignRandomSkins();
