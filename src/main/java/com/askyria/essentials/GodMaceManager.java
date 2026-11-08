@@ -12,8 +12,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.ShapelessRecipe;
+import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.command.Command;
@@ -52,12 +53,13 @@ public final class GodMaceManager implements Listener, CommandExecutor {
     }
 
     private void registerCraftingRecipe() {
-        // Shapeless: the three ingredients can be placed anywhere in the crafting grid.
+        // Exact vertical recipe in the middle column.
         Bukkit.removeRecipe(recipeKey);
-        ShapelessRecipe recipe = new ShapelessRecipe(recipeKey, createGodMace());
-        recipe.addIngredient(Material.MACE);
-        recipe.addIngredient(Material.BREEZE_ROD);
-        recipe.addIngredient(Material.DRAGON_EGG);
+        ShapedRecipe recipe = new ShapedRecipe(recipeKey, createGodMace());
+        recipe.shape(" M ", " B ", " D ");
+        recipe.setIngredient('M', Material.MACE);
+        recipe.setIngredient('B', Material.BREEZE_ROD);
+        recipe.setIngredient('D', Material.DRAGON_EGG);
         Bukkit.addRecipe(recipe);
     }
 
@@ -92,6 +94,18 @@ public final class GodMaceManager implements Listener, CommandExecutor {
         );
         sender.sendMessage(Component.text("Gave " + target.getName() + " the God Mace."));
         return true;
+    }
+
+    @EventHandler
+    public void onGodMaceCraft(CraftItemEvent event) {
+        if (!isGodMace(event.getRecipe().getResult())) return;
+        if (!(event.getWhoClicked() instanceof Player crafter)) return;
+
+        String message = crafter.getName() + " has crafted the GOD MACE!";
+        Bukkit.broadcastMessage("§6§l" + message);
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            online.sendTitle("§6§lGOD MACE CRAFTED!", "§e" + crafter.getName() + " has crafted it!", 10, 70, 20);
+        }
     }
 
     @EventHandler
