@@ -3,17 +3,17 @@ package com.askyria.essentials;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Warden;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.ShapelessRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.command.Command;
@@ -21,24 +21,22 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ThreadLocalRandom;
 
 public final class GodMaceManager implements Listener, CommandExecutor {
     private final JavaPlugin plugin;
-    private final Map<UUID, UUID> lastMeleeAttacker = new ConcurrentHashMap<>();
+    private final NamespacedKey recipeKey;
 
     public GodMaceManager(JavaPlugin plugin) {
         this.plugin = plugin;
+        this.recipeKey = new NamespacedKey(plugin, "god_mace");
+        registerCraftingRecipe();
     }
 
     private ItemStack createGodMace() {
         ItemStack mace = new ItemStack(Material.MACE);
         ItemMeta meta = mace.getItemMeta();
         meta.displayName(Component.text("☠ JUDGEMENT ☠"));
-        meta.setItemModel(org.bukkit.NamespacedKey.fromString("askyria:god_mace"));
+        meta.setItemModel(NamespacedKey.fromString("askyria:god_mace"));
         meta.setEnchantmentGlintOverride(false);
         meta.lore(List.of(
             Component.text("A legendary weapon of Askyria"),
@@ -51,6 +49,16 @@ public final class GodMaceManager implements Listener, CommandExecutor {
         meta.addEnchant(Enchantment.MENDING, 1, true);
         mace.setItemMeta(meta);
         return mace;
+    }
+
+    private void registerCraftingRecipe() {
+        // Shapeless: the three ingredients can be placed anywhere in the crafting grid.
+        Bukkit.removeRecipe(recipeKey);
+        ShapelessRecipe recipe = new ShapelessRecipe(recipeKey, createGodMace());
+        recipe.addIngredient(Material.MACE);
+        recipe.addIngredient(Material.BREEZE_ROD);
+        recipe.addIngredient(Material.DRAGON_EGG);
+        Bukkit.addRecipe(recipe);
     }
 
     private boolean isGodMace(ItemStack item) {
@@ -84,32 +92,6 @@ public final class GodMaceManager implements Listener, CommandExecutor {
         );
         sender.sendMessage(Component.text("Gave " + target.getName() + " the God Mace."));
         return true;
-    }
-
-    @EventHandler
-    public void trackWardenMeleeDamage(EntityDamageByEntityEvent event) {
-        if (!(event.getEntity() instanceof Warden warden)) return;
-        if (!(event.getDamager() instanceof Player player)) return;
-        lastMeleeAttacker.put(warden.getUniqueId(), player.getUniqueId());
-    }
-
-    @EventHandler
-    public void onWardenDeath(EntityDeathEvent event) {
-        if (!(event.getEntity() instanceof Warden warden)) return;
-        UUID lastAttacker = lastMeleeAttacker.remove(warden.getUniqueId());
-        Player killer = warden.getKiller();
-        if (killer == null || lastAttacker == null || !killer.getUniqueId().equals(lastAttacker)) return;
-        if (killer.getLocation().distanceSquared(warden.getLocation()) > 64.0) return;
-        // One global God Mace for the entire server: first qualifying Warden kill wins.
-        if (plugin.getConfig().getBoolean("god-mace.already-dropped", false)) return;
-        // 0.1% chance (1 in 1,000), only for a close-range player melee kill.
-        if (ThreadLocalRandom.current().nextDouble() >= 0.001) return;
-        plugin.getConfig().set("god-mace.already-dropped", true);
-        plugin.saveConfig();
-        event.getDrops().add(createGodMace());
-        killer.sendMessage(Component.text("§5The Warden dropped the legendary JUDGEMENT God Mace!"));
-        Bukkit.broadcast(Component.text("☠ " + killer.getName() + " has obtained the legendary GOD MACE: JUDGEMENT! ☠"));
-        killer.getWorld().playSound(killer.getLocation(), org.bukkit.Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.5f, 0.7f);
     }
 
     @EventHandler
