@@ -80,6 +80,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private BukkitTask simulatedPlayersTicker;
     private GodSpearManager godSpearManager;
     private SuperTotemManager superTotemManager;
+    private ExtendedEnderChestManager extendedEnderChestManager;
     private boolean simulatedPlayersEnabled = false;
     private final List<String> simulatedPlayerNames = new ArrayList<>();
     private final Map<UUID, Set<UUID>> sentFakeEntries = new HashMap<>();
@@ -133,6 +134,8 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             }
         }
         Bukkit.getPluginManager().registerEvents(this, this);
+        extendedEnderChestManager = new ExtendedEnderChestManager(this);
+        Bukkit.getPluginManager().registerEvents(extendedEnderChestManager, this);
         fakePlayerPacketListener = new PacketListenerAbstract(PacketListenerPriority.NORMAL) {
             @Override
             public void onPacketSend(com.github.retrooper.packetevents.event.PacketSendEvent event) {
@@ -207,6 +210,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     @Override
     public void onDisable() {
         if (combatTicker != null) combatTicker.cancel();
+        if (extendedEnderChestManager != null) extendedEnderChestManager.saveAll();
         if (godSpearManager != null) godSpearManager.stop();
         if (tabTicker != null) tabTicker.cancel();
         if (simulatedPlayersTicker != null) simulatedPlayersTicker.cancel();
@@ -1075,7 +1079,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 Player target = Bukkit.getPlayerExact(args[0]);
                 if (target == null) { sender.sendMessage(Component.text("That player must be online.")); return true; }
                 if (command.getName().equalsIgnoreCase("invsee")) viewer.openInventory(target.getInventory());
-                else viewer.openInventory(target.getEnderChest());
+                else viewer.openInventory(extendedEnderChestManager.getInventory(target));
                 return true;
             }
             default -> { return false; }
