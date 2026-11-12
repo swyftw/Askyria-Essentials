@@ -600,13 +600,14 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         statusOnlineCount = allNames.size();
 
         Component header = mini.deserialize(
-            "<bold><white>CORE SMP</white></bold>\n" +
-            "<gray>PLAYERS</gray> <white>(" + statusOnlineCount + ")</white>"
-        );
-        Component footer = mini.deserialize(
-            "<gray>DISCORD.GG/CORESMP</gray>"
+            "<bold><white>CORE </white><#FF8C00><bold>SMP</bold></#FF8C00></bold>"
         );
         for (Player player : Bukkit.getOnlinePlayers()) {
+            Component footer = mini.deserialize(
+                "<green>✦ ONLINE PLAYERS: " + statusOnlineCount + "</green> <gray>|</gray> " +
+                "<green>PING: " + Math.max(0, player.getPing()) + "ms</green>\n" +
+                "<#FF8C00><bold>DISCORD.GG/CORESMP</bold></#FF8C00>"
+            );
             player.sendPlayerListHeaderAndFooter(header, footer);
             sendFakeEntries(player, fakeNames);
         }
