@@ -104,6 +104,9 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
 
     @Override
     public void onEnable() {
+        // Remove retired Askyria custom weapon recipes from the server recipe registry.
+        Bukkit.removeRecipe(new org.bukkit.NamespacedKey(this, "god_mace"));
+        Bukkit.removeRecipe(new org.bukkit.NamespacedKey(this, "god_spear_recipe"));
         saveDefaultConfig();
         long now = System.currentTimeMillis();
         if (getConfig().isConfigurationSection("protected-players")) {
