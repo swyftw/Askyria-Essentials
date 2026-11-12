@@ -78,7 +78,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private BukkitTask combatTicker;
     private BukkitTask tabTicker;
     private BukkitTask simulatedPlayersTicker;
-    private GodSpearManager godSpearManager;
     private SuperTotemManager superTotemManager;
     private ExtendedEnderChestManager extendedEnderChestManager;
     private boolean simulatedPlayersEnabled = false;
@@ -167,13 +166,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         OrbitalManager orbitalManager = new OrbitalManager(this);
         Bukkit.getPluginManager().registerEvents(orbitalManager, this);
         getCommand("orbital").setExecutor(orbitalManager);
-        GodMaceManager godMaceManager = new GodMaceManager(this);
-        Bukkit.getPluginManager().registerEvents(godMaceManager, this);
-        getCommand("godmace").setExecutor(godMaceManager);
-        godSpearManager = new GodSpearManager(this);
-        Bukkit.getPluginManager().registerEvents(godSpearManager, this);
-        godSpearManager.start();
-        getCommand("godspear").setExecutor(godSpearManager);
         superTotemManager = new SuperTotemManager(this);
         Bukkit.getPluginManager().registerEvents(superTotemManager, this);
         getCommand("supertotem").setExecutor(superTotemManager);
@@ -211,7 +203,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     public void onDisable() {
         if (combatTicker != null) combatTicker.cancel();
         if (extendedEnderChestManager != null) extendedEnderChestManager.saveAll();
-        if (godSpearManager != null) godSpearManager.stop();
         if (tabTicker != null) tabTicker.cancel();
         if (simulatedPlayersTicker != null) simulatedPlayersTicker.cancel();
         if (fakePlayerPacketListener != null) {
@@ -633,12 +624,10 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         UUID id = player.getUniqueId();
         long now = System.currentTimeMillis();
         long rankRemaining = Math.max(0L, (rankAbilityCooldowns.getOrDefault(id, 0L) - now + 999L) / 1000L);
-        long spearRemaining = godSpearManager == null ? 0L : godSpearManager.getCooldownSeconds(player);
         boolean showRank = topRank(player) > 0 && rankRemaining > 0L;
-        boolean showSpear = spearRemaining > 0L;
 
         Scoreboard board = cooldownBoards.get(id);
-        if (!showRank && !showSpear) {
+        if (!showRank) {
             if (board != null) {
                 Objective objective = board.getObjective("ask_cd");
                 if (objective != null) objective.unregister();
@@ -669,7 +658,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             objective.setDisplaySlot(DisplaySlot.SIDEBAR);
         }
         for (String entry : board.getEntries()) board.resetScores(entry);
-        if (showSpear) objective.getScore("SOUL REAPER: " + spearRemaining + "s").setScore(2);
         if (showRank) objective.getScore("TOP " + topRank(player) + ": " + rankRemaining + "s").setScore(1);
     }
 
