@@ -601,7 +601,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             int value = player.getStatistic(statistic);
             if (value <= 0) continue;
             String shown = playtime ? (value / 72000) + "h" : String.valueOf(value);
-            if (rows.length() > 0) rows.append("\\n");
+            if (rows.length() > 0) rows.append("\n");
             rows.append("<gray>").append(place).append(".</gray> <white>")
                 .append(player.getName()).append("</white> <dark_gray>-</dark_gray> <gray>")
                 .append(shown).append("</gray>");
@@ -620,17 +620,17 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         statusOnlineCount = allNames.size();
 
         Component header = mini.deserialize(
-            "<bold><white>CORE SMP</white></bold>\\n" +
+            "<bold><white>CORE SMP</white></bold>\n" +
             "<gray>PLAYERS</gray> <white>(" + statusOnlineCount + ")</white>"
         );
         Component footer = mini.deserialize(
-            "<dark_gray>────────────── LEADERBOARDS ──────────────</dark_gray>\\n" +
-            "<white>TOP KILLS</white>\\n" +
-            leaderboardRows(org.bukkit.Statistic.PLAYER_KILLS, false) + "\\n" +
-            "<white>TOP DEATHS</white>\\n" +
-            leaderboardRows(org.bukkit.Statistic.DEATHS, false) + "\\n" +
-            "<white>TOP PLAYTIME</white>\\n" +
-            leaderboardRows(org.bukkit.Statistic.PLAY_ONE_MINUTE, true) + "\\n\\n" +
+            "<dark_gray>────────────── LEADERBOARDS ──────────────</dark_gray>\n" +
+            "<white>TOP KILLS</white>\n" +
+            leaderboardRows(org.bukkit.Statistic.PLAYER_KILLS, false) + "\n" +
+            "<white>TOP DEATHS</white>\n" +
+            leaderboardRows(org.bukkit.Statistic.DEATHS, false) + "\n" +
+            "<white>TOP PLAYTIME</white>\n" +
+            leaderboardRows(org.bukkit.Statistic.PLAY_ONE_MINUTE, true) + "\n\n" +
             "<gray>DISCORD.GG/CORE SMP</gray>"
         );
         for (Player player : Bukkit.getOnlinePlayers()) {
