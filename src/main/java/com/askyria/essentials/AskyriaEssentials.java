@@ -591,26 +591,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         sentFakeEntries.put(viewer.getUniqueId(), current);
     }
 
-    private String leaderboardRows(org.bukkit.Statistic statistic, boolean playtime) {
-        List<org.bukkit.OfflinePlayer> ranked = new ArrayList<>(java.util.Arrays.asList(Bukkit.getOfflinePlayers()));
-        ranked.removeIf(p -> p.getName() == null);
-        ranked.sort((a, b) -> Integer.compare(b.getStatistic(statistic), a.getStatistic(statistic)));
-        StringBuilder rows = new StringBuilder();
-        int place = 1;
-        for (org.bukkit.OfflinePlayer player : ranked) {
-            int value = player.getStatistic(statistic);
-            if (value <= 0) continue;
-            String shown = playtime ? (value / 72000) + "h" : String.valueOf(value);
-            if (rows.length() > 0) rows.append("\n");
-            rows.append("<gray>").append(place).append(".</gray> <white>")
-                .append(player.getName()).append("</white> <dark_gray>-</dark_gray> <gray>")
-                .append(shown).append("</gray>");
-            if (++place > 3) break;
-        }
-        if (rows.length() == 0) return "<dark_gray>No stats yet</dark_gray>";
-        return rows.toString();
-    }
-
     private void updateTabLists() {
         List<String> fakeNames = simulatedPlayersEnabled ? List.copyOf(simulatedPlayerNames) : List.of();
         List<String> allNames = new ArrayList<>();
@@ -624,14 +604,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             "<gray>PLAYERS</gray> <white>(" + statusOnlineCount + ")</white>"
         );
         Component footer = mini.deserialize(
-            "<dark_gray>────────────── LEADERBOARDS ──────────────</dark_gray>\n" +
-            "<white>TOP KILLS</white>\n" +
-            leaderboardRows(org.bukkit.Statistic.PLAYER_KILLS, false) + "\n" +
-            "<white>TOP DEATHS</white>\n" +
-            leaderboardRows(org.bukkit.Statistic.DEATHS, false) + "\n" +
-            "<white>TOP PLAYTIME</white>\n" +
-            leaderboardRows(org.bukkit.Statistic.PLAY_ONE_MINUTE, true) + "\n\n" +
-            "<gray>DISCORD.GG/CORE SMP</gray>"
+            "<gray>DISCORD.GG/CORESMP</gray>"
         );
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.sendPlayerListHeaderAndFooter(header, footer);
