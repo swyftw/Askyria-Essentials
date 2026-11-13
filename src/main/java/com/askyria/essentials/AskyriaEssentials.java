@@ -736,7 +736,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         if (raw == null) return 0;
         String normalized = raw.toUpperCase().replaceAll("<[^>]*>", "");
         for (int rank = 1; rank <= 5; rank++) {
-            if (normalized.contains("TOP " + rank) || normalized.contains("TOP" + rank)) return rank;
+            if (normalized.contains("#" + rank) || normalized.contains("TOP " + rank) || normalized.contains("TOP" + rank)) return rank;
         }
         return 0;
     }
@@ -781,17 +781,17 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             objective.setDisplaySlot(DisplaySlot.SIDEBAR);
         }
         for (String entry : board.getEntries()) board.resetScores(entry);
-        if (showRank) objective.getScore("TOP " + topRank(player) + ": " + rankRemaining + "s").setScore(2);
+        if (showRank) objective.getScore("#" + topRank(player) + ": " + rankRemaining + "s").setScore(2);
         if (showSwitcher) objective.getScore("SWITCHER: " + (switcherRemaining / 60) + "m " + (switcherRemaining % 60) + "s").setScore(1);
     }
 
     private String rankTag(int rank) {
         return switch (rank) {
-            case 1 -> "<#FFFF00><bold>[TOP1]</bold></#FFFF00>";
-            case 2 -> "<#808080><bold>[TOP2]</bold></#808080>";
-            case 3 -> "<#CD7F32><bold>[TOP3]</bold></#CD7F32>";
-            case 4 -> "<white><bold>[TOP4]</bold></white>";
-            case 5 -> "<white><bold>[TOP5]</bold></white>";
+            case 1 -> "<#FFFF00><bold>[#1]</bold></#FFFF00>";
+            case 2 -> "<#808080><bold>[#2]</bold></#808080>";
+            case 3 -> "<#CD7F32><bold>[#3]</bold></#CD7F32>";
+            case 4 -> "<white><bold>[#4]</bold></white>";
+            case 5 -> "<white><bold>[#5]</bold></white>";
             default -> "";
         };
     }
@@ -878,7 +878,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
 
         setStoredTag(killer, rankTag(victimRank));
         setStoredTag(victim, rankTag(killerRank));
-        Bukkit.broadcast(Component.text(killer.getName() + " defeated TOP" + victimRank
+        Bukkit.broadcast(Component.text(killer.getName() + " defeated #" + victimRank
             + " and swapped ranks with " + victim.getName() + "!"));
     }
 
@@ -929,7 +929,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         }
         long cooldown = rank == 3 || rank == 5 ? 75_000L : 60_000L;
         rankAbilityCooldowns.put(player.getUniqueId(), now + cooldown);
-        player.sendMessage(Component.text("TOP " + rank + " ability activated!"));
+        player.sendMessage(Component.text("#" + rank + " ability activated!"));
         player.getWorld().playSound(player.getLocation(), org.bukkit.Sound.ENTITY_PLAYER_LEVELUP, 0.7f, 1.4f);
         player.getWorld().spawnParticle(org.bukkit.Particle.TOTEM_OF_UNDYING,
             player.getLocation().add(0, 1, 0), 24, 0.45, 0.6, 0.45, 0.05);
@@ -1198,8 +1198,8 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 }
                 setStoredTag(target, rankTag(rank));
                 saveConfig();
-                sender.sendMessage(Component.text("Gave " + target.getName() + " TOP" + rank + ". "));
-                Bukkit.broadcast(Component.text(target.getName() + " is now TOP " + rank + "!"));
+                sender.sendMessage(Component.text("Gave " + target.getName() + " #" + rank + ". "));
+                Bukkit.broadcast(Component.text(target.getName() + " is now #" + rank + "!"));
                 return true;
             }
             case "igncolor" -> {
