@@ -22,7 +22,6 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerFishEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
-import org.bukkit.event.world.LootGenerateEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
@@ -30,16 +29,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.Vector;
 
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ThreadLocalRandom;
 
 public final class OrbitalManager implements CommandExecutor, Listener {
     private final JavaPlugin plugin;
     private final NamespacedKey orbitalKey;
-    // Approximate desert-temple footprint buckets prevent multiple chests in one temple awarding multiple Orbitals.
-    private final Set<String> templesWithOrbital = ConcurrentHashMap.newKeySet();
     private final java.util.Map<UUID, String> pendingOrbitalCasts = new ConcurrentHashMap<>();
 
     public OrbitalManager(JavaPlugin plugin) {
@@ -101,22 +95,6 @@ public final class OrbitalManager implements CommandExecutor, Listener {
     private void give(Player player, String type) {
         player.getInventory().addItem(createOrbital(type)).values()
             .forEach(drop -> player.getWorld().dropItemNaturally(player.getLocation(), drop));
-    }
-
-    @EventHandler
-    public void onDesertTempleLoot(LootGenerateEvent event) {
-        if (!event.getLootTable().getKey().getKey().equals("chests/desert_pyramid")) return;
-        // 0.5% chance per eligible temple loot chest; only one Orbital can be awarded per temple footprint.
-        Location chest = event.getLootContext().getLocation();
-        if (chest == null || chest.getWorld() == null) return;
-        String templeKey = chest.getWorld().getUID() + ":"
-            + Math.floorDiv(chest.getBlockX(), 32) + ":" + Math.floorDiv(chest.getBlockZ(), 32);
-        if (templesWithOrbital.contains(templeKey)) return;
-        if (ThreadLocalRandom.current().nextDouble() >= 0.005) return;
-        if (!templesWithOrbital.add(templeKey)) return;
-        String type = List.of("rain", "stab", "nuke", "lunar")
-            .get(ThreadLocalRandom.current().nextInt(4));
-        event.getLoot().add(createOrbital(type));
     }
 
     @EventHandler
