@@ -306,6 +306,11 @@ public final class ShopVillagerManager implements Listener {
         return item;
     }
 
+    private void give(Player player, ItemStack item) {
+        player.getInventory().addItem(item).values()
+            .forEach(drop -> player.getWorld().dropItemNaturally(player.getLocation(), drop));
+    }
+
     public int getBalance(Player player) {
         return Math.max(0, plugin.getConfig().getInt("core-balances." + player.getUniqueId(), 0));
     }
