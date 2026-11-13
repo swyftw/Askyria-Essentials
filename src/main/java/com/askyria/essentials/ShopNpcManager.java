@@ -201,7 +201,7 @@ public final class ShopNpcManager extends PacketListenerAbstract implements List
 
     public void removeShopNpc(Player player, String type) {
         if (!DEFINITIONS.containsKey(type)) {
-            player.sendMessage(Component.text("Use armor, kits, mythical, or seller."));
+            player.sendMessage(Component.text("Use armor, mystery, mythical, or seller."));
             return;
         }
         removeNpc(type);
