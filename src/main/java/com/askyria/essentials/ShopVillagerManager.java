@@ -218,11 +218,17 @@ public final class ShopVillagerManager implements Listener {
     }
 
     private void addOrbitalIcon(Inventory inv, int slot, String type, String display, int price) {
-        ItemStack icon = new ItemStack(type.equals("switcher") ? Material.NETHERITE_SWORD : Material.FISHING_ROD);
+        ItemStack icon = type.equals("switcher") ? createSwitcherSword() : new ItemStack(Material.FISHING_ROD);
         ItemMeta meta = icon.getItemMeta();
-        meta.displayName(Component.text(display));
+        if (!type.equals("switcher")) {
+            meta.displayName(Component.text(display));
+            meta.lore(List.of(Component.text("Price: " + price + " Core"), Component.text("Single-use orbital")));
+        } else {
+            List<Component> lore = new ArrayList<>(meta.lore() == null ? List.of() : meta.lore());
+            lore.add(Component.text("Price: " + price + " Core", net.kyori.adventure.text.format.NamedTextColor.GREEN));
+            meta.lore(lore);
+        }
         meta.getPersistentDataContainer().set(orbitalKey, PersistentDataType.STRING, type);
-        meta.lore(List.of(Component.text("Price: " + price + " Core"), Component.text("Single-use orbital")));
         icon.setItemMeta(meta);
         inv.setItem(slot, icon);
     }
@@ -296,11 +302,17 @@ public final class ShopVillagerManager implements Listener {
     }
 
     private ItemStack orbitalEditorIcon(String type, String name, int price) {
-        ItemStack icon = new ItemStack(type.equals("switcher") ? Material.NETHERITE_SWORD : Material.FISHING_ROD);
+        ItemStack icon = type.equals("switcher") ? createSwitcherSword() : new ItemStack(Material.FISHING_ROD);
         ItemMeta meta = icon.getItemMeta();
-        meta.displayName(Component.text(name));
+        if (!type.equals("switcher")) {
+            meta.displayName(Component.text(name));
+            meta.lore(List.of(Component.text("Price: " + price + " Core")));
+        } else {
+            List<Component> lore = new ArrayList<>(meta.lore() == null ? List.of() : meta.lore());
+            lore.add(Component.text("Price: " + price + " Core", net.kyori.adventure.text.format.NamedTextColor.GREEN));
+            meta.lore(lore);
+        }
         meta.getPersistentDataContainer().set(orbitalKey, PersistentDataType.STRING, type);
-        meta.lore(List.of(Component.text("Price: " + price + " Core")));
         icon.setItemMeta(meta);
         return icon;
     }
