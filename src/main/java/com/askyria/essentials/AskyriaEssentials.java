@@ -442,7 +442,25 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             protectedUntil.put(id, expiry);
             getConfig().set("seen-player." + id, true);
             getConfig().set("protected-players." + id, expiry);
-            player.getInventory().addItem(new ItemStack(Material.COOKED_BEEF, 20));
+            // One-time CORE SMP starter kit for first-time players.
+            player.getInventory().setArmorContents(new ItemStack[] {
+                new ItemStack(Material.IRON_BOOTS),
+                new ItemStack(Material.IRON_LEGGINGS),
+                new ItemStack(Material.IRON_CHESTPLATE),
+                new ItemStack(Material.IRON_HELMET)
+            });
+            List<ItemStack> starterItems = List.of(
+                new ItemStack(Material.STONE_SWORD),
+                new ItemStack(Material.STONE_PICKAXE),
+                new ItemStack(Material.STONE_AXE),
+                new ItemStack(Material.STONE_SHOVEL),
+                new ItemStack(Material.COOKED_BEEF, 32),
+                new ItemStack(Material.BREAD, 16),
+                new ItemStack(Material.TORCH, 16),
+                new ItemStack(Material.SHIELD)
+            );
+            Map<Integer, ItemStack> starterLeftovers = player.getInventory().addItem(starterItems.toArray(new ItemStack[0]));
+            starterLeftovers.values().forEach(item -> player.getWorld().dropItemNaturally(player.getLocation(), item));
             player.sendActionBar(Component.text("NEW PLAYER PROTECTION • 10:00"));
             saveConfig();
         } else if (isProtected(player)) {
