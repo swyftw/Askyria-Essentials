@@ -163,14 +163,7 @@ public final class ShopVillagerManager implements Listener {
         inv.setItem(4, info);
 
         if (category.equals("mystery")) {
-            String[] tiers = {"common", "rare", "epic", "legendary"};
-            String[] names = {"COMMON BOX", "RARE BOX", "EPIC BOX", "LEGENDARY BOX"};
-            int[] prices = {15, 25, 35, 50};
-            Material[] icons = {Material.CHEST, Material.ENDER_CHEST, Material.SHULKER_BOX, Material.DRAGON_EGG};
-            int[] slots = {20, 22, 24, 31};
-            Map<String, Integer> layout = loadLayout(category);
-            for (int i = 0; i < tiers.length; i++) addMysteryBoxIcon(inv,
-                layout.getOrDefault(tiers[i], slots[i]), tiers[i], names[i], prices[i], icons[i]);
+            addMysteryBoxIcon(inv, 22);
         } else if (category.equals("mythical")) {
             String[] ids = {"rain", "stab", "lunar", "nuke", "switcher"};
             String[] names = {"RAIN ORBITAL", "STAB ORBITAL", "LUNAR ORBITAL", "NUKE ORBITAL", "SWITCHER"};
@@ -237,51 +230,22 @@ public final class ShopVillagerManager implements Listener {
         return icon;
     }
 
-    private void addMysteryBoxIcon(Inventory inv, int slot, String tier, String display, int price, Material material) {
-        ItemStack icon = new ItemStack(material);
+    private void addMysteryBoxIcon(Inventory inv, int slot) {
+        ItemStack icon = new ItemStack(Material.ENDER_CHEST);
         ItemMeta meta = icon.getItemMeta();
-        var color = switch (tier) {
-            case "common" -> net.kyori.adventure.text.format.NamedTextColor.WHITE;
-            case "rare" -> net.kyori.adventure.text.format.NamedTextColor.AQUA;
-            case "epic" -> net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE;
-            default -> net.kyori.adventure.text.format.NamedTextColor.GOLD;
-        };
-        meta.displayName(Component.text(display, color)
+        meta.displayName(Component.text("MYSTERY BOX", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE)
             .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true));
-        List<Component> lore = new ArrayList<>();
-        lore.add(Component.text("POSSIBLE REWARDS:", net.kyori.adventure.text.format.NamedTextColor.GRAY));
-        switch (tier) {
-            case "common" -> {
-                lore.add(Component.text("8 Golden Apples", net.kyori.adventure.text.format.NamedTextColor.WHITE));
-                lore.add(Component.text("12 Ender Pearls • 32 Beef", net.kyori.adventure.text.format.NamedTextColor.WHITE));
-                lore.add(Component.text("32 Arrows • 12 Cobwebs", net.kyori.adventure.text.format.NamedTextColor.WHITE));
-                lore.add(Component.text("24 XP Bottles", net.kyori.adventure.text.format.NamedTextColor.WHITE));
-            }
-            case "rare" -> {
-                lore.add(Component.text("24 Golden Apples • 24 Pearls", net.kyori.adventure.text.format.NamedTextColor.AQUA));
-                lore.add(Component.text("Totem of Undying", net.kyori.adventure.text.format.NamedTextColor.AQUA));
-                lore.add(Component.text("Sharpness V Diamond Sword", net.kyori.adventure.text.format.NamedTextColor.AQUA));
-                lore.add(Component.text("Efficiency V Diamond Pickaxe", net.kyori.adventure.text.format.NamedTextColor.AQUA));
-                lore.add(Component.text("12 Diamonds", net.kyori.adventure.text.format.NamedTextColor.AQUA));
-            }
-            case "epic" -> {
-                lore.add(Component.text("2 Totems • Heavy Core", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE));
-                lore.add(Component.text("Diamond Chestplate", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE));
-                lore.add(Component.text("Density V Mace", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE));
-                lore.add(Component.text("2 Netherite Ingots", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE));
-                lore.add(Component.text("Sharpness V Netherite Sword", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE));
-            }
-            case "legendary" -> {
-                lore.add(Component.text("2 Heavy Cores • 4 Totems", net.kyori.adventure.text.format.NamedTextColor.GOLD));
-                lore.add(Component.text("Density V + Wind Burst III Mace", net.kyori.adventure.text.format.NamedTextColor.GOLD));
-                lore.add(Component.text("Maxed Netherite Sword", net.kyori.adventure.text.format.NamedTextColor.GOLD));
-                lore.add(Component.text("Netherite Chestplate • 4 Ingots", net.kyori.adventure.text.format.NamedTextColor.GOLD));
-            }
-        }
-        lore.add(Component.text("Price: " + price + " Cores", net.kyori.adventure.text.format.NamedTextColor.YELLOW));
-        lore.add(Component.text("Click to pay and open", net.kyori.adventure.text.format.NamedTextColor.GREEN));
-        meta.lore(lore);
-        meta.getPersistentDataContainer().set(mysteryBoxKey, PersistentDataType.STRING, tier);
+        meta.lore(List.of(
+            Component.text("POSSIBLE REWARDS:", net.kyori.adventure.text.format.NamedTextColor.GRAY),
+            Component.text("Golden Apples • Ender Pearls • Beef • Arrows • Cobwebs • XP Bottles", net.kyori.adventure.text.format.NamedTextColor.WHITE),
+            Component.text("Totems • Diamonds • Enchanted Diamond Gear", net.kyori.adventure.text.format.NamedTextColor.AQUA),
+            Component.text("Heavy Cores • Netherite Ingots • Netherite Gear", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE),
+            Component.text("Density V Mace • Wind Burst III Mace", net.kyori.adventure.text.format.NamedTextColor.GOLD),
+            Component.text("Price: 50 Cores", net.kyori.adventure.text.format.NamedTextColor.YELLOW),
+            Component.text("One random reward • All rewards in one pool", net.kyori.adventure.text.format.NamedTextColor.GREEN),
+            Component.text("Click to pay and open", net.kyori.adventure.text.format.NamedTextColor.GREEN)
+        ));
+        meta.getPersistentDataContainer().set(mysteryBoxKey, PersistentDataType.STRING, "all");
         icon.setItemMeta(meta);
         inv.setItem(slot, icon);
     }
@@ -313,13 +277,7 @@ public final class ShopVillagerManager implements Listener {
         int[] defaults = defaultSlots(category);
         Map<String, Integer> layout = loadLayout(category);
         if (category.equals("mystery")) {
-            String[] tiers = {"common", "rare", "epic", "legendary"};
-            String[] names = {"COMMON BOX", "RARE BOX", "EPIC BOX", "LEGENDARY BOX"};
-            int[] prices = {15, 25, 35, 50};
-            Material[] icons = {Material.CHEST, Material.ENDER_CHEST, Material.SHULKER_BOX, Material.DRAGON_EGG};
-            int[] slots = {20, 22, 24, 31};
-            for (int i = 0; i < tiers.length; i++) addMysteryBoxIcon(inv,
-                layout.getOrDefault(tiers[i], slots[i]), tiers[i], names[i], prices[i], icons[i]);
+            addMysteryBoxIcon(inv, 22);
         } else if (category.equals("mythical")) {
             String[] ids = {"rain", "stab", "lunar", "nuke", "switcher"};
             String[] names = {"RAIN ORBITAL", "STAB ORBITAL", "LUNAR ORBITAL", "NUKE ORBITAL", "SWITCHER"};
@@ -441,9 +399,9 @@ public final class ShopVillagerManager implements Listener {
             (plainTitle.startsWith("Kit") || plainTitle.startsWith("Restock")) ? "kits" :
             plainTitle.startsWith("Mythical") ? "mythical" : "seller";
         if (category.equals("mystery")) {
-            String tier = clicked.getItemMeta().getPersistentDataContainer().get(mysteryBoxKey, PersistentDataType.STRING);
-            if (tier == null) return;
-            openMysteryBox(player, tier);
+            String box = clicked.getItemMeta().getPersistentDataContainer().get(mysteryBoxKey, PersistentDataType.STRING);
+            if (!"all".equals(box)) return;
+            openMysteryBox(player);
             return;
         }
         if (category.equals("mythical")) {
@@ -466,77 +424,57 @@ public final class ShopVillagerManager implements Listener {
         }
     }
 
-    private void openMysteryBox(Player player, String tier) {
-        int price = switch (tier) {
-            case "common" -> 15;
-            case "rare" -> 25;
-            case "epic" -> 35;
-            case "legendary" -> 50;
-            default -> -1;
-        };
-        if (price < 0) return;
+    private void openMysteryBox(Player player) {
+        final int price = 50;
         if (!takeCore(player, price)) {
-            player.sendMessage(Component.text("You need " + price + " Cores to open this Mystery Box."));
+            player.sendMessage(Component.text("You need 50 Cores to open this Mystery Box."));
             return;
         }
-        ItemStack reward = rollMysteryReward(tier);
+        ItemStack reward = rollMysteryReward();
         give(player, reward);
-        String rarity = tier.substring(0, 1).toUpperCase(java.util.Locale.ROOT) + tier.substring(1);
-        player.sendMessage(Component.text("MYSTERY BOX • " + rarity + " reward: " + reward.getType().name().replace('_', ' '),
+        player.sendMessage(Component.text("MYSTERY BOX • You won: " + reward.getType().name().replace('_', ' '),
             net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE));
     }
 
-    private ItemStack rollMysteryReward(String tier) {
+    private ItemStack rollMysteryReward() {
         List<ItemStack> rewards = new ArrayList<>();
-        switch (tier) {
-            case "common" -> {
-                rewards.add(new ItemStack(Material.GOLDEN_APPLE, 8));
-                rewards.add(new ItemStack(Material.ENDER_PEARL, 12));
-                rewards.add(new ItemStack(Material.COOKED_BEEF, 32));
-                rewards.add(new ItemStack(Material.ARROW, 32));
-                rewards.add(new ItemStack(Material.COBWEB, 12));
-                rewards.add(new ItemStack(Material.EXPERIENCE_BOTTLE, 24));
-            }
-            case "rare" -> {
-                rewards.add(new ItemStack(Material.GOLDEN_APPLE, 24));
-                rewards.add(new ItemStack(Material.ENDER_PEARL, 24));
-                rewards.add(new ItemStack(Material.TOTEM_OF_UNDYING, 1));
-                rewards.add(kitEnchanted(Material.DIAMOND_SWORD, Enchantment.SHARPNESS, 5));
-                rewards.add(kitEnchanted(Material.DIAMOND_PICKAXE, Enchantment.EFFICIENCY, 5));
-                rewards.add(new ItemStack(Material.DIAMOND, 12));
-            }
-            case "epic" -> {
-                rewards.add(new ItemStack(Material.TOTEM_OF_UNDYING, 2));
-                rewards.add(new ItemStack(Material.HEAVY_CORE, 1));
-                rewards.add(kitArmor(Material.DIAMOND_CHESTPLATE, false));
-                ItemStack mace = kitEnchanted(Material.MACE, Enchantment.DENSITY, 5);
-                mace.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-                rewards.add(mace);
-                rewards.add(new ItemStack(Material.NETHERITE_INGOT, 2));
-                rewards.add(kitEnchanted(Material.NETHERITE_SWORD, Enchantment.SHARPNESS, 5));
-            }
-            case "legendary" -> {
-                rewards.add(new ItemStack(Material.HEAVY_CORE, 2));
-                rewards.add(new ItemStack(Material.TOTEM_OF_UNDYING, 4));
-                ItemStack mace = kitEnchanted(Material.MACE, Enchantment.DENSITY, 5);
-                mace.addUnsafeEnchantment(Enchantment.WIND_BURST, 3);
-                mace.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-                mace.addUnsafeEnchantment(Enchantment.MENDING, 1);
-                rewards.add(mace);
-                ItemStack sword = kitEnchanted(Material.NETHERITE_SWORD, Enchantment.SHARPNESS, 5);
-                sword.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-                sword.addUnsafeEnchantment(Enchantment.LOOTING, 3);
-                sword.addUnsafeEnchantment(Enchantment.MENDING, 1);
-                rewards.add(sword);
-                rewards.add(kitArmor(Material.NETHERITE_CHESTPLATE, false));
-                rewards.add(new ItemStack(Material.NETHERITE_INGOT, 4));
-            }
-            default -> rewards.add(new ItemStack(Material.COOKED_BEEF, 16));
-        }
+        rewards.add(new ItemStack(Material.GOLDEN_APPLE, 8));
+        rewards.add(new ItemStack(Material.ENDER_PEARL, 12));
+        rewards.add(new ItemStack(Material.COOKED_BEEF, 32));
+        rewards.add(new ItemStack(Material.ARROW, 32));
+        rewards.add(new ItemStack(Material.COBWEB, 12));
+        rewards.add(new ItemStack(Material.EXPERIENCE_BOTTLE, 24));
+        rewards.add(new ItemStack(Material.GOLDEN_APPLE, 24));
+        rewards.add(new ItemStack(Material.ENDER_PEARL, 24));
+        rewards.add(new ItemStack(Material.TOTEM_OF_UNDYING, 1));
+        rewards.add(kitEnchanted(Material.DIAMOND_SWORD, Enchantment.SHARPNESS, 5));
+        rewards.add(kitEnchanted(Material.DIAMOND_PICKAXE, Enchantment.EFFICIENCY, 5));
+        rewards.add(new ItemStack(Material.DIAMOND, 12));
+        rewards.add(new ItemStack(Material.TOTEM_OF_UNDYING, 2));
+        rewards.add(new ItemStack(Material.HEAVY_CORE, 1));
+        rewards.add(kitArmor(Material.DIAMOND_CHESTPLATE, false));
+        ItemStack epicMace = kitEnchanted(Material.MACE, Enchantment.DENSITY, 5);
+        epicMace.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+        rewards.add(epicMace);
+        rewards.add(new ItemStack(Material.NETHERITE_INGOT, 2));
+        rewards.add(kitEnchanted(Material.NETHERITE_SWORD, Enchantment.SHARPNESS, 5));
+        rewards.add(new ItemStack(Material.HEAVY_CORE, 2));
+        rewards.add(new ItemStack(Material.TOTEM_OF_UNDYING, 4));
+        ItemStack legendaryMace = kitEnchanted(Material.MACE, Enchantment.DENSITY, 5);
+        legendaryMace.addUnsafeEnchantment(Enchantment.WIND_BURST, 3);
+        legendaryMace.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+        legendaryMace.addUnsafeEnchantment(Enchantment.MENDING, 1);
+        rewards.add(legendaryMace);
+        ItemStack sword = kitEnchanted(Material.NETHERITE_SWORD, Enchantment.SHARPNESS, 5);
+        sword.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+        sword.addUnsafeEnchantment(Enchantment.LOOTING, 3);
+        sword.addUnsafeEnchantment(Enchantment.MENDING, 1);
+        rewards.add(sword);
+        rewards.add(kitArmor(Material.NETHERITE_CHESTPLATE, false));
+        rewards.add(new ItemStack(Material.NETHERITE_INGOT, 4));
         return rewards.get(java.util.concurrent.ThreadLocalRandom.current().nextInt(rewards.size())).clone();
     }
 
-    @EventHandler
     public void onShopDrag(InventoryDragEvent event) {
         String title = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(event.getView().title());
         if (title.startsWith("Edit ") && title.endsWith(" Shop")) {
