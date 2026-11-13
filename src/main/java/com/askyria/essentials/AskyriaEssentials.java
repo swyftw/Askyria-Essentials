@@ -865,7 +865,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
 
     @EventHandler
     public void onSpawnBlockBreak(BlockBreakEvent event) {
-        if (isInSpawnProtection(event.getBlock().getLocation())) {
+        if (!event.getPlayer().isOp() && isInSpawnProtection(event.getBlock().getLocation())) {
             event.setCancelled(true);
             denySpawnAction(event.getPlayer());
         }
@@ -873,7 +873,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
 
     @EventHandler
     public void onSpawnBlockPlace(BlockPlaceEvent event) {
-        if (isInSpawnProtection(event.getBlock().getLocation())) {
+        if (!event.getPlayer().isOp() && isInSpawnProtection(event.getBlock().getLocation())) {
             event.setCancelled(true);
             denySpawnAction(event.getPlayer());
         }
@@ -881,7 +881,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
 
     @EventHandler
     public void onSpawnBucketEmpty(PlayerBucketEmptyEvent event) {
-        if (isInSpawnProtection(event.getBlock().getRelative(event.getBlockFace()).getLocation())) {
+        if (!event.getPlayer().isOp() && isInSpawnProtection(event.getBlock().getRelative(event.getBlockFace()).getLocation())) {
             event.setCancelled(true);
             denySpawnAction(event.getPlayer());
         }
@@ -889,7 +889,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
 
     @EventHandler
     public void onSpawnBucketFill(PlayerBucketFillEvent event) {
-        if (isInSpawnProtection(event.getBlock().getLocation())) {
+        if (!event.getPlayer().isOp() && isInSpawnProtection(event.getBlock().getLocation())) {
             event.setCancelled(true);
             denySpawnAction(event.getPlayer());
         }
