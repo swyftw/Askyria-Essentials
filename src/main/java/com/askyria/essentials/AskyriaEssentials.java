@@ -77,6 +77,8 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private final Map<UUID, String> rawTags = new HashMap<>();
     private final Map<UUID, String> rawIgnColors = new HashMap<>();
     private final Map<UUID, Long> combatUntil = new HashMap<>();
+    private final Map<UUID, BukkitTask> spawnTeleportTasks = new HashMap<>();
+    private final Map<UUID, Long> spawnCooldowns = new HashMap<>();
     private final Map<UUID, Long> rankAbilityCooldowns = new HashMap<>();
     private final Map<UUID, Scoreboard> cooldownOriginalBoards = new HashMap<>();
     private final Map<UUID, Scoreboard> cooldownBoards = new HashMap<>();
@@ -219,6 +221,8 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     @Override
     public void onDisable() {
         if (combatTicker != null) combatTicker.cancel();
+        for (BukkitTask task : spawnTeleportTasks.values()) task.cancel();
+        spawnTeleportTasks.clear();
         if (tabTicker != null) tabTicker.cancel();
         if (simulatedPlayersTicker != null) simulatedPlayersTicker.cancel();
         if (shopNpcManager != null) PacketEvents.getAPI().getEventManager().unregisterListener(shopNpcManager);
@@ -432,6 +436,71 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     }
 
 
+    private void cancelSpawnTeleport(Player player, String reason) {
+        BukkitTask task = spawnTeleportTasks.remove(player.getUniqueId());
+        if (task != null) task.cancel();
+        if (reason != null) player.sendMessage(Component.text(reason));
+    }
+
+    private void beginSpawnTeleport(Player player) {
+        UUID id = player.getUniqueId();
+        if (spawnTeleportTasks.containsKey(id)) {
+            player.sendMessage(Component.text("Your spawn teleport is already counting down."));
+            return;
+        }
+        long now = System.currentTimeMillis();
+        Long combatExpiry = combatUntil.get(id);
+        if (combatExpiry != null && combatExpiry > now) {
+            player.sendMessage(Component.text("You cannot teleport to spawn while in combat."));
+            return;
+        }
+        Long cooldownExpiry = spawnCooldowns.get(id);
+        if (!player.isOp() && cooldownExpiry != null && cooldownExpiry > now) {
+            long seconds = Math.max(1L, (cooldownExpiry - now + 999L) / 1000L);
+            player.sendMessage(Component.text("Wait " + seconds + "s before using /spawn again."));
+            return;
+        }
+
+        Location startingLocation = player.getLocation().clone();
+        player.sendMessage(Component.text("Teleporting to spawn in 5 seconds. Don't move or take damage."));
+        final int[] secondsLeft = {5};
+        BukkitTask task = Bukkit.getScheduler().runTaskTimer(this, () -> {
+            if (!player.isOnline()) {
+                BukkitTask current = spawnTeleportTasks.remove(id);
+                if (current != null) current.cancel();
+                return;
+            }
+            if (secondsLeft[0] <= 1) {
+                spawnTeleportTasks.remove(id);
+                BukkitTask current = spawnTeleportTasks.get(id);
+                if (current != null) current.cancel();
+                Location target = player.getWorld().getSpawnLocation();
+                target.setYaw(player.getLocation().getYaw());
+                target.setPitch(player.getLocation().getPitch());
+                player.teleport(target);
+                if (!player.isOp()) spawnCooldowns.put(id, System.currentTimeMillis() + 10_000L);
+                player.sendMessage(Component.text("Teleported to spawn."));
+                return;
+            }
+            secondsLeft[0]--;
+            player.sendActionBar(Component.text("SPAWN IN " + secondsLeft[0] + "..."));
+        }, 20L, 20L);
+        spawnTeleportTasks.put(id, task);
+    }
+
+    @EventHandler
+    public void onSpawnTeleportMove(PlayerMoveEvent event) {
+        if (!spawnTeleportTasks.containsKey(event.getPlayer().getUniqueId())) return;
+        Location from = event.getFrom();
+        Location to = event.getTo();
+        if (to != null && (from.getWorld() != to.getWorld()
+                || from.getBlockX() != to.getBlockX()
+                || from.getBlockY() != to.getBlockY()
+                || from.getBlockZ() != to.getBlockZ())) {
+            cancelSpawnTeleport(event.getPlayer(), "Spawn teleport cancelled because you moved.");
+        }
+    }
+
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         event.joinMessage(null);
@@ -477,6 +546,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     public void onQuit(PlayerQuitEvent event) {
         event.quitMessage(null);
         Player player = event.getPlayer();
+        cancelSpawnTeleport(player, null);
         sentFakeEntries.remove(player.getUniqueId());
         cooldownOriginalBoards.remove(player.getUniqueId());
         cooldownBoards.remove(player.getUniqueId());
@@ -925,6 +995,9 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
 
     @EventHandler
     public void onDamage(EntityDamageEvent event) {
+        if (event.getEntity() instanceof Player damaged && spawnTeleportTasks.containsKey(damaged.getUniqueId())) {
+            cancelSpawnTeleport(damaged, "Spawn teleport cancelled because you took damage.");
+        }
         if (event.getEntity() instanceof Player player && isProtected(player)) event.setCancelled(true);
     }
 
@@ -1066,6 +1139,14 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             }
             case "discord" -> {
                 sender.sendMessage(mini.deserialize("<gold><bold>CORE SMP Discord:</bold></gold> <aqua><underlined>https://discord.gg/CyyhRqTZVE</underlined></aqua>"));
+                return true;
+            }
+            case "spawn" -> {
+                if (!(sender instanceof Player player)) {
+                    sender.sendMessage(Component.text("Only players can use /spawn."));
+                    return true;
+                }
+                beginSpawnTeleport(player);
                 return true;
             }
             case "protection" -> {
