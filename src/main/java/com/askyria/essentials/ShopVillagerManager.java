@@ -19,6 +19,11 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.block.Action;
+import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.ClickType;
@@ -39,6 +44,9 @@ public final class ShopVillagerManager implements Listener {
     private final NamespacedKey shardKey;
     private final NamespacedKey orbitalKey;
     private final NamespacedKey tradeKey;
+    private final NamespacedKey switcherKey;
+    private final Map<java.util.UUID, Long> switcherCooldowns = new HashMap<>();
+    private final Map<java.util.UUID, BukkitTask> switcherReturnTasks = new HashMap<>();
     private final Map<String, Trade> trades = new java.util.LinkedHashMap<>();
     private final Map<java.util.UUID, String> editing = new HashMap<>();
 
@@ -50,6 +58,7 @@ public final class ShopVillagerManager implements Listener {
         this.shardKey = new NamespacedKey(plugin, "core_shard");
         this.orbitalKey = new NamespacedKey(plugin, "orbital_type");
         this.tradeKey = new NamespacedKey(plugin, "core_shop_trade");
+        this.switcherKey = new NamespacedKey(plugin, "switcher_form");
         add("armor_helmet", Material.NETHERITE_HELMET, 1, 1200, "Netherite Helmet (Protection V)", "armor");
         add("armor_chest", Material.NETHERITE_CHESTPLATE, 1, 1800, "Netherite Chestplate (Protection V)", "armor");
         add("armor_legs", Material.NETHERITE_LEGGINGS, 1, 1500, "Netherite Leggings (Protection V)", "armor");
@@ -152,10 +161,10 @@ public final class ShopVillagerManager implements Listener {
         inv.setItem(4, info);
 
         if (category.equals("mythical")) {
-            String[] ids = {"rain", "stab", "lunar", "nuke"};
-            String[] names = {"RAIN ORBITAL", "STAB ORBITAL", "LUNAR ORBITAL", "NUKE ORBITAL"};
-            int[] prices = {500, 700, 1000, 1500};
-            int[] defaults = {20, 22, 24, 31};
+            String[] ids = {"rain", "stab", "lunar", "nuke", "switcher"};
+            String[] names = {"RAIN ORBITAL", "STAB ORBITAL", "LUNAR ORBITAL", "NUKE ORBITAL", "SWITCHER"};
+            int[] prices = {500, 700, 1000, 1500, 2500};
+            int[] defaults = {20, 22, 24, 31, 40};
             Map<String, Integer> layout = loadLayout(category);
             for (int i = 0; i < ids.length; i++) addOrbitalIcon(inv,
                 layout.getOrDefault(ids[i], defaults[i]), ids[i], names[i], prices[i]);
@@ -209,7 +218,7 @@ public final class ShopVillagerManager implements Listener {
     }
 
     private void addOrbitalIcon(Inventory inv, int slot, String type, String display, int price) {
-        ItemStack icon = new ItemStack(Material.FISHING_ROD);
+        ItemStack icon = new ItemStack(type.equals("switcher") ? Material.NETHERITE_SWORD : Material.FISHING_ROD);
         ItemMeta meta = icon.getItemMeta();
         meta.displayName(Component.text(display));
         meta.getPersistentDataContainer().set(orbitalKey, PersistentDataType.STRING, type);
@@ -233,9 +242,9 @@ public final class ShopVillagerManager implements Listener {
         int[] defaults = defaultSlots(category);
         Map<String, Integer> layout = loadLayout(category);
         if (category.equals("mythical")) {
-            String[] ids = {"rain", "stab", "lunar", "nuke"};
-            String[] names = {"RAIN ORBITAL", "STAB ORBITAL", "LUNAR ORBITAL", "NUKE ORBITAL"};
-            int[] prices = {500, 700, 1000, 1500};
+            String[] ids = {"rain", "stab", "lunar", "nuke", "switcher"};
+            String[] names = {"RAIN ORBITAL", "STAB ORBITAL", "LUNAR ORBITAL", "NUKE ORBITAL", "SWITCHER"};
+            int[] prices = {500, 700, 1000, 1500, 2500};
             for (int i = 0; i < ids.length; i++) {
                 ItemStack icon = orbitalEditorIcon(ids[i], names[i], prices[i]);
                 inv.setItem(layout.getOrDefault(ids[i], defaults[i]), icon);
@@ -267,7 +276,7 @@ public final class ShopVillagerManager implements Listener {
 
     private int[] defaultSlots(String category) {
         if (category.equals("armor")) return new int[]{20, 22, 24, 30, 32};
-        if (category.equals("mythical")) return new int[]{20, 22, 24, 31};
+        if (category.equals("mythical")) return new int[]{20, 22, 24, 31, 40};
         if (category.equals("kits")) return new int[]{
             10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34
         };
@@ -287,7 +296,7 @@ public final class ShopVillagerManager implements Listener {
     }
 
     private ItemStack orbitalEditorIcon(String type, String name, int price) {
-        ItemStack icon = new ItemStack(Material.FISHING_ROD);
+        ItemStack icon = new ItemStack(type.equals("switcher") ? Material.NETHERITE_SWORD : Material.FISHING_ROD);
         ItemMeta meta = icon.getItemMeta();
         meta.displayName(Component.text(name));
         meta.getPersistentDataContainer().set(orbitalKey, PersistentDataType.STRING, type);
@@ -351,10 +360,11 @@ public final class ShopVillagerManager implements Listener {
         if (category.equals("mythical")) {
             String type = clicked.getItemMeta().getPersistentDataContainer().get(orbitalKey, PersistentDataType.STRING);
             if (type == null) return;
-            int price = switch (type) { case "rain" -> 500; case "stab" -> 700; case "lunar" -> 1000; default -> 1500; };
+            int price = switch (type) { case "rain" -> 500; case "stab" -> 700; case "lunar" -> 1000; case "switcher" -> 2500; default -> 1500; };
             if (!takeCore(player, price)) { player.sendMessage(Component.text("You need " + price + " Core (Nether Stars).")); return; }
-            player.getInventory().addItem(createOrbital(type)).values().forEach(drop -> player.getWorld().dropItemNaturally(player.getLocation(), drop));
-            player.sendMessage(Component.text("Purchased " + type.toUpperCase() + " Orbital."));
+            ItemStack reward = type.equals("switcher") ? createSwitcherSword() : createOrbital(type);
+            player.getInventory().addItem(reward).values().forEach(drop -> player.getWorld().dropItemNaturally(player.getLocation(), drop));
+            player.sendMessage(Component.text(type.equals("switcher") ? "Purchased SWITCHER. Sneak + right-click to transform it." : "Purchased " + type.toUpperCase() + " Orbital."));
             return;
         }
         String tradeId = clicked.getItemMeta().getPersistentDataContainer().get(tradeKey, PersistentDataType.STRING);
@@ -610,6 +620,105 @@ public final class ShopVillagerManager implements Listener {
         player.getInventory().setStorageContents(contents);
         giveCore(player, trade.price());
         player.sendMessage(Component.text("Sold " + trade.amount() + " " + trade.display() + " for " + trade.price() + " Core."));
+    }
+
+    private ItemStack createSwitcherSword() {
+        ItemStack item = new ItemStack(Material.NETHERITE_SWORD);
+        item.addUnsafeEnchantment(Enchantment.SHARPNESS, 5);
+        item.addUnsafeEnchantment(Enchantment.FIRE_ASPECT, 2);
+        item.addUnsafeEnchantment(Enchantment.LOOTING, 3);
+        item.addUnsafeEnchantment(Enchantment.SWEEPING_EDGE, 3);
+        item.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+        item.addUnsafeEnchantment(Enchantment.MENDING, 1);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(Component.text("SWITCHER", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE)
+            .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true));
+        meta.lore(List.of(Component.text("Sneak + right-click to become a mace"),
+            Component.text("Mace form: 2 minutes"), Component.text("Cooldown: 5 minutes")));
+        meta.getPersistentDataContainer().set(switcherKey, PersistentDataType.STRING, "sword");
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack createSwitcherMace() {
+        ItemStack item = new ItemStack(Material.MACE);
+        item.addUnsafeEnchantment(Enchantment.DENSITY, 5);
+        item.addUnsafeEnchantment(Enchantment.WIND_BURST, 3);
+        item.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+        item.addUnsafeEnchantment(Enchantment.MENDING, 1);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(Component.text("SWITCHER • MACE FORM", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE)
+            .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true));
+        meta.lore(List.of(Component.text("Deals double damage"),
+            Component.text("Returns to sword form after 2 minutes")));
+        meta.getPersistentDataContainer().set(switcherKey, PersistentDataType.STRING, "mace");
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    @EventHandler
+    public void onSwitcherActivate(PlayerInteractEvent event) {
+        if (event.getHand() != EquipmentSlot.HAND) return;
+        if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        Player player = event.getPlayer();
+        if (!player.isSneaking()) return;
+        ItemStack held = event.getItem();
+        if (held == null || !held.hasItemMeta()) return;
+        String form = held.getItemMeta().getPersistentDataContainer().get(switcherKey, PersistentDataType.STRING);
+        if (!"sword".equals(form)) return;
+        event.setCancelled(true);
+        long now = System.currentTimeMillis();
+        long expiry = switcherCooldowns.getOrDefault(player.getUniqueId(), 0L);
+        if (expiry > now) {
+            long seconds = (expiry - now + 999L) / 1000L;
+            player.sendActionBar(Component.text("SWITCHER COOLDOWN • " + (seconds / 60) + "m " + (seconds % 60) + "s"));
+            return;
+        }
+        int slot = player.getInventory().getHeldItemSlot();
+        player.getInventory().setItem(slot, createSwitcherMace());
+        java.util.UUID id = player.getUniqueId();
+        switcherCooldowns.put(id, now + 300_000L);
+        BukkitTask previous = switcherReturnTasks.remove(id);
+        if (previous != null) previous.cancel();
+        BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            Player online = Bukkit.getPlayer(id);
+            if (online != null) restoreSwitcherSword(online);
+            switcherReturnTasks.remove(id);
+        }, 2400L);
+        switcherReturnTasks.put(id, task);
+        player.sendMessage(Component.text("SWITCHER activated. Mace form lasts 2 minutes; cooldown is 5 minutes."));
+    }
+
+    private void restoreSwitcherSword(Player player) {
+        for (int slot = 0; slot < player.getInventory().getSize(); slot++) {
+            ItemStack item = player.getInventory().getItem(slot);
+            if (item == null || !item.hasItemMeta()) continue;
+            String form = item.getItemMeta().getPersistentDataContainer().get(switcherKey, PersistentDataType.STRING);
+            if ("mace".equals(form)) {
+                player.getInventory().setItem(slot, createSwitcherSword());
+                player.sendMessage(Component.text("SWITCHER returned to sword form."));
+                return;
+            }
+        }
+        ItemStack offhand = player.getInventory().getItemInOffHand();
+        if (offhand.hasItemMeta() && "mace".equals(offhand.getItemMeta().getPersistentDataContainer().get(switcherKey, PersistentDataType.STRING))) {
+            player.getInventory().setItemInOffHand(createSwitcherSword());
+            player.sendMessage(Component.text("SWITCHER returned to sword form."));
+        }
+    }
+
+    @EventHandler
+    public void onSwitcherMaceDamage(EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof Player player)) return;
+        ItemStack weapon = player.getInventory().getItemInMainHand();
+        if (weapon == null || !weapon.hasItemMeta()) return;
+        if ("mace".equals(weapon.getItemMeta().getPersistentDataContainer().get(switcherKey, PersistentDataType.STRING))) {
+            event.setDamage(event.getDamage() * 2.0);
+        }
+    }
+
+    public long getSwitcherCooldownSeconds(Player player) {
+        return Math.max(0L, (switcherCooldowns.getOrDefault(player.getUniqueId(), 0L) - System.currentTimeMillis() + 999L) / 1000L);
     }
 
     private ItemStack createOrbital(String type) {
