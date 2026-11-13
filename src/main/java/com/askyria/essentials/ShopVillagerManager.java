@@ -255,7 +255,7 @@ public final class ShopVillagerManager implements Listener {
             }
             give(player, item);
         }
-        player.sendMessage(Component.text("Purchase complete. Core balance: " + getBalance(player) + "."));
+        player.sendMessage(Component.text("Purchase complete. " + trade.price() + " Core spent."));
     }
 
     private ItemStack enchantedArmor(Material material) {
