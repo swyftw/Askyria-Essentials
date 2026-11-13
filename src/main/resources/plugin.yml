@@ -68,3 +68,6 @@ commands:
   shopvillager:
     description: Manage custom CORE SMP shop villagers (OP only)
     usage: /shopvillager <spawn|remove|removeall>
+  core:
+    description: View or manage CORE SMP currency balances
+    usage: /core balance OR /core <give|set|take> <player> <amount>
