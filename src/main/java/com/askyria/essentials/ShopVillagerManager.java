@@ -50,35 +50,35 @@ public final class ShopVillagerManager implements Listener {
         this.shardKey = new NamespacedKey(plugin, "core_shard");
         this.orbitalKey = new NamespacedKey(plugin, "orbital_type");
         this.tradeKey = new NamespacedKey(plugin, "core_shop_trade");
-        add("armor_helmet", Material.NETHERITE_HELMET, 1, 600, "Netherite Helmet (Protection V)", "armor");
-        add("armor_chest", Material.NETHERITE_CHESTPLATE, 1, 900, "Netherite Chestplate (Protection V)", "armor");
-        add("armor_legs", Material.NETHERITE_LEGGINGS, 1, 750, "Netherite Leggings (Protection V)", "armor");
-        add("armor_boots", Material.NETHERITE_BOOTS, 1, 600, "Netherite Boots (Protection V)", "armor");
-        add("armor_set", Material.NETHERITE_INGOT, 1, 2700, "Full Netherite Set (Protection V)", "armor");
+        add("armor_helmet", Material.NETHERITE_HELMET, 1, 1200, "Netherite Helmet (Protection V)", "armor");
+        add("armor_chest", Material.NETHERITE_CHESTPLATE, 1, 1800, "Netherite Chestplate (Protection V)", "armor");
+        add("armor_legs", Material.NETHERITE_LEGGINGS, 1, 1500, "Netherite Leggings (Protection V)", "armor");
+        add("armor_boots", Material.NETHERITE_BOOTS, 1, 1200, "Netherite Boots (Protection V)", "armor");
+        add("armor_set", Material.NETHERITE_INGOT, 1, 5200, "Full Netherite Set (Protection V)", "armor");
 
         // Four pre-filled combat kits replace the old Gear shop.
-        add("kit_diamond_mace", Material.SHULKER_BOX, 1, 300, "Diamond Mace Kit", "kits");
-        add("kit_smp", Material.SHULKER_BOX, 1, 350, "SMP Kit", "kits");
-        add("kit_ely_mace", Material.SHULKER_BOX, 1, 450, "Ely Mace Kit", "kits");
-        add("kit_spear_mace", Material.SHULKER_BOX, 1, 500, "Spear Mace Kit", "kits");
+        add("kit_diamond_mace", Material.SHULKER_BOX, 1, 1200, "Diamond Mace Kit", "kits");
+        add("kit_smp", Material.SHULKER_BOX, 1, 1600, "SMP Kit", "kits");
+        add("kit_ely_mace", Material.SHULKER_BOX, 1, 2100, "Ely Mace Kit", "kits");
+        add("kit_spear_mace", Material.SHULKER_BOX, 1, 2400, "Spear Mace Kit", "kits");
 
         // Exactly three ore-block trades, plus rare valuables.
-        add("sell_iron", Material.IRON_BLOCK, 16, 4, "Iron Blocks", "seller");
-        add("sell_diamond_blocks", Material.DIAMOND_BLOCK, 16, 16, "Diamond Blocks", "seller");
-        add("sell_netherite", Material.NETHERITE_BLOCK, 1, 40, "Netherite Blocks", "seller");
-        add("sell_totem", Material.TOTEM_OF_UNDYING, 8, 40, "Totems of Undying", "seller");
-        add("sell_elytra", Material.ELYTRA, 4, 40, "Elytra", "seller");
-        add("sell_heavycore", Material.HEAVY_CORE, 8, 64, "Heavy Cores", "seller");
-        add("sell_star", Material.NETHER_STAR, 16, 80, "Nether Stars", "seller");
-        add("sell_shulker", Material.SHULKER_BOX, 16, 48, "Shulker Boxes", "seller");
-        add("sell_egg", Material.DRAGON_EGG, 1, 1000, "Dragon Egg", "seller");
-        add("sell_netherite_ingots", Material.NETHERITE_INGOT, 8, 24, "Netherite Ingots", "seller");
-        add("sell_diamonds", Material.DIAMOND, 32, 8, "Diamonds", "seller");
-        add("sell_emeralds", Material.EMERALD, 32, 4, "Emeralds", "seller");
-        add("sell_beacon", Material.BEACON, 2, 80, "Beacons", "seller");
-        add("sell_mace", Material.MACE, 1, 100, "Maces", "seller");
-        add("sell_tridents", Material.TRIDENT, 4, 80, "Tridents", "seller");
-        add("sell_egapples", Material.ENCHANTED_GOLDEN_APPLE, 16, 80, "Enchanted Golden Apples", "seller");
+        add("sell_iron", Material.IRON_BLOCK, 16, 1, "Iron Blocks", "seller");
+        add("sell_diamond_blocks", Material.DIAMOND_BLOCK, 16, 8, "Diamond Blocks", "seller");
+        add("sell_netherite", Material.NETHERITE_BLOCK, 1, 20, "Netherite Blocks", "seller");
+        add("sell_totem", Material.TOTEM_OF_UNDYING, 8, 12, "Totems of Undying", "seller");
+        add("sell_elytra", Material.ELYTRA, 4, 16, "Elytra", "seller");
+        add("sell_heavycore", Material.HEAVY_CORE, 8, 24, "Heavy Cores", "seller");
+        add("sell_star", Material.NETHER_STAR, 16, 32, "Nether Stars", "seller");
+        add("sell_shulker", Material.SHULKER_BOX, 16, 12, "Shulker Boxes", "seller");
+        add("sell_egg", Material.DRAGON_EGG, 1, 250, "Dragon Egg", "seller");
+        add("sell_netherite_ingots", Material.NETHERITE_INGOT, 8, 8, "Netherite Ingots", "seller");
+        add("sell_diamonds", Material.DIAMOND, 32, 4, "Diamonds", "seller");
+        add("sell_emeralds", Material.EMERALD, 32, 2, "Emeralds", "seller");
+        add("sell_beacon", Material.BEACON, 2, 40, "Beacons", "seller");
+        add("sell_mace", Material.MACE, 1, 50, "Maces", "seller");
+        add("sell_tridents", Material.TRIDENT, 4, 24, "Tridents", "seller");
+        add("sell_egapples", Material.ENCHANTED_GOLDEN_APPLE, 16, 32, "Enchanted Golden Apples", "seller");
     }
 
     private void add(String id, Material material, int amount, int price, String display, String category) {
@@ -160,7 +160,7 @@ public final class ShopVillagerManager implements Listener {
         if (category.equals("mythical")) {
             String[] ids = {"rain", "stab", "lunar", "nuke"};
             String[] names = {"RAIN ORBITAL", "STAB ORBITAL", "LUNAR ORBITAL", "NUKE ORBITAL"};
-            int[] prices = {100, 125, 175, 250};
+            int[] prices = {500, 700, 1000, 1500};
             int[] defaults = {20, 22, 24, 31};
             Map<String, Integer> layout = loadLayout(category);
             for (int i = 0; i < ids.length; i++) addOrbitalIcon(inv,
@@ -357,7 +357,7 @@ public final class ShopVillagerManager implements Listener {
         if (category.equals("mythical")) {
             String type = clicked.getItemMeta().getPersistentDataContainer().get(orbitalKey, PersistentDataType.STRING);
             if (type == null) return;
-            int price = switch (type) { case "rain" -> 100; case "stab" -> 125; case "lunar" -> 175; default -> 250; };
+            int price = switch (type) { case "rain" -> 500; case "stab" -> 700; case "lunar" -> 1000; default -> 1500; };
             if (!takeCore(player, price)) { player.sendMessage(Component.text("You need " + price + " Core (Nether Stars).")); return; }
             player.getInventory().addItem(createOrbital(type)).values().forEach(drop -> player.getWorld().dropItemNaturally(player.getLocation(), drop));
             player.sendMessage(Component.text("Purchased " + type.toUpperCase() + " Orbital."));
