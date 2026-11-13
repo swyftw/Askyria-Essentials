@@ -80,6 +80,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private BukkitTask simulatedPlayersTicker;
     private SuperTotemManager superTotemManager;
     private ShopVillagerManager shopVillagerManager;
+    private ShopNpcManager shopNpcManager;
     private boolean simulatedPlayersEnabled = false;
     private final List<String> simulatedPlayerNames = new ArrayList<>();
     private final Map<UUID, Set<UUID>> sentFakeEntries = new HashMap<>();
@@ -139,6 +140,10 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         shopVillagerManager = new ShopVillagerManager(this);
         Bukkit.getPluginManager().registerEvents(shopVillagerManager, this);
         getCommand("shopvillager").setExecutor(this);
+        getCommand("shopnpc").setExecutor(this);
+        shopNpcManager = new ShopNpcManager(this, shopVillagerManager);
+        PacketEvents.getAPI().getEventManager().registerListener(shopNpcManager);
+        shopNpcManager.load();
         Bukkit.getPluginManager().registerEvents(new LegacyEnderChestMigration(this), this);
         fakePlayerPacketListener = new PacketListenerAbstract(PacketListenerPriority.NORMAL) {
             @Override
@@ -209,6 +214,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         if (combatTicker != null) combatTicker.cancel();
         if (tabTicker != null) tabTicker.cancel();
         if (simulatedPlayersTicker != null) simulatedPlayersTicker.cancel();
+        if (shopNpcManager != null) PacketEvents.getAPI().getEventManager().unregisterListener(shopNpcManager);
         if (fakePlayerPacketListener != null) {
             PacketEvents.getAPI().getEventManager().unregisterListener(fakePlayerPacketListener);
         }
@@ -893,7 +899,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 openKitsMenu(player);
                 return true;
             }
-            case "shopvillager" -> {
+            case "shopvillager", "shopnpc" -> {
                 if (!requireOp(sender)) return true;
                 if (!(sender instanceof Player player)) {
                     sender.sendMessage(Component.text("Only players can remove shop villagers."));
@@ -908,8 +914,8 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 } else if (args.length == 1 && args[0].equalsIgnoreCase("removeall")) {
                     shopVillagerManager.removeAll(player);
                 } else {
-                    sender.sendMessage(Component.text("Usage: /shopvillager spawn <armor|kits|mythical|seller> OR /shopvillager edit <armor|kits|mythical|seller>"));
-                    sender.sendMessage(Component.text("Or: /shopvillager remove OR /shopvillager removeall"));
+                    sender.sendMessage(Component.text("Usage: /shopnpc spawn <armor|kits|mythical|seller> OR /shopnpc edit <armor|kits|mythical|seller>"));
+                    sender.sendMessage(Component.text("Or: /shopnpc remove <type> OR /shopnpc removeall"));
                 }
                 return true;
             }
