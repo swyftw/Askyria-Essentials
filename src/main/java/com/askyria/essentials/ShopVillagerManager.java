@@ -14,6 +14,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
@@ -127,7 +128,7 @@ public final class ShopVillagerManager implements Listener {
         player.sendMessage(Component.text("Spawned " + displayName + "."));
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onShopVillagerInteract(PlayerInteractEntityEvent event) {
         if (!isShopVillager(event.getRightClicked())) return;
         event.setCancelled(true);
