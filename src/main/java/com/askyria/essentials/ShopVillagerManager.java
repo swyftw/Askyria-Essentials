@@ -248,11 +248,39 @@ public final class ShopVillagerManager implements Listener {
         };
         meta.displayName(Component.text(display, color)
             .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true));
-        meta.lore(List.of(
-            Component.text("Random reward from this rarity pool", net.kyori.adventure.text.format.NamedTextColor.GRAY),
-            Component.text("Price: " + price + " Cores", net.kyori.adventure.text.format.NamedTextColor.YELLOW),
-            Component.text("Click to pay and open", net.kyori.adventure.text.format.NamedTextColor.GREEN)
-        ));
+        List<Component> lore = new ArrayList<>();
+        lore.add(Component.text("POSSIBLE REWARDS:", net.kyori.adventure.text.format.NamedTextColor.GRAY));
+        switch (tier) {
+            case "common" -> {
+                lore.add(Component.text("8 Golden Apples", net.kyori.adventure.text.format.NamedTextColor.WHITE));
+                lore.add(Component.text("12 Ender Pearls • 32 Beef", net.kyori.adventure.text.format.NamedTextColor.WHITE));
+                lore.add(Component.text("32 Arrows • 12 Cobwebs", net.kyori.adventure.text.format.NamedTextColor.WHITE));
+                lore.add(Component.text("24 XP Bottles", net.kyori.adventure.text.format.NamedTextColor.WHITE));
+            }
+            case "rare" -> {
+                lore.add(Component.text("24 Golden Apples • 24 Pearls", net.kyori.adventure.text.format.NamedTextColor.AQUA));
+                lore.add(Component.text("Totem of Undying", net.kyori.adventure.text.format.NamedTextColor.AQUA));
+                lore.add(Component.text("Sharpness V Diamond Sword", net.kyori.adventure.text.format.NamedTextColor.AQUA));
+                lore.add(Component.text("Efficiency V Diamond Pickaxe", net.kyori.adventure.text.format.NamedTextColor.AQUA));
+                lore.add(Component.text("12 Diamonds", net.kyori.adventure.text.format.NamedTextColor.AQUA));
+            }
+            case "epic" -> {
+                lore.add(Component.text("2 Totems • Heavy Core", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE));
+                lore.add(Component.text("Diamond Chestplate", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE));
+                lore.add(Component.text("Density V Mace", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE));
+                lore.add(Component.text("2 Netherite Ingots", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE));
+                lore.add(Component.text("Sharpness V Netherite Sword", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE));
+            }
+            case "legendary" -> {
+                lore.add(Component.text("2 Heavy Cores • 4 Totems", net.kyori.adventure.text.format.NamedTextColor.GOLD));
+                lore.add(Component.text("Density V + Wind Burst III Mace", net.kyori.adventure.text.format.NamedTextColor.GOLD));
+                lore.add(Component.text("Maxed Netherite Sword", net.kyori.adventure.text.format.NamedTextColor.GOLD));
+                lore.add(Component.text("Netherite Chestplate • 4 Ingots", net.kyori.adventure.text.format.NamedTextColor.GOLD));
+            }
+        }
+        lore.add(Component.text("Price: " + price + " Cores", net.kyori.adventure.text.format.NamedTextColor.YELLOW));
+        lore.add(Component.text("Click to pay and open", net.kyori.adventure.text.format.NamedTextColor.GREEN));
+        meta.lore(lore);
         meta.getPersistentDataContainer().set(mysteryBoxKey, PersistentDataType.STRING, tier);
         icon.setItemMeta(meta);
         inv.setItem(slot, icon);
