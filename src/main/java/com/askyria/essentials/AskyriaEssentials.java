@@ -902,16 +902,15 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                     sender.sendMessage(Component.text("Only players can remove shop villagers."));
                     return true;
                 }
-                if (args.length != 1) {
-                    sender.sendMessage(Component.text("Usage: /shopvillager remove OR /shopvillager removeall"));
-                    return true;
-                }
-                if (args[0].equalsIgnoreCase("remove")) {
+                if (args.length == 2 && args[0].equalsIgnoreCase("spawn")) {
+                    shopVillagerManager.spawnShopVillager(player, args[1]);
+                } else if (args.length == 1 && args[0].equalsIgnoreCase("remove")) {
                     shopVillagerManager.removeTargeted(player);
-                } else if (args[0].equalsIgnoreCase("removeall")) {
+                } else if (args.length == 1 && args[0].equalsIgnoreCase("removeall")) {
                     shopVillagerManager.removeAll(player);
                 } else {
-                    sender.sendMessage(Component.text("Usage: /shopvillager remove OR /shopvillager removeall"));
+                    sender.sendMessage(Component.text("Usage: /shopvillager spawn <armor|normal|mythical|seller>"));
+                    sender.sendMessage(Component.text("Or: /shopvillager remove OR /shopvillager removeall"));
                 }
                 return true;
             }
@@ -1108,8 +1107,14 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 if (player.getName().toLowerCase().startsWith(args[0].toLowerCase())) suggestions.add(player.getName());
             }
         } else if (command.getName().equalsIgnoreCase("shopvillager") && sender.isOp() && args.length == 1) {
-            for (String option : List.of("remove", "removeall")) {
-                if (option.startsWith(args[0].toLowerCase())) suggestions.add(option);
+            if (args.length == 1) {
+                for (String option : List.of("spawn", "remove", "removeall")) {
+                    if (option.startsWith(args[0].toLowerCase())) suggestions.add(option);
+                }
+            } else if (args.length == 2 && args[0].equalsIgnoreCase("spawn")) {
+                for (String type : List.of("armor", "normal", "mythical", "seller")) {
+                    if (type.startsWith(args[1].toLowerCase())) suggestions.add(type);
+                }
             }
         } else if (command.getName().equalsIgnoreCase("playertag")) {
             if (!sender.isOp()) return suggestions;
