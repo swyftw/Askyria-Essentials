@@ -241,7 +241,7 @@ public final class ShopVillagerManager implements Listener {
         if (category.equals("mythical")) {
             String[] ids = {"rain", "stab", "lunar", "nuke"};
             String[] names = {"RAIN ORBITAL", "STAB ORBITAL", "LUNAR ORBITAL", "NUKE ORBITAL"};
-            int[] prices = {100, 125, 175, 250};
+            int[] prices = {500, 700, 1000, 1500};
             for (int i = 0; i < ids.length; i++) {
                 ItemStack icon = orbitalEditorIcon(ids[i], names[i], prices[i]);
                 inv.setItem(layout.getOrDefault(ids[i], defaults[i]), icon);
