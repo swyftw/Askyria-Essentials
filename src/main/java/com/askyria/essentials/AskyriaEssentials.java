@@ -166,9 +166,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         };
         PacketEvents.getAPI().getEventManager().registerListener(fakePlayerPacketListener);
         loadRandomSkinPool();
-        OrbitalManager orbitalManager = new OrbitalManager(this);
-        Bukkit.getPluginManager().registerEvents(orbitalManager, this);
-        getCommand("orbital").setExecutor(orbitalManager);
         superTotemManager = new SuperTotemManager(this);
         Bukkit.getPluginManager().registerEvents(superTotemManager, this);
         getCommand("supertotem").setExecutor(superTotemManager);
