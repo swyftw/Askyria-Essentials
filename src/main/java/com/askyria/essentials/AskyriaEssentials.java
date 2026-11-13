@@ -95,10 +95,11 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private PacketListenerAbstract fakePlayerPacketListener;
     private volatile List<String> statusPlayerNames = List.of();
     private volatile int statusOnlineCount = 0;
+    // Distinct creator skins give the four shop NPCs visibly different looks.
     private static final List<String> SKIN_SOURCE_ACCOUNTS = List.of(
-        "Notch", "jeb_", "Dinnerbone", "Grumm", "Dream", "Technoblade",
-        "CaptainSparklez", "Grian", "MumboJumbo", "GoodTimesWithScar",
-        "DanTDM", "Stampy", "Aphmau", "LDShadowLady", "PrestonPlayz"
+        "Dream", "Technoblade", "Grian", "MumboJumbo", "GoodTimesWithScar",
+        "CaptainSparklez", "DanTDM", "Stampy", "Aphmau", "LDShadowLady",
+        "PrestonPlayz", "jeb_", "Notch", "Dinnerbone", "Grumm"
     );
     private static final List<String> SIMULATED_NAME_POOL = List.of(
         "lucass67", "DragonMoewww", "xXShadow418", "ItsNour23",
