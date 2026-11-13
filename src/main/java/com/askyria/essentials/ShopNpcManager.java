@@ -41,7 +41,7 @@ public final class ShopNpcManager extends PacketListenerAbstract implements List
     private static final Map<String, ShopNpc> DEFINITIONS = Map.of(
         "armor", new ShopNpc("armor", "ARMOR", "Protection V • Netherite Gear", NamedTextColor.AQUA),
         "kits", new ShopNpc("kits", "KITS", "Combat Kits • Choose Your Loadout", NamedTextColor.GREEN),
-        "mythical", new ShopNpc("mythical", "MYTHICAL", "Rare Orbital Weapons", NamedTextColor.LIGHT_PURPLE),
+        "mythical", new ShopNpc("mythical", "MYTHICAL", "MYTHICAL WEAPONS\\nPowerful Weapons • Rare Abilities\\nClaim Legendary Gear", NamedTextColor.LIGHT_PURPLE),
         "seller", new ShopNpc("seller", "SELLER", "Trade Valuables for Core", NamedTextColor.GOLD)
     );
 
