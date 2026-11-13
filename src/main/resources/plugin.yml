@@ -68,3 +68,6 @@ commands:
   shopvillager:
     description: Manage custom CORE SMP shop villagers (OP only)
     usage: /shopvillager <spawn|edit> <armor|kits|mythical|seller> OR remove OR removeall
+  shopnpc:
+    description: Manage player-shaped CORE SMP shop NPCs (OP only)
+    usage: /shopnpc <spawn|edit|remove> <armor|kits|mythical|seller> OR removeall
