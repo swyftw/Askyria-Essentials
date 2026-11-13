@@ -152,6 +152,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         getCommand("shopnpc").setExecutor(this);
         shopNpcManager = new ShopNpcManager(this, shopVillagerManager);
         PacketEvents.getAPI().getEventManager().registerListener(shopNpcManager);
+        Bukkit.getPluginManager().registerEvents(shopNpcManager, this);
         shopNpcManager.load();
         Bukkit.getPluginManager().registerEvents(new LegacyEnderChestMigration(this), this);
         fakePlayerPacketListener = new PacketListenerAbstract(PacketListenerPriority.NORMAL) {
