@@ -493,9 +493,7 @@ public final class ShopVillagerManager implements Listener {
         };
         meta.setDisplayName(name);
         meta.setLore(List.of("§7CORE SMP combat kit", "§ePre-filled shulker box", "§aContents packed inside"));
-        if (!meta.setBlockState(state)) {
-            plugin.getLogger().warning("Could not store contents for kit " + id);
-        }
+        meta.setBlockState(state);
         box.setItemMeta(meta);
         return box;
     }
