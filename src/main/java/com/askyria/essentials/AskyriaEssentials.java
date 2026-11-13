@@ -1089,7 +1089,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 Player target = Bukkit.getPlayerExact(args[0]);
                 if (target == null) { sender.sendMessage(Component.text("That player must be online.")); return true; }
                 if (command.getName().equalsIgnoreCase("invsee")) viewer.openInventory(target.getInventory());
-                else viewer.openInventory(extendedEnderChestManager.getInventory(target));
+                else viewer.openInventory(target.getEnderChest());
                 return true;
             }
             default -> { return false; }
