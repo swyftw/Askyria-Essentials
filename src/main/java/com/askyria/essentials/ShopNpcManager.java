@@ -109,7 +109,8 @@ public final class ShopNpcManager extends PacketListenerAbstract implements List
         removeNpc(type);
         ShopNpc definition = DEFINITIONS.get(type);
         UUID profileId = UUID.nameUUIDFromBytes(("CORE-SMP-SHOP-" + type).getBytes(StandardCharsets.UTF_8));
-        UserProfile profile = new UserProfile(profileId, definition.name().toLowerCase(java.util.Locale.ROOT));
+        UserProfile profile = new UserProfile(profileId, definition.name().toLowerCase(java.util.Locale.ROOT),
+            ((AskyriaEssentials) plugin).getShopNpcSkin(type));
         int entityId = NEXT_ENTITY_ID.getAndIncrement();
         NPC npc = new NPC(profile, entityId, GameMode.SURVIVAL, null, definition.color(),
             Component.text("◆ ", definition.color()).decorate(TextDecoration.BOLD), null);
@@ -118,6 +119,21 @@ public final class ShopNpcManager extends PacketListenerAbstract implements List
         entityTypes.put(entityId, type);
         spawnDescription(type, location);
         for (Player player : Bukkit.getOnlinePlayers()) spawnForPlayer(player);
+    }
+
+    public void refreshSkins() {
+        for (String type : new ArrayList<>(npcs.keySet())) {
+            String worldName = plugin.getConfig().getString("shop-npcs." + type + ".world");
+            World world = worldName == null ? null : Bukkit.getWorld(worldName);
+            if (world == null) continue;
+            Location location = new Location(world,
+                plugin.getConfig().getDouble("shop-npcs." + type + ".x"),
+                plugin.getConfig().getDouble("shop-npcs." + type + ".y"),
+                plugin.getConfig().getDouble("shop-npcs." + type + ".z"),
+                (float) plugin.getConfig().getDouble("shop-npcs." + type + ".yaw"),
+                0f);
+            createNpc(type, location);
+        }
     }
 
     private void spawnDescription(String type, Location location) {
