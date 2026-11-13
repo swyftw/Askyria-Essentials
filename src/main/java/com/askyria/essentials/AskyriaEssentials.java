@@ -48,6 +48,12 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.block.BlockExplodeEvent;
+import org.bukkit.event.player.PlayerBucketEmptyEvent;
+import org.bukkit.event.player.PlayerBucketFillEvent;
+import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.enchantments.Enchantment;
@@ -234,7 +240,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         if (expiry == null) return false;
         if (expiry <= System.currentTimeMillis()) {
             protectedUntil.remove(player.getUniqueId());
-            player.sendMessage(Component.text("Your protection has expired! You can now take damage."));
             saveProtectionData();
             return false;
         }
@@ -432,15 +437,15 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         Player player = event.getPlayer();
         UUID id = player.getUniqueId();
         if (!getConfig().getBoolean("seen-player." + id, false)) {
-            long expiry = System.currentTimeMillis() + 300_000L;
+            long expiry = System.currentTimeMillis() + 600_000L;
             protectedUntil.put(id, expiry);
             getConfig().set("seen-player." + id, true);
             getConfig().set("protected-players." + id, expiry);
             player.getInventory().addItem(new ItemStack(Material.COOKED_BEEF, 20));
-            player.sendMessage(Component.text("Welcome! You have 5 minutes of full protection. Use /protection clear to remove it early."));
+            player.sendActionBar(Component.text("NEW PLAYER PROTECTION • 10:00"));
             saveConfig();
         } else if (isProtected(player)) {
-            player.sendMessage(Component.text("Your new-player protection is still active."));
+            player.sendActionBar(Component.text("NEW PLAYER PROTECTION IS ACTIVE"));
         }
         String raw = rawTags.get(id);
         if (raw != null) applyTagToOnlinePlayer(id, raw);
@@ -536,6 +541,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             Bukkit.getScheduler().runTask(this, () -> {
                 randomSkinPool = List.copyOf(unique.values());
                 assignRandomSkins();
+                if (shopNpcManager != null) shopNpcManager.refreshSkins();
                 // Re-send profile entries so clients receive the skin textures after loading.
                 sentFakeEntries.clear();
                 updateTabLists();
@@ -557,6 +563,17 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             getLogger().warning("Only " + skinCount + " unique skins loaded for "
                 + simulatedPlayerNames.size() + " display names; remaining names will use the default skin.");
         }
+    }
+
+    public List<TextureProperty> getShopNpcSkin(String type) {
+        if (randomSkinPool.isEmpty()) return List.of();
+        int index = switch (type) {
+            case "armor" -> 0;
+            case "kits" -> 1;
+            case "mythical" -> 2;
+            default -> 3;
+        };
+        return randomSkinPool.get(index % randomSkinPool.size());
     }
 
     private UUID fakeProfileId(String name) {
@@ -831,6 +848,62 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         }
     }
 
+    private boolean isInSpawnProtection(Location location) {
+        if (location == null || location.getWorld() == null) return false;
+        int radius = Math.max(0, getConfig().getInt("spawn-protection-radius", 100));
+        Location spawn = location.getWorld().getSpawnLocation();
+        if (!location.getWorld().equals(spawn.getWorld())) return false;
+        double dx = location.getX() - spawn.getX();
+        double dz = location.getZ() - spawn.getZ();
+        return dx * dx + dz * dz <= (double) radius * radius;
+    }
+
+    private void denySpawnAction(Player player) {
+        player.sendActionBar(Component.text("SPAWN IS PROTECTED"));
+    }
+
+    @EventHandler
+    public void onSpawnBlockBreak(BlockBreakEvent event) {
+        if (isInSpawnProtection(event.getBlock().getLocation())) {
+            event.setCancelled(true);
+            denySpawnAction(event.getPlayer());
+        }
+    }
+
+    @EventHandler
+    public void onSpawnBlockPlace(BlockPlaceEvent event) {
+        if (isInSpawnProtection(event.getBlock().getLocation())) {
+            event.setCancelled(true);
+            denySpawnAction(event.getPlayer());
+        }
+    }
+
+    @EventHandler
+    public void onSpawnBucketEmpty(PlayerBucketEmptyEvent event) {
+        if (isInSpawnProtection(event.getBlock().getRelative(event.getBlockFace()).getLocation())) {
+            event.setCancelled(true);
+            denySpawnAction(event.getPlayer());
+        }
+    }
+
+    @EventHandler
+    public void onSpawnBucketFill(PlayerBucketFillEvent event) {
+        if (isInSpawnProtection(event.getBlock().getLocation())) {
+            event.setCancelled(true);
+            denySpawnAction(event.getPlayer());
+        }
+    }
+
+    @EventHandler
+    public void onSpawnEntityExplosion(EntityExplodeEvent event) {
+        if (isInSpawnProtection(event.getLocation())) event.blockList().clear();
+    }
+
+    @EventHandler
+    public void onSpawnBlockExplosion(BlockExplodeEvent event) {
+        if (isInSpawnProtection(event.getBlock().getLocation())) event.blockList().clear();
+    }
+
     @EventHandler
     public void onDamage(EntityDamageEvent event) {
         if (event.getEntity() instanceof Player player && isProtected(player)) event.setCancelled(true);
@@ -848,6 +921,14 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
 
     @EventHandler
     public void onDamageByEntity(EntityDamageByEntityEvent event) {
+        Player spawnVictim = event.getEntity() instanceof Player p ? p : null;
+        Player spawnAttacker = attackerFrom(event.getDamager());
+        if ((spawnVictim != null && isInSpawnProtection(spawnVictim.getLocation()))
+                || (spawnAttacker != null && isInSpawnProtection(spawnAttacker.getLocation()))) {
+            event.setCancelled(true);
+            if (spawnAttacker != null) denySpawnAction(spawnAttacker);
+            return;
+        }
         if (event.getEntity() instanceof Player victim && isProtected(victim)) {
             event.setCancelled(true);
             return;
