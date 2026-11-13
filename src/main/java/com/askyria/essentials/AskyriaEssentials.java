@@ -464,16 +464,16 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         Location startingLocation = player.getLocation().clone();
         player.sendMessage(Component.text("Teleporting to spawn in 5 seconds. Don't move or take damage."));
         final int[] secondsLeft = {5};
-        BukkitTask task = Bukkit.getScheduler().runTaskTimer(this, () -> {
+        final BukkitTask[] taskRef = new BukkitTask[1];
+        taskRef[0] = Bukkit.getScheduler().runTaskTimer(this, () -> {
             if (!player.isOnline()) {
-                BukkitTask current = spawnTeleportTasks.remove(id);
-                if (current != null) current.cancel();
+                spawnTeleportTasks.remove(id);
+                taskRef[0].cancel();
                 return;
             }
             if (secondsLeft[0] <= 1) {
                 spawnTeleportTasks.remove(id);
-                BukkitTask current = spawnTeleportTasks.get(id);
-                if (current != null) current.cancel();
+                taskRef[0].cancel();
                 Location target = player.getWorld().getSpawnLocation();
                 target.setYaw(player.getLocation().getYaw());
                 target.setPitch(player.getLocation().getPitch());
@@ -485,7 +485,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             secondsLeft[0]--;
             player.sendActionBar(Component.text("SPAWN IN " + secondsLeft[0] + "..."));
         }, 20L, 20L);
-        spawnTeleportTasks.put(id, task);
+        spawnTeleportTasks.put(id, taskRef[0]);
     }
 
     @EventHandler
@@ -494,9 +494,9 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         Location from = event.getFrom();
         Location to = event.getTo();
         if (to != null && (from.getWorld() != to.getWorld()
-                || from.getBlockX() != to.getBlockX()
-                || from.getBlockY() != to.getBlockY()
-                || from.getBlockZ() != to.getBlockZ())) {
+                || from.getX() != to.getX()
+                || from.getY() != to.getY()
+                || from.getZ() != to.getZ())) {
             cancelSpawnTeleport(event.getPlayer(), "Spawn teleport cancelled because you moved.");
         }
     }
