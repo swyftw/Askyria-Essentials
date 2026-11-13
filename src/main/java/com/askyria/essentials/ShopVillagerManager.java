@@ -59,17 +59,17 @@ public final class ShopVillagerManager implements Listener {
         this.orbitalKey = new NamespacedKey(plugin, "orbital_type");
         this.tradeKey = new NamespacedKey(plugin, "core_shop_trade");
         this.switcherKey = new NamespacedKey(plugin, "switcher_form");
-        add("armor_helmet", Material.NETHERITE_HELMET, 1, 30, "Netherite Helmet (Protection V)", "armor");
-        add("armor_chest", Material.NETHERITE_CHESTPLATE, 1, 40, "Netherite Chestplate (Protection V)", "armor");
-        add("armor_legs", Material.NETHERITE_LEGGINGS, 1, 35, "Netherite Leggings (Protection V)", "armor");
-        add("armor_boots", Material.NETHERITE_BOOTS, 1, 30, "Netherite Boots (Protection V)", "armor");
-        add("armor_set", Material.NETHERITE_INGOT, 1, 120, "Full Netherite Set (Protection V)", "armor");
+        add("armor_helmet", Material.NETHERITE_HELMET, 1, 40, "Netherite Helmet (Protection V)", "armor");
+        add("armor_chest", Material.NETHERITE_CHESTPLATE, 1, 50, "Netherite Chestplate (Protection V)", "armor");
+        add("armor_legs", Material.NETHERITE_LEGGINGS, 1, 45, "Netherite Leggings (Protection V)", "armor");
+        add("armor_boots", Material.NETHERITE_BOOTS, 1, 40, "Netherite Boots (Protection V)", "armor");
+        add("armor_set", Material.NETHERITE_INGOT, 1, 150, "Full Netherite Set (Protection V)", "armor");
 
         // Four pre-filled combat kits replace the old Gear shop.
-        add("kit_diamond_mace", Material.SHULKER_BOX, 1, 30, "Diamond Mace Kit", "kits");
-        add("kit_smp", Material.SHULKER_BOX, 1, 40, "SMP Kit", "kits");
-        add("kit_ely_mace", Material.SHULKER_BOX, 1, 50, "Ely Mace Kit", "kits");
-        add("kit_spear_mace", Material.SHULKER_BOX, 1, 60, "Spear Mace Kit", "kits");
+        add("kit_diamond_mace", Material.SHULKER_BOX, 1, 40, "Diamond Mace Kit", "kits");
+        add("kit_smp", Material.SHULKER_BOX, 1, 50, "SMP Kit", "kits");
+        add("kit_ely_mace", Material.SHULKER_BOX, 1, 65, "Ely Mace Kit", "kits");
+        add("kit_spear_mace", Material.SHULKER_BOX, 1, 75, "Spear Mace Kit", "kits");
 
         // Exactly three ore-block trades, plus rare valuables.
         add("sell_diamond_blocks", Material.DIAMOND_BLOCK, 16, 2, "Diamond Blocks", "seller");
@@ -163,7 +163,7 @@ public final class ShopVillagerManager implements Listener {
         if (category.equals("mythical")) {
             String[] ids = {"rain", "stab", "lunar", "nuke", "switcher"};
             String[] names = {"RAIN ORBITAL", "STAB ORBITAL", "LUNAR ORBITAL", "NUKE ORBITAL", "SWITCHER"};
-            int[] prices = {12, 18, 24, 35, 60};
+            int[] prices = {15, 22, 30, 45, 75};
             int[] defaults = {20, 22, 24, 31, 40};
             Map<String, Integer> layout = loadLayout(category);
             for (int i = 0; i < ids.length; i++) addOrbitalIcon(inv,
@@ -210,7 +210,7 @@ public final class ShopVillagerManager implements Listener {
         meta.getPersistentDataContainer().set(tradeKey, PersistentDataType.STRING, trade.id());
         meta.lore(List.of(
             Component.text("Quantity: " + trade.amount()),
-            Component.text(selling ? "You receive: " + trade.price() + " Core" : "Price: " + trade.price() + " Core"),
+            Component.text(selling ? "YOU RECEIVE: " + trade.price() + " CORES" : "Price: " + trade.price() + " Cores"),
             Component.text("Click to " + (selling ? "sell" : "purchase"))
         ));
         icon.setItemMeta(meta);
@@ -362,7 +362,7 @@ public final class ShopVillagerManager implements Listener {
         if (category.equals("mythical")) {
             String type = clicked.getItemMeta().getPersistentDataContainer().get(orbitalKey, PersistentDataType.STRING);
             if (type == null) return;
-            int price = switch (type) { case "rain" -> 12; case "stab" -> 18; case "lunar" -> 24; case "switcher" -> 60; default -> 30; };
+            int price = switch (type) { case "rain" -> 15; case "stab" -> 22; case "lunar" -> 30; case "nuke" -> 45; case "switcher" -> 75; default -> 45; };
             if (!takeCore(player, price)) { player.sendMessage(Component.text("You need " + price + " Core (Nether Stars).")); return; }
             ItemStack reward = type.equals("switcher") ? createSwitcherSword() : createOrbital(type);
             player.getInventory().addItem(reward).values().forEach(drop -> player.getWorld().dropItemNaturally(player.getLocation(), drop));
@@ -637,7 +637,7 @@ public final class ShopVillagerManager implements Listener {
         meta.displayName(Component.text("SWITCHER", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE)
             .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true));
         meta.lore(List.of(
-            Component.text("MAXED NETHERITE WEAPON", net.kyori.adventure.text.format.NamedTextColor.AQUA)
+            Component.text("MAXED OUT", net.kyori.adventure.text.format.NamedTextColor.AQUA)
                 .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true),
             Component.text("Sneak + Right Click", net.kyori.adventure.text.format.NamedTextColor.YELLOW),
             Component.text("Switch into a powerful mace form", net.kyori.adventure.text.format.NamedTextColor.GRAY),
@@ -646,6 +646,7 @@ public final class ShopVillagerManager implements Listener {
             Component.text("Cooldown: 5 Minutes", net.kyori.adventure.text.format.NamedTextColor.GOLD)
         ));
         meta.getPersistentDataContainer().set(switcherKey, PersistentDataType.STRING, "sword");
+        meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS);
         item.setItemMeta(meta);
         return item;
     }
@@ -734,9 +735,6 @@ public final class ShopVillagerManager implements Listener {
     private ItemStack createOrbital(String type) {
         ItemStack item = new ItemStack(Material.FISHING_ROD);
         item.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-        item.addUnsafeEnchantment(Enchantment.LURE, 5);
-        item.addUnsafeEnchantment(Enchantment.LUCK_OF_THE_SEA, 3);
-        item.addUnsafeEnchantment(Enchantment.MENDING, 1);
         ItemMeta meta = item.getItemMeta();
         var color = switch (type) {
             case "rain" -> net.kyori.adventure.text.format.NamedTextColor.AQUA;
