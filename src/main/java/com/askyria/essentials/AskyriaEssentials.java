@@ -79,6 +79,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private BukkitTask tabTicker;
     private BukkitTask simulatedPlayersTicker;
     private SuperTotemManager superTotemManager;
+    private ShopVillagerManager shopVillagerManager;
     private ExtendedEnderChestManager extendedEnderChestManager;
     private boolean simulatedPlayersEnabled = false;
     private final List<String> simulatedPlayerNames = new ArrayList<>();
@@ -136,6 +137,9 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             }
         }
         Bukkit.getPluginManager().registerEvents(this, this);
+        shopVillagerManager = new ShopVillagerManager(this);
+        Bukkit.getPluginManager().registerEvents(shopVillagerManager, this);
+        getCommand("shopvillager").setExecutor(this);
         extendedEnderChestManager = new ExtendedEnderChestManager(this);
         Bukkit.getPluginManager().registerEvents(extendedEnderChestManager, this);
         fakePlayerPacketListener = new PacketListenerAbstract(PacketListenerPriority.NORMAL) {
@@ -892,6 +896,25 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 openKitsMenu(player);
                 return true;
             }
+            case "shopvillager" -> {
+                if (!requireOp(sender)) return true;
+                if (!(sender instanceof Player player)) {
+                    sender.sendMessage(Component.text("Only players can remove shop villagers."));
+                    return true;
+                }
+                if (args.length != 1) {
+                    sender.sendMessage(Component.text("Usage: /shopvillager remove OR /shopvillager removeall"));
+                    return true;
+                }
+                if (args[0].equalsIgnoreCase("remove")) {
+                    shopVillagerManager.removeTargeted(player);
+                } else if (args[0].equalsIgnoreCase("removeall")) {
+                    shopVillagerManager.removeAll(player);
+                } else {
+                    sender.sendMessage(Component.text("Usage: /shopvillager remove OR /shopvillager removeall"));
+                }
+                return true;
+            }
             case "deathrestore" -> {
                 if (!requireOp(sender)) return true;
                 if (args.length != 1) { sender.sendMessage(Component.text("Usage: /deathrestore <player>")); return true; }
@@ -1083,6 +1106,10 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         if (command.getName().equalsIgnoreCase("deathrestore") && sender.isOp() && args.length == 1) {
             for (Player player : Bukkit.getOnlinePlayers()) {
                 if (player.getName().toLowerCase().startsWith(args[0].toLowerCase())) suggestions.add(player.getName());
+            }
+        } else if (command.getName().equalsIgnoreCase("shopvillager") && sender.isOp() && args.length == 1) {
+            for (String option : List.of("remove", "removeall")) {
+                if (option.startsWith(args[0].toLowerCase())) suggestions.add(option);
             }
         } else if (command.getName().equalsIgnoreCase("playertag")) {
             if (!sender.isOp()) return suggestions;
