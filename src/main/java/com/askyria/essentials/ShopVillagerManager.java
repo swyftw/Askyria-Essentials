@@ -59,17 +59,17 @@ public final class ShopVillagerManager implements Listener {
         this.orbitalKey = new NamespacedKey(plugin, "orbital_type");
         this.tradeKey = new NamespacedKey(plugin, "core_shop_trade");
         this.switcherKey = new NamespacedKey(plugin, "switcher_form");
-        add("armor_helmet", Material.NETHERITE_HELMET, 1, 1200, "Netherite Helmet (Protection V)", "armor");
-        add("armor_chest", Material.NETHERITE_CHESTPLATE, 1, 1800, "Netherite Chestplate (Protection V)", "armor");
-        add("armor_legs", Material.NETHERITE_LEGGINGS, 1, 1500, "Netherite Leggings (Protection V)", "armor");
-        add("armor_boots", Material.NETHERITE_BOOTS, 1, 1200, "Netherite Boots (Protection V)", "armor");
-        add("armor_set", Material.NETHERITE_INGOT, 1, 5200, "Full Netherite Set (Protection V)", "armor");
+        add("armor_helmet", Material.NETHERITE_HELMET, 1, 25, "Netherite Helmet (Protection V)", "armor");
+        add("armor_chest", Material.NETHERITE_CHESTPLATE, 1, 35, "Netherite Chestplate (Protection V)", "armor");
+        add("armor_legs", Material.NETHERITE_LEGGINGS, 1, 30, "Netherite Leggings (Protection V)", "armor");
+        add("armor_boots", Material.NETHERITE_BOOTS, 1, 25, "Netherite Boots (Protection V)", "armor");
+        add("armor_set", Material.NETHERITE_INGOT, 1, 100, "Full Netherite Set (Protection V)", "armor");
 
         // Four pre-filled combat kits replace the old Gear shop.
-        add("kit_diamond_mace", Material.SHULKER_BOX, 1, 1200, "Diamond Mace Kit", "kits");
-        add("kit_smp", Material.SHULKER_BOX, 1, 1600, "SMP Kit", "kits");
-        add("kit_ely_mace", Material.SHULKER_BOX, 1, 2100, "Ely Mace Kit", "kits");
-        add("kit_spear_mace", Material.SHULKER_BOX, 1, 2400, "Spear Mace Kit", "kits");
+        add("kit_diamond_mace", Material.SHULKER_BOX, 1, 25, "Diamond Mace Kit", "kits");
+        add("kit_smp", Material.SHULKER_BOX, 1, 35, "SMP Kit", "kits");
+        add("kit_ely_mace", Material.SHULKER_BOX, 1, 45, "Ely Mace Kit", "kits");
+        add("kit_spear_mace", Material.SHULKER_BOX, 1, 55, "Spear Mace Kit", "kits");
 
         // Exactly three ore-block trades, plus rare valuables.
         add("sell_diamond_blocks", Material.DIAMOND_BLOCK, 16, 8, "Diamond Blocks", "seller");
@@ -163,7 +163,7 @@ public final class ShopVillagerManager implements Listener {
         if (category.equals("mythical")) {
             String[] ids = {"rain", "stab", "lunar", "nuke", "switcher"};
             String[] names = {"RAIN ORBITAL", "STAB ORBITAL", "LUNAR ORBITAL", "NUKE ORBITAL", "SWITCHER"};
-            int[] prices = {500, 700, 1000, 1500, 2500};
+            int[] prices = {10, 15, 20, 30, 50};
             int[] defaults = {20, 22, 24, 31, 40};
             Map<String, Integer> layout = loadLayout(category);
             for (int i = 0; i < ids.length; i++) addOrbitalIcon(inv,
@@ -245,7 +245,7 @@ public final class ShopVillagerManager implements Listener {
         if (category.equals("mythical")) {
             String[] ids = {"rain", "stab", "lunar", "nuke", "switcher"};
             String[] names = {"RAIN ORBITAL", "STAB ORBITAL", "LUNAR ORBITAL", "NUKE ORBITAL", "SWITCHER"};
-            int[] prices = {500, 700, 1000, 1500, 2500};
+            int[] prices = {10, 15, 20, 30, 50};
             for (int i = 0; i < ids.length; i++) {
                 ItemStack icon = orbitalEditorIcon(ids[i], names[i], prices[i]);
                 inv.setItem(layout.getOrDefault(ids[i], defaults[i]), icon);
@@ -362,7 +362,7 @@ public final class ShopVillagerManager implements Listener {
         if (category.equals("mythical")) {
             String type = clicked.getItemMeta().getPersistentDataContainer().get(orbitalKey, PersistentDataType.STRING);
             if (type == null) return;
-            int price = switch (type) { case "rain" -> 500; case "stab" -> 700; case "lunar" -> 1000; case "switcher" -> 2500; default -> 1500; };
+            int price = switch (type) { case "rain" -> 10; case "stab" -> 15; case "lunar" -> 20; case "switcher" -> 50; default -> 30; };
             if (!takeCore(player, price)) { player.sendMessage(Component.text("You need " + price + " Core (Nether Stars).")); return; }
             ItemStack reward = type.equals("switcher") ? createSwitcherSword() : createOrbital(type);
             player.getInventory().addItem(reward).values().forEach(drop -> player.getWorld().dropItemNaturally(player.getLocation(), drop));
@@ -733,16 +733,38 @@ public final class ShopVillagerManager implements Listener {
 
     private ItemStack createOrbital(String type) {
         ItemStack item = new ItemStack(Material.FISHING_ROD);
+        item.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+        item.addUnsafeEnchantment(Enchantment.LURE, 5);
+        item.addUnsafeEnchantment(Enchantment.LUCK_OF_THE_SEA, 3);
+        item.addUnsafeEnchantment(Enchantment.MENDING, 1);
         ItemMeta meta = item.getItemMeta();
-        String name = switch (type) {
-            case "rain" -> "§b§lRAIN ORBITAL";
-            case "stab" -> "§c§lSTAB ORBITAL";
-            case "nuke" -> "§4§lNUKE ORBITAL";
-            default -> "§d§lLUNAR ORBITAL";
+        var color = switch (type) {
+            case "rain" -> net.kyori.adventure.text.format.NamedTextColor.AQUA;
+            case "stab" -> net.kyori.adventure.text.format.NamedTextColor.RED;
+            case "nuke" -> net.kyori.adventure.text.format.NamedTextColor.DARK_RED;
+            default -> net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE;
         };
-        meta.setDisplayName(name);
-        meta.setLore(List.of("§7Single-use orbital weapon", "§fRight-click to throw at your target", "§cConsumed after one launch"));
-        meta.addEnchant(Enchantment.UNBREAKING, 1, true);
+        String name = switch (type) {
+            case "rain" -> "RAIN ORBITAL";
+            case "stab" -> "STAB ORBITAL";
+            case "nuke" -> "NUKE ORBITAL";
+            default -> "LUNAR ORBITAL";
+        };
+        String ability = switch (type) {
+            case "rain" -> "Wide-area orbital barrage";
+            case "stab" -> "Focused vertical orbital strike";
+            case "nuke" -> "Largest area-damage orbital";
+            default -> "Massive spherical orbital strike";
+        };
+        meta.displayName(Component.text(name, color)
+            .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true));
+        meta.lore(List.of(
+            Component.text("MAXED ORBITAL WEAPON", net.kyori.adventure.text.format.NamedTextColor.GOLD)
+                .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true),
+            Component.text(ability, net.kyori.adventure.text.format.NamedTextColor.GRAY),
+            Component.text("Right-click to launch", net.kyori.adventure.text.format.NamedTextColor.YELLOW),
+            Component.text("Single-use • consumed on launch", net.kyori.adventure.text.format.NamedTextColor.RED)
+        ));
         meta.getPersistentDataContainer().set(orbitalKey, PersistentDataType.STRING, type);
         item.setItemMeta(meta);
         return item;
