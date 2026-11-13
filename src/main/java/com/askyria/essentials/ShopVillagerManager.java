@@ -21,6 +21,7 @@ import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -35,6 +36,7 @@ public final class ShopVillagerManager implements Listener {
     private final NamespacedKey orbitalKey;
     private final NamespacedKey tradeKey;
     private final Map<String, Trade> trades = new java.util.LinkedHashMap<>();
+    private final Map<java.util.UUID, String> editing = new HashMap<>();
 
     private record Trade(String id, Material material, int amount, int price, String display, String category) {}
 
@@ -151,7 +153,7 @@ public final class ShopVillagerManager implements Listener {
             case "mythical" -> "Mythical Weapons Villager";
             default -> "Seller Villager";
         };
-        int size = category.equals("gear") || category.equals("seller") ? 54 : 27;
+        int size = 54;
         Inventory inv = Bukkit.createInventory(null, size, Component.text(title));
         fillShopFrame(inv);
         ItemStack info = new ItemStack(Material.NETHER_STAR);
@@ -166,29 +168,22 @@ public final class ShopVillagerManager implements Listener {
         inv.setItem(4, info);
 
         if (category.equals("mythical")) {
-            addOrbitalIcon(inv, 10, "rain", "RAIN ORBITAL", 100);
-            addOrbitalIcon(inv, 12, "stab", "STAB ORBITAL", 125);
-            addOrbitalIcon(inv, 14, "lunar", "LUNAR ORBITAL", 175);
-            addOrbitalIcon(inv, 16, "nuke", "NUKE ORBITAL", 250);
+            String[] ids = {"rain", "stab", "lunar", "nuke"};
+            String[] names = {"RAIN ORBITAL", "STAB ORBITAL", "LUNAR ORBITAL", "NUKE ORBITAL"};
+            int[] prices = {100, 125, 175, 250};
+            int[] defaults = {20, 22, 24, 31};
+            Map<String, Integer> layout = loadLayout(category);
+            for (int i = 0; i < ids.length; i++) addOrbitalIcon(inv,
+                layout.getOrDefault(ids[i], defaults[i]), ids[i], names[i], prices[i]);
         } else {
-            int[] armorSlots = {10, 12, 14, 16, 22};
-            int[] gearSlots = {
-                10, 11, 12, 13, 14, 15, 16,
-                19, 20, 21, 22, 23, 24, 25,
-                28, 29, 30, 31, 32, 33, 34
-            };
-            int[] sellerSlots = {
-                10, 11, 12, 13, 14, 15, 16,
-                19, 20, 21, 22, 23, 24, 25,
-                28, 29, 30, 31, 32, 33, 34,
-                37, 38, 39, 40, 41, 42, 43
-            };
+            int[] defaults = defaultSlots(category);
+            Map<String, Integer> layout = loadLayout(category);
             int index = 0;
             for (Trade trade : trades.values()) {
                 if (!trade.category().equals(category)) continue;
-                int[] slots = category.equals("armor") ? armorSlots :
-                    category.equals("gear") ? gearSlots : sellerSlots;
-                if (index < slots.length) inv.setItem(slots[index++], tradeIcon(trade, category.equals("seller")));
+                int slot = layout.getOrDefault(trade.id(), index < defaults.length ? defaults[index] : -1);
+                if (slot >= 9 && slot < 45) inv.setItem(slot, tradeIcon(trade, category.equals("seller")));
+                index++;
             }
         }
         player.openInventory(inv);
@@ -239,9 +234,127 @@ public final class ShopVillagerManager implements Listener {
         inv.setItem(slot, icon);
     }
 
+    public void openEditor(Player player, String category) {
+        if (!List.of("armor", "gear", "mythical", "seller").contains(category)) {
+            player.sendMessage(Component.text("Use armor, gear, mythical, or seller."));
+            return;
+        }
+        String title = "Edit " + switch (category) {
+            case "armor" -> "Armor";
+            case "gear" -> "Gear";
+            case "mythical" -> "Mythical";
+            default -> "Seller";
+        } + " Shop";
+        Inventory inv = Bukkit.createInventory(null, 54, Component.text(title));
+        int[] defaults = defaultSlots(category);
+        Map<String, Integer> layout = loadLayout(category);
+        if (category.equals("mythical")) {
+            String[] ids = {"rain", "stab", "lunar", "nuke"};
+            String[] names = {"RAIN ORBITAL", "STAB ORBITAL", "LUNAR ORBITAL", "NUKE ORBITAL"};
+            int[] prices = {100, 125, 175, 250};
+            for (int i = 0; i < ids.length; i++) {
+                ItemStack icon = orbitalEditorIcon(ids[i], names[i], prices[i]);
+                inv.setItem(layout.getOrDefault(ids[i], defaults[i]), icon);
+            }
+        } else {
+            int index = 0;
+            for (Trade trade : trades.values()) {
+                if (!trade.category().equals(category)) continue;
+                int slot = layout.getOrDefault(trade.id(), index < defaults.length ? defaults[index] : -1);
+                if (slot >= 9 && slot < 45) inv.setItem(slot, tradeIcon(trade, category.equals("seller")));
+                index++;
+            }
+        }
+        ItemStack cancel = new ItemStack(Material.BARRIER);
+        ItemMeta cancelMeta = cancel.getItemMeta();
+        cancelMeta.displayName(Component.text("Cancel"));
+        cancel.setItemMeta(cancelMeta);
+        inv.setItem(45, cancel);
+        ItemStack save = new ItemStack(Material.EMERALD_BLOCK);
+        ItemMeta saveMeta = save.getItemMeta();
+        saveMeta.displayName(Component.text("SAVE LAYOUT"));
+        saveMeta.lore(List.of(Component.text("Click to save this shop arrangement")));
+        save.setItemMeta(saveMeta);
+        inv.setItem(49, save);
+        editing.put(player.getUniqueId(), category);
+        player.openInventory(inv);
+        player.sendMessage(Component.text("Move shop items around, then click SAVE LAYOUT."));
+    }
+
+    private int[] defaultSlots(String category) {
+        if (category.equals("armor")) return new int[]{20, 22, 24, 30, 32};
+        if (category.equals("mythical")) return new int[]{20, 22, 24, 31};
+        if (category.equals("gear")) return new int[]{
+            10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34
+        };
+        return new int[]{
+            10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34,37,38,39,40,41,42,43
+        };
+    }
+
+    private Map<String, Integer> loadLayout(String category) {
+        Map<String, Integer> result = new HashMap<>();
+        var section = plugin.getConfig().getConfigurationSection("shop-layout." + category);
+        if (section != null) for (String id : section.getKeys(false)) {
+            int slot = section.getInt(id, -1);
+            if (slot >= 9 && slot < 45) result.put(id, slot);
+        }
+        return result;
+    }
+
+    private ItemStack orbitalEditorIcon(String type, String name, int price) {
+        ItemStack icon = new ItemStack(Material.FISHING_ROD);
+        ItemMeta meta = icon.getItemMeta();
+        meta.displayName(Component.text(name));
+        meta.getPersistentDataContainer().set(orbitalKey, PersistentDataType.STRING, type);
+        meta.lore(List.of(Component.text("Price: " + price + " Core")));
+        icon.setItemMeta(meta);
+        return icon;
+    }
+
+    private void saveEditor(Player player, Inventory inv, String category) {
+        plugin.getConfig().set("shop-layout." + category, null);
+        for (int slot = 9; slot < 45; slot++) {
+            ItemStack item = inv.getItem(slot);
+            if (item == null || !item.hasItemMeta()) continue;
+            String id = item.getItemMeta().getPersistentDataContainer().get(tradeKey, PersistentDataType.STRING);
+            if (id != null) plugin.getConfig().set("shop-layout." + category + "." + id, slot);
+            String orbital = item.getItemMeta().getPersistentDataContainer().get(orbitalKey, PersistentDataType.STRING);
+            if (orbital != null) plugin.getConfig().set("shop-layout." + category + "." + orbital, slot);
+        }
+        plugin.saveConfig();
+        editing.remove(player.getUniqueId());
+        player.closeInventory();
+        player.sendMessage(Component.text("Saved " + category + " shop layout."));
+    }
+
     @EventHandler
     public void onShopClick(InventoryClickEvent event) {
         String title = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(event.getView().title());
+        if (title.startsWith("Edit ") && title.endsWith(" Shop")) {
+            if (!(event.getWhoClicked() instanceof Player player)) { event.setCancelled(true); return; }
+            String category = editing.get(player.getUniqueId());
+            if (category == null) { event.setCancelled(true); return; }
+            int raw = event.getRawSlot();
+            if (raw == 49 && event.getClickedInventory() == event.getView().getTopInventory()) {
+                event.setCancelled(true);
+                saveEditor(player, event.getView().getTopInventory(), category);
+                return;
+            }
+            if (raw == 45 && event.getClickedInventory() == event.getView().getTopInventory()) {
+                event.setCancelled(true);
+                editing.remove(player.getUniqueId());
+                player.closeInventory();
+                return;
+            }
+            if (event.getClickedInventory() == event.getView().getBottomInventory()
+                    || raw < 9 || raw >= 45 || event.isShiftClick()
+                    || event.getClick() == ClickType.NUMBER_KEY || event.getClick() == ClickType.DOUBLE_CLICK
+                    || event.getClick() == ClickType.SWAP_OFFHAND) {
+                event.setCancelled(true);
+            }
+            return;
+        }
         if (!title.contains("Villager")) return;
         event.setCancelled(true);
         if (!(event.getWhoClicked() instanceof Player player)) return;
@@ -273,6 +386,12 @@ public final class ShopVillagerManager implements Listener {
     @EventHandler
     public void onShopDrag(InventoryDragEvent event) {
         String title = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(event.getView().title());
+        if (title.startsWith("Edit ") && title.endsWith(" Shop")) {
+            for (int raw : event.getRawSlots()) {
+                if (raw < 9 || raw >= 45) { event.setCancelled(true); return; }
+            }
+            return;
+        }
         if (title.contains("Villager")) event.setCancelled(true);
     }
 
