@@ -151,11 +151,12 @@ public final class ShopVillagerManager implements Listener {
         fillShopFrame(inv);
         ItemStack info = new ItemStack(Material.NETHER_STAR);
         ItemMeta infoMeta = info.getItemMeta();
-        infoMeta.displayName(Component.text("CORE SMP SHOP", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE)
+        infoMeta.displayName(Component.text("CORE SMP SHOP", net.kyori.adventure.text.format.NamedTextColor.AQUA)
             .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true));
         infoMeta.lore(List.of(
-            Component.text("Currency: physical Core Nether Stars"),
-            Component.text(category.equals("seller") ? "Click an item to sell it." : "Click an item to purchase it.")
+            Component.text("Currency: Core Nether Stars", net.kyori.adventure.text.format.NamedTextColor.GOLD),
+            Component.text(category.equals("seller") ? "Sell items here and receive Cores." : "Click an item to purchase it.",
+                category.equals("seller") ? net.kyori.adventure.text.format.NamedTextColor.GREEN : net.kyori.adventure.text.format.NamedTextColor.YELLOW)
         ));
         info.setItemMeta(infoMeta);
         inv.setItem(4, info);
@@ -206,12 +207,21 @@ public final class ShopVillagerManager implements Listener {
         }
         if (trade.id().equals("armor_set")) icon.addUnsafeEnchantment(Enchantment.PROTECTION, 5);
         ItemMeta meta = icon.getItemMeta();
-        meta.displayName(Component.text((selling ? "Sell " : "") + trade.display()));
+        var nameColor = switch (trade.category()) {
+            case "armor" -> net.kyori.adventure.text.format.NamedTextColor.AQUA;
+            case "kits" -> net.kyori.adventure.text.format.NamedTextColor.GREEN;
+            case "seller" -> net.kyori.adventure.text.format.NamedTextColor.GOLD;
+            default -> net.kyori.adventure.text.format.NamedTextColor.WHITE;
+        };
+        meta.displayName(Component.text((selling ? "SELL: " : "") + trade.display(), nameColor)
+            .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true));
         meta.getPersistentDataContainer().set(tradeKey, PersistentDataType.STRING, trade.id());
         meta.lore(List.of(
-            Component.text("Quantity: " + trade.amount()),
-            Component.text(selling ? "YOU RECEIVE: " + trade.price() + " CORES" : "Price: " + trade.price() + " Cores"),
-            Component.text("Click to " + (selling ? "sell" : "purchase"))
+            Component.text("Quantity: " + trade.amount(), net.kyori.adventure.text.format.NamedTextColor.GRAY),
+            Component.text(selling ? "YOU RECEIVE: " + trade.price() + " CORES" : "Price: " + trade.price() + " Cores",
+                selling ? net.kyori.adventure.text.format.NamedTextColor.GREEN : net.kyori.adventure.text.format.NamedTextColor.YELLOW),
+            Component.text("Click to " + (selling ? "sell" : "purchase"),
+                net.kyori.adventure.text.format.NamedTextColor.AQUA)
         ));
         icon.setItemMeta(meta);
         return icon;
@@ -634,7 +644,7 @@ public final class ShopVillagerManager implements Listener {
         item.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
         item.addUnsafeEnchantment(Enchantment.MENDING, 1);
         ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text("SWITCHER", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE)
+        meta.displayName(Component.text("SWITCHER", net.kyori.adventure.text.format.NamedTextColor.GOLD)
             .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true));
         meta.lore(List.of(
             Component.text("MAXED OUT", net.kyori.adventure.text.format.NamedTextColor.AQUA)
