@@ -1047,7 +1047,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 return true;
             }
             case "discord" -> {
-                sender.sendMessage(mini.deserialize("<gold><bold>Askyria SMP Discord:</bold></gold> <aqua><underlined>https://discord.gg/qh48uacM8</underlined></aqua>"));
+                sender.sendMessage(mini.deserialize("<gold><bold>CORE SMP Discord:</bold></gold> <aqua><underlined>https://discord.gg/CyyhRqTZVE</underlined></aqua>"));
                 return true;
             }
             case "protection" -> {
