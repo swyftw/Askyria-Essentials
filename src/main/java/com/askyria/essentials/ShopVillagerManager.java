@@ -147,7 +147,7 @@ public final class ShopVillagerManager implements Listener {
             case "mythical" -> "Mythical Weapons Villager";
             default -> "Seller Villager";
         };
-        int size = category.equals("normal") || category.equals("seller") ? 45 : 27;
+        int size = category.equals("normal") || category.equals("seller") ? 54 : 27;
         Inventory inv = Bukkit.createInventory(null, size, Component.text(title));
         fillShopFrame(inv);
         ItemStack info = new ItemStack(Material.NETHER_STAR);
@@ -169,13 +169,15 @@ public final class ShopVillagerManager implements Listener {
         } else {
             int[] armorSlots = {10, 12, 14, 16, 22};
             int[] normalSlots = {
-                10, 11, 12, 13, 14, 15, 16,
-                19, 20, 21, 22, 23, 24, 25,
-                28, 29, 30, 31
+                10, 11, 13, 14, 16,
+                19, 20, 22, 23, 25,
+                28, 29, 31, 32, 34,
+                37, 38, 40, 41, 43
             };
             int[] sellerSlots = {
-                10, 11, 12, 13, 14, 15, 16,
-                19, 20, 21, 22, 23, 24, 25
+                10, 11, 13, 14, 16,
+                19, 20, 22, 23, 25,
+                28, 29, 31, 32, 34
             };
             int index = 0;
             for (Trade trade : trades.values()) {
