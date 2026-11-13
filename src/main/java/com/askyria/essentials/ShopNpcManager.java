@@ -40,7 +40,7 @@ public final class ShopNpcManager extends PacketListenerAbstract implements List
 
     private static final Map<String, ShopNpc> DEFINITIONS = Map.of(
         "armor", new ShopNpc("armor", "ARMOR", "Protection V • Netherite Gear", NamedTextColor.AQUA),
-        "kits", new ShopNpc("kits", "RESTOCK KITS", "Normal • Good • OP Restocks", NamedTextColor.GREEN),
+        "mystery", new ShopNpc("mystery", "MYSTERY BOX", "Pay 15–50 Cores • Win Random Loot", NamedTextColor.LIGHT_PURPLE),
         "mythical", new ShopNpc("mythical", "MYTHICAL WEAPONS", "Rare Abilities", NamedTextColor.LIGHT_PURPLE),
         "seller", new ShopNpc("seller", "SELLER", "Trade Valuables for Core", NamedTextColor.GOLD)
     );
@@ -65,6 +65,9 @@ public final class ShopNpcManager extends PacketListenerAbstract implements List
         removeOldHolograms();
         // Retire only the old shop villagers created by this plugin.
         shops.removeAll(Bukkit.getConsoleSender());
+        // Retire the former Kits NPC; Mystery Box replaces that shop.
+        plugin.getConfig().set("shop-npcs.kits", null);
+        plugin.saveConfig();
         var section = plugin.getConfig().getConfigurationSection("shop-npcs");
         if (section == null) return;
         for (String type : section.getKeys(false)) {
@@ -86,7 +89,7 @@ public final class ShopNpcManager extends PacketListenerAbstract implements List
     public void spawnShopNpc(Player creator, String type) {
         ShopNpc definition = DEFINITIONS.get(type.toLowerCase(java.util.Locale.ROOT));
         if (definition == null) {
-            creator.sendMessage(Component.text("Use armor, kits, mythical, or seller."));
+            creator.sendMessage(Component.text("Use armor, mystery, mythical, or seller."));
             return;
         }
         Location location = creator.getLocation().clone();
