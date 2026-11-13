@@ -59,29 +59,29 @@ public final class ShopVillagerManager implements Listener {
         this.orbitalKey = new NamespacedKey(plugin, "orbital_type");
         this.tradeKey = new NamespacedKey(plugin, "core_shop_trade");
         this.switcherKey = new NamespacedKey(plugin, "switcher_form");
-        add("armor_helmet", Material.NETHERITE_HELMET, 1, 25, "Netherite Helmet (Protection V)", "armor");
-        add("armor_chest", Material.NETHERITE_CHESTPLATE, 1, 35, "Netherite Chestplate (Protection V)", "armor");
-        add("armor_legs", Material.NETHERITE_LEGGINGS, 1, 30, "Netherite Leggings (Protection V)", "armor");
-        add("armor_boots", Material.NETHERITE_BOOTS, 1, 25, "Netherite Boots (Protection V)", "armor");
-        add("armor_set", Material.NETHERITE_INGOT, 1, 100, "Full Netherite Set (Protection V)", "armor");
+        add("armor_helmet", Material.NETHERITE_HELMET, 1, 30, "Netherite Helmet (Protection V)", "armor");
+        add("armor_chest", Material.NETHERITE_CHESTPLATE, 1, 40, "Netherite Chestplate (Protection V)", "armor");
+        add("armor_legs", Material.NETHERITE_LEGGINGS, 1, 35, "Netherite Leggings (Protection V)", "armor");
+        add("armor_boots", Material.NETHERITE_BOOTS, 1, 30, "Netherite Boots (Protection V)", "armor");
+        add("armor_set", Material.NETHERITE_INGOT, 1, 120, "Full Netherite Set (Protection V)", "armor");
 
         // Four pre-filled combat kits replace the old Gear shop.
-        add("kit_diamond_mace", Material.SHULKER_BOX, 1, 25, "Diamond Mace Kit", "kits");
-        add("kit_smp", Material.SHULKER_BOX, 1, 35, "SMP Kit", "kits");
-        add("kit_ely_mace", Material.SHULKER_BOX, 1, 45, "Ely Mace Kit", "kits");
-        add("kit_spear_mace", Material.SHULKER_BOX, 1, 55, "Spear Mace Kit", "kits");
+        add("kit_diamond_mace", Material.SHULKER_BOX, 1, 30, "Diamond Mace Kit", "kits");
+        add("kit_smp", Material.SHULKER_BOX, 1, 40, "SMP Kit", "kits");
+        add("kit_ely_mace", Material.SHULKER_BOX, 1, 50, "Ely Mace Kit", "kits");
+        add("kit_spear_mace", Material.SHULKER_BOX, 1, 60, "Spear Mace Kit", "kits");
 
         // Exactly three ore-block trades, plus rare valuables.
-        add("sell_diamond_blocks", Material.DIAMOND_BLOCK, 16, 8, "Diamond Blocks", "seller");
-        add("sell_netherite", Material.NETHERITE_BLOCK, 1, 20, "Netherite Blocks", "seller");
-        add("sell_elytra", Material.ELYTRA, 4, 16, "Elytra", "seller");
-        add("sell_shulker", Material.SHULKER_BOX, 16, 12, "Shulker Boxes", "seller");
-        add("sell_egg", Material.DRAGON_EGG, 1, 250, "Dragon Egg", "seller");
-        add("sell_netherite_ingots", Material.NETHERITE_INGOT, 8, 8, "Netherite Ingots", "seller");
-        add("sell_beacon", Material.BEACON, 2, 40, "Beacons", "seller");
-        add("sell_mace", Material.MACE, 1, 50, "Maces", "seller");
-        add("sell_tridents", Material.TRIDENT, 4, 24, "Tridents", "seller");
-        add("sell_egapples", Material.ENCHANTED_GOLDEN_APPLE, 16, 32, "Enchanted Golden Apples", "seller");
+        add("sell_diamond_blocks", Material.DIAMOND_BLOCK, 16, 2, "Diamond Blocks", "seller");
+        add("sell_netherite", Material.NETHERITE_BLOCK, 1, 5, "Netherite Blocks", "seller");
+        add("sell_elytra", Material.ELYTRA, 4, 4, "Elytra", "seller");
+        add("sell_shulker", Material.SHULKER_BOX, 16, 3, "Shulker Boxes", "seller");
+        add("sell_egg", Material.DRAGON_EGG, 1, 40, "Dragon Egg", "seller");
+        add("sell_netherite_ingots", Material.NETHERITE_INGOT, 8, 2, "Netherite Ingots", "seller");
+        add("sell_beacon", Material.BEACON, 2, 10, "Beacons", "seller");
+        add("sell_mace", Material.MACE, 1, 10, "Maces", "seller");
+        add("sell_tridents", Material.TRIDENT, 4, 6, "Tridents", "seller");
+        add("sell_egapples", Material.ENCHANTED_GOLDEN_APPLE, 16, 8, "Enchanted Golden Apples", "seller");
     }
 
     private void add(String id, Material material, int amount, int price, String display, String category) {
@@ -163,7 +163,7 @@ public final class ShopVillagerManager implements Listener {
         if (category.equals("mythical")) {
             String[] ids = {"rain", "stab", "lunar", "nuke", "switcher"};
             String[] names = {"RAIN ORBITAL", "STAB ORBITAL", "LUNAR ORBITAL", "NUKE ORBITAL", "SWITCHER"};
-            int[] prices = {10, 15, 20, 30, 50};
+            int[] prices = {12, 18, 24, 35, 60};
             int[] defaults = {20, 22, 24, 31, 40};
             Map<String, Integer> layout = loadLayout(category);
             for (int i = 0; i < ids.length; i++) addOrbitalIcon(inv,
@@ -245,7 +245,7 @@ public final class ShopVillagerManager implements Listener {
         if (category.equals("mythical")) {
             String[] ids = {"rain", "stab", "lunar", "nuke", "switcher"};
             String[] names = {"RAIN ORBITAL", "STAB ORBITAL", "LUNAR ORBITAL", "NUKE ORBITAL", "SWITCHER"};
-            int[] prices = {10, 15, 20, 30, 50};
+            int[] prices = {12, 18, 24, 35, 60};
             for (int i = 0; i < ids.length; i++) {
                 ItemStack icon = orbitalEditorIcon(ids[i], names[i], prices[i]);
                 inv.setItem(layout.getOrDefault(ids[i], defaults[i]), icon);
@@ -362,7 +362,7 @@ public final class ShopVillagerManager implements Listener {
         if (category.equals("mythical")) {
             String type = clicked.getItemMeta().getPersistentDataContainer().get(orbitalKey, PersistentDataType.STRING);
             if (type == null) return;
-            int price = switch (type) { case "rain" -> 10; case "stab" -> 15; case "lunar" -> 20; case "switcher" -> 50; default -> 30; };
+            int price = switch (type) { case "rain" -> 12; case "stab" -> 18; case "lunar" -> 24; case "switcher" -> 60; default -> 30; };
             if (!takeCore(player, price)) { player.sendMessage(Component.text("You need " + price + " Core (Nether Stars).")); return; }
             ItemStack reward = type.equals("switcher") ? createSwitcherSword() : createOrbital(type);
             player.getInventory().addItem(reward).values().forEach(drop -> player.getWorld().dropItemNaturally(player.getLocation(), drop));
