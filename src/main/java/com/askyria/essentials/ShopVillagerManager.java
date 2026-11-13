@@ -48,34 +48,31 @@ public final class ShopVillagerManager implements Listener {
         add("armor_chest", Material.NETHERITE_CHESTPLATE, 1, 900, "Netherite Chestplate (Protection V)", "armor");
         add("armor_legs", Material.NETHERITE_LEGGINGS, 1, 750, "Netherite Leggings (Protection V)", "armor");
         add("armor_boots", Material.NETHERITE_BOOTS, 1, 600, "Netherite Boots (Protection V)", "armor");
-        add("armor_set", Material.NETHERITE_CHESTPLATE, 1, 2700, "Full Netherite Set (Protection V)", "armor");
+        add("armor_set", Material.NETHERITE_INGOT, 1, 2700, "Full Netherite Set (Protection V)", "armor");
 
-        add("normal_gap", Material.GOLDEN_APPLE, 64, 45, "Golden Apples", "normal");
-        add("normal_egap", Material.ENCHANTED_GOLDEN_APPLE, 8, 200, "Enchanted Golden Apples", "normal");
-        add("normal_pearl", Material.ENDER_PEARL, 64, 65, "Ender Pearls", "normal");
-        add("normal_totem", Material.TOTEM_OF_UNDYING, 4, 160, "Totems of Undying", "normal");
-        add("normal_rocket", Material.FIREWORK_ROCKET, 128, 35, "Firework Rockets", "normal");
-        add("normal_xp", Material.EXPERIENCE_BOTTLE, 64, 20, "Experience Bottles", "normal");
-        add("normal_shulker", Material.SHULKER_BOX, 4, 120, "Shulker Boxes", "normal");
-        add("normal_obsidian", Material.OBSIDIAN, 64, 25, "Obsidian", "normal");
-        add("normal_crystal", Material.END_CRYSTAL, 16, 80, "End Crystals", "normal");
-        add("normal_anchor", Material.RESPAWN_ANCHOR, 16, 60, "Respawn Anchors", "normal");
-        add("normal_glowstone", Material.GLOWSTONE, 64, 15, "Glowstone", "normal");
-        add("normal_tnt", Material.TNT, 32, 45, "TNT", "normal");
-        add("normal_carrot", Material.GOLDEN_CARROT, 64, 25, "Golden Carrots", "normal");
-        add("normal_arrow", Material.ARROW, 128, 20, "Arrows", "normal");
-        add("normal_enderchest", Material.ENDER_CHEST, 4, 80, "Ender Chests", "normal");
-        add("normal_anvil", Material.ANVIL, 4, 50, "Anvils", "normal");
-        add("normal_trident", Material.TRIDENT, 1, 150, "Trident", "normal");
-        add("normal_mending", Material.ENCHANTED_BOOK, 1, 100, "Mending Book", "normal");
+        // Gear shop: max-enchanted combat gear and utility supplies. No End Crystals.
+        add("gear_pearl64", Material.ENDER_PEARL, 64, 65, "64 Ender Pearls", "gear");
+        add("gear_pearl16", Material.ENDER_PEARL, 16, 20, "16 Ender Pearls", "gear");
+        add("gear_pearl4", Material.ENDER_PEARL, 4, 6, "4 Ender Pearls", "gear");
+        add("gear_breeze64", Material.BREEZE_ROD, 64, 180, "64 Breeze Rods", "gear");
+        add("gear_breeze16", Material.BREEZE_ROD, 16, 50, "16 Breeze Rods", "gear");
+        add("gear_sword", Material.NETHERITE_SWORD, 1, 850, "Maxed Netherite Sword", "gear");
+        add("gear_axe", Material.NETHERITE_AXE, 1, 700, "Maxed Netherite Axe", "gear");
+        add("gear_pick", Material.NETHERITE_PICKAXE, 1, 650, "Maxed Netherite Pickaxe", "gear");
+        add("gear_bow", Material.BOW, 1, 550, "Maxed Bow", "gear");
+        add("gear_crossbow", Material.CROSSBOW, 1, 500, "Maxed Crossbow", "gear");
+        add("gear_shield", Material.SHIELD, 1, 180, "Enchanted Shield", "gear");
+        add("gear_gapple", Material.GOLDEN_APPLE, 64, 45, "64 Golden Apples", "gear");
+        add("gear_egapple", Material.ENCHANTED_GOLDEN_APPLE, 8, 200, "8 Enchanted Golden Apples", "gear");
+        add("gear_totem", Material.TOTEM_OF_UNDYING, 4, 160, "4 Totems of Undying", "gear");
+        add("gear_rocket", Material.FIREWORK_ROCKET, 128, 35, "128 Firework Rockets", "gear");
+        add("gear_gcarrot", Material.GOLDEN_CARROT, 64, 25, "64 Golden Carrots", "gear");
+        add("gear_trident", Material.TRIDENT, 1, 400, "Maxed Trident", "gear");
+        add("gear_obsidian", Material.OBSIDIAN, 64, 25, "64 Obsidian", "gear");
 
+        // Exactly three ore-block trades, plus rare valuables.
         add("sell_iron", Material.IRON_BLOCK, 16, 4, "Iron Blocks", "seller");
-        add("sell_gold", Material.GOLD_BLOCK, 16, 4, "Gold Blocks", "seller");
-        add("sell_diamond", Material.DIAMOND_BLOCK, 16, 16, "Diamond Blocks", "seller");
-        add("sell_emerald", Material.EMERALD_BLOCK, 16, 8, "Emerald Blocks", "seller");
-        add("sell_coal", Material.COAL_BLOCK, 16, 2, "Coal Blocks", "seller");
-        add("sell_redstone", Material.REDSTONE_BLOCK, 16, 3, "Redstone Blocks", "seller");
-        add("sell_lapis", Material.LAPIS_BLOCK, 16, 3, "Lapis Blocks", "seller");
+        add("sell_diamond_blocks", Material.DIAMOND_BLOCK, 16, 16, "Diamond Blocks", "seller");
         add("sell_netherite", Material.NETHERITE_BLOCK, 1, 40, "Netherite Blocks", "seller");
         add("sell_totem", Material.TOTEM_OF_UNDYING, 8, 40, "Totems of Undying", "seller");
         add("sell_elytra", Material.ELYTRA, 4, 40, "Elytra", "seller");
@@ -83,6 +80,13 @@ public final class ShopVillagerManager implements Listener {
         add("sell_star", Material.NETHER_STAR, 16, 80, "Nether Stars", "seller");
         add("sell_shulker", Material.SHULKER_BOX, 16, 48, "Shulker Boxes", "seller");
         add("sell_egg", Material.DRAGON_EGG, 1, 1000, "Dragon Egg", "seller");
+        add("sell_netherite_ingots", Material.NETHERITE_INGOT, 8, 24, "Netherite Ingots", "seller");
+        add("sell_diamonds", Material.DIAMOND, 32, 8, "Diamonds", "seller");
+        add("sell_emeralds", Material.EMERALD, 32, 4, "Emeralds", "seller");
+        add("sell_beacon", Material.BEACON, 2, 80, "Beacons", "seller");
+        add("sell_mace", Material.MACE, 1, 100, "Maces", "seller");
+        add("sell_tridents", Material.TRIDENT, 4, 80, "Tridents", "seller");
+        add("sell_egapples", Material.ENCHANTED_GOLDEN_APPLE, 16, 80, "Enchanted Golden Apples", "seller");
     }
 
     private void add(String id, Material material, int amount, int price, String display, String category) {
@@ -110,10 +114,10 @@ public final class ShopVillagerManager implements Listener {
         Villager.Profession profession;
         switch (normalized) {
             case "armor" -> { displayName = "Armor Villager"; profession = Villager.Profession.ARMORER; }
-            case "normal" -> { displayName = "Normal Items Villager"; profession = Villager.Profession.TOOLSMITH; }
+            case "gear" -> { displayName = "Gear Villager"; profession = Villager.Profession.TOOLSMITH; }
             case "mythical" -> { displayName = "Mythical Weapons Villager"; profession = Villager.Profession.WEAPONSMITH; }
             case "seller" -> { displayName = "Seller Villager"; profession = Villager.Profession.BUTCHER; }
-            default -> { player.sendMessage(Component.text("Type must be armor, normal, mythical, or seller.")); return; }
+            default -> { player.sendMessage(Component.text("Type must be armor, gear, mythical, or seller.")); return; }
         }
         Vector direction = player.getLocation().getDirection().setY(0).normalize();
         if (direction.lengthSquared() == 0) direction = new Vector(0, 0, 1);
@@ -136,18 +140,18 @@ public final class ShopVillagerManager implements Listener {
         String name = event.getRightClicked().getCustomName();
         if (name == null) return;
         openShop(player, name.startsWith("Armor") ? "armor" :
-            name.startsWith("Normal") ? "normal" :
+            name.startsWith("Gear") ? "gear" :
             name.startsWith("Mythical") ? "mythical" : "seller");
     }
 
     private void openShop(Player player, String category) {
         String title = switch (category) {
             case "armor" -> "Armor Villager";
-            case "normal" -> "Normal Items Villager";
+            case "gear" -> "Gear Villager";
             case "mythical" -> "Mythical Weapons Villager";
             default -> "Seller Villager";
         };
-        int size = category.equals("normal") || category.equals("seller") ? 54 : 27;
+        int size = category.equals("gear") || category.equals("seller") ? 54 : 27;
         Inventory inv = Bukkit.createInventory(null, size, Component.text(title));
         fillShopFrame(inv);
         ItemStack info = new ItemStack(Material.NETHER_STAR);
@@ -168,22 +172,22 @@ public final class ShopVillagerManager implements Listener {
             addOrbitalIcon(inv, 16, "nuke", "NUKE ORBITAL", 250);
         } else {
             int[] armorSlots = {10, 12, 14, 16, 22};
-            int[] normalSlots = {
-                10, 11, 13, 14, 16,
-                19, 20, 22, 23, 25,
-                28, 29, 31, 32, 34,
-                37, 38, 40, 41, 43
+            int[] gearSlots = {
+                10, 11, 12, 13, 14, 15, 16,
+                19, 20, 21, 22, 23, 24, 25,
+                28, 29, 30, 31, 32, 33, 34
             };
             int[] sellerSlots = {
-                10, 11, 13, 14, 16,
-                19, 20, 22, 23, 25,
-                28, 29, 31, 32, 34
+                10, 11, 12, 13, 14, 15, 16,
+                19, 20, 21, 22, 23, 24, 25,
+                28, 29, 30, 31, 32, 33, 34,
+                37, 38, 39, 40, 41, 42, 43
             };
             int index = 0;
             for (Trade trade : trades.values()) {
                 if (!trade.category().equals(category)) continue;
                 int[] slots = category.equals("armor") ? armorSlots :
-                    category.equals("normal") ? normalSlots : sellerSlots;
+                    category.equals("gear") ? gearSlots : sellerSlots;
                 if (index < slots.length) inv.setItem(slots[index++], tradeIcon(trade, category.equals("seller")));
             }
         }
@@ -206,6 +210,7 @@ public final class ShopVillagerManager implements Listener {
 
     private ItemStack tradeIcon(Trade trade, boolean selling) {
         ItemStack icon = new ItemStack(trade.material());
+        if (trade.id().startsWith("gear_")) applyGearEnchants(icon, trade.id());
         if (trade.id().equals("armor_helmet") || trade.id().equals("armor_chest")
                 || trade.id().equals("armor_legs") || trade.id().equals("armor_boots")) {
             icon.addUnsafeEnchantment(Enchantment.PROTECTION, 5);
@@ -244,7 +249,7 @@ public final class ShopVillagerManager implements Listener {
         ItemStack clicked = event.getCurrentItem();
         if (clicked == null || clicked.getType().isAir()) return;
         String plainTitle = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(event.getView().title());
-        String category = plainTitle.startsWith("Armor") ? "armor" : plainTitle.startsWith("Normal") ? "normal" :
+        String category = plainTitle.startsWith("Armor") ? "armor" : plainTitle.startsWith("Gear") ? "gear" :
             plainTitle.startsWith("Mythical") ? "mythical" : "seller";
         if (category.equals("mythical")) {
             String type = clicked.getItemMeta().getPersistentDataContainer().get(orbitalKey, PersistentDataType.STRING);
@@ -289,6 +294,10 @@ public final class ShopVillagerManager implements Listener {
             meta.addStoredEnchant(Enchantment.MENDING, 1, true);
             book.setItemMeta(meta);
             give(player, book);
+        } else if (trade.id().startsWith("gear_") && isGearWeapon(trade.id())) {
+            ItemStack item = new ItemStack(trade.material());
+            applyGearEnchants(item, trade.id());
+            give(player, item);
         } else {
             ItemStack item = new ItemStack(trade.material(), trade.amount());
             if (trade.category().equals("armor")) {
@@ -298,6 +307,51 @@ public final class ShopVillagerManager implements Listener {
             give(player, item);
         }
         player.sendMessage(Component.text("Purchase complete. " + trade.price() + " Core spent."));
+    }
+
+    private boolean isGearWeapon(String id) {
+        return List.of("gear_sword", "gear_axe", "gear_pick", "gear_bow", "gear_crossbow", "gear_shield", "gear_trident").contains(id);
+    }
+
+    private void applyGearEnchants(ItemStack item, String id) {
+        if (id.equals("gear_sword")) {
+            item.addUnsafeEnchantment(Enchantment.SHARPNESS, 5);
+            item.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+            item.addUnsafeEnchantment(Enchantment.LOOTING, 3);
+            item.addUnsafeEnchantment(Enchantment.FIRE_ASPECT, 2);
+            item.addUnsafeEnchantment(Enchantment.SWEEPING_EDGE, 3);
+            item.addUnsafeEnchantment(Enchantment.MENDING, 1);
+        } else if (id.equals("gear_axe")) {
+            item.addUnsafeEnchantment(Enchantment.SHARPNESS, 5);
+            item.addUnsafeEnchantment(Enchantment.EFFICIENCY, 5);
+            item.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+            item.addUnsafeEnchantment(Enchantment.MENDING, 1);
+        } else if (id.equals("gear_pick")) {
+            item.addUnsafeEnchantment(Enchantment.EFFICIENCY, 5);
+            item.addUnsafeEnchantment(Enchantment.FORTUNE, 3);
+            item.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+            item.addUnsafeEnchantment(Enchantment.MENDING, 1);
+        } else if (id.equals("gear_bow")) {
+            item.addUnsafeEnchantment(Enchantment.POWER, 5);
+            item.addUnsafeEnchantment(Enchantment.PUNCH, 2);
+            item.addUnsafeEnchantment(Enchantment.FLAME, 1);
+            item.addUnsafeEnchantment(Enchantment.INFINITY, 1);
+            item.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+        } else if (id.equals("gear_crossbow")) {
+            item.addUnsafeEnchantment(Enchantment.QUICK_CHARGE, 3);
+            item.addUnsafeEnchantment(Enchantment.MULTISHOT, 1);
+            item.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+            item.addUnsafeEnchantment(Enchantment.MENDING, 1);
+        } else if (id.equals("gear_shield")) {
+            item.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+            item.addUnsafeEnchantment(Enchantment.MENDING, 1);
+        } else if (id.equals("gear_trident")) {
+            item.addUnsafeEnchantment(Enchantment.IMPALING, 5);
+            item.addUnsafeEnchantment(Enchantment.LOYALTY, 3);
+            item.addUnsafeEnchantment(Enchantment.CHANNELING, 1);
+            item.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+            item.addUnsafeEnchantment(Enchantment.MENDING, 1);
+        }
     }
 
     private ItemStack enchantedArmor(Material material) {
