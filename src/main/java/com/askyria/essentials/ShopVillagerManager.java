@@ -222,7 +222,7 @@ public final class ShopVillagerManager implements Listener {
 
     public void openEditor(Player player, String category) {
         if (!List.of("armor", "kits", "mythical", "seller").contains(category)) {
-            player.sendMessage(Component.text("Use armor, gear, mythical, or seller."));
+            player.sendMessage(Component.text("Use armor, kits, mythical, or seller."));
             return;
         }
         String title = "Edit " + switch (category) {
@@ -517,7 +517,7 @@ public final class ShopVillagerManager implements Listener {
             meta.addStoredEnchant(Enchantment.MENDING, 1, true);
             book.setItemMeta(meta);
             give(player, book);
-        } else if (trade.id().startsWith("gear_") && isGearWeapon(trade.id())) {
+        } else if (trade.category().equals("kits")) {\n            give(player, createKitShulker(trade.id()));\n        } else if (trade.id().startsWith("gear_") && isGearWeapon(trade.id())) {
             ItemStack item = new ItemStack(trade.material());
             applyGearEnchants(item, trade.id());
             give(player, item);
