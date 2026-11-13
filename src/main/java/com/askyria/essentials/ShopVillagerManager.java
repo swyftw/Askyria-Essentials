@@ -480,10 +480,13 @@ public final class ShopVillagerManager implements Listener {
         BlockStateMeta meta = (BlockStateMeta) box.getItemMeta();
         ShulkerBox state = (ShulkerBox) meta.getBlockState();
         List<ItemStack> items = kitContents(id);
-        Inventory contents = state.getSnapshotInventory();
+        // Use the shulker block state's live inventory before writing it back
+        // to BlockStateMeta. This ensures the item actually carries its contents.
+        Inventory contents = state.getInventory();
         contents.clear();
         for (int i = 0; i < items.size() && i < contents.getSize(); i++) {
-            contents.setItem(i, items.get(i));
+            ItemStack packed = items.get(i);
+            if (packed != null && !packed.getType().isAir()) contents.setItem(i, packed.clone());
         }
         String name = switch (id) {
             case "kit_diamond_mace" -> "§b§lDIAMOND MACE KIT";
