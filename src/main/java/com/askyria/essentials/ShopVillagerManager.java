@@ -625,6 +625,7 @@ public final class ShopVillagerManager implements Listener {
     private ItemStack createSwitcherSword() {
         ItemStack item = new ItemStack(Material.NETHERITE_SWORD);
         item.addUnsafeEnchantment(Enchantment.SHARPNESS, 5);
+        item.addUnsafeEnchantment(Enchantment.KNOCKBACK, 2);
         item.addUnsafeEnchantment(Enchantment.FIRE_ASPECT, 2);
         item.addUnsafeEnchantment(Enchantment.LOOTING, 3);
         item.addUnsafeEnchantment(Enchantment.SWEEPING_EDGE, 3);
