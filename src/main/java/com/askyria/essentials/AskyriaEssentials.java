@@ -893,6 +893,10 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 openKitsMenu(player);
                 return true;
             }
+            case "core" -> {
+                shopVillagerManager.handleCoreCommand(sender, args);
+                return true;
+            }
             case "shopvillager" -> {
                 if (!requireOp(sender)) return true;
                 if (!(sender instanceof Player player)) {
