@@ -23,6 +23,8 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.block.Action;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityPickupItemEvent;
+import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
@@ -45,6 +47,7 @@ public final class ShopVillagerManager implements Listener {
     private final NamespacedKey orbitalKey;
     private final NamespacedKey tradeKey;
     private final NamespacedKey switcherKey;
+    private final NamespacedKey switcherExpiryKey;
     private final Map<java.util.UUID, Long> switcherCooldowns = new HashMap<>();
     private final Map<java.util.UUID, BukkitTask> switcherReturnTasks = new HashMap<>();
     private final Map<String, Trade> trades = new java.util.LinkedHashMap<>();
@@ -59,6 +62,7 @@ public final class ShopVillagerManager implements Listener {
         this.orbitalKey = new NamespacedKey(plugin, "orbital_type");
         this.tradeKey = new NamespacedKey(plugin, "core_shop_trade");
         this.switcherKey = new NamespacedKey(plugin, "switcher_form");
+        this.switcherExpiryKey = new NamespacedKey(plugin, "switcher_expiry");
         add("armor_helmet", Material.NETHERITE_HELMET, 1, 40, "Netherite Helmet (Protection V)", "armor");
         add("armor_chest", Material.NETHERITE_CHESTPLATE, 1, 50, "Netherite Chestplate (Protection V)", "armor");
         add("armor_legs", Material.NETHERITE_LEGGINGS, 1, 45, "Netherite Leggings (Protection V)", "armor");
@@ -661,7 +665,7 @@ public final class ShopVillagerManager implements Listener {
         return item;
     }
 
-    private ItemStack createSwitcherMace() {
+    private ItemStack createSwitcherMace(long expiresAt) {
         ItemStack item = new ItemStack(Material.MACE);
         item.addUnsafeEnchantment(Enchantment.DENSITY, 5);
         item.addUnsafeEnchantment(Enchantment.WIND_BURST, 3);
@@ -673,6 +677,7 @@ public final class ShopVillagerManager implements Listener {
         meta.lore(List.of(Component.text("Deals double damage"),
             Component.text("Returns to sword form after 2 minutes")));
         meta.getPersistentDataContainer().set(switcherKey, PersistentDataType.STRING, "mace");
+        meta.getPersistentDataContainer().set(switcherExpiryKey, PersistentDataType.LONG, expiresAt);
         item.setItemMeta(meta);
         return item;
     }
@@ -696,7 +701,7 @@ public final class ShopVillagerManager implements Listener {
             return;
         }
         int slot = player.getInventory().getHeldItemSlot();
-        player.getInventory().setItem(slot, createSwitcherMace());
+        player.getInventory().setItem(slot, createSwitcherMace(now + 120_000L));
         java.util.UUID id = player.getUniqueId();
         switcherCooldowns.put(id, now + 300_000L);
         BukkitTask previous = switcherReturnTasks.remove(id);
@@ -708,6 +713,32 @@ public final class ShopVillagerManager implements Listener {
         }, 2400L);
         switcherReturnTasks.put(id, task);
         player.sendMessage(Component.text("SWITCHER activated. Mace form lasts 2 minutes; cooldown is 5 minutes."));
+    }
+
+    private ItemStack restoreExpiredSwitcher(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) return item;
+        var pdc = item.getItemMeta().getPersistentDataContainer();
+        String form = pdc.get(switcherKey, PersistentDataType.STRING);
+        Long expiresAt = pdc.get(switcherExpiryKey, PersistentDataType.LONG);
+        if (!"mace".equals(form) || expiresAt == null || System.currentTimeMillis() < expiresAt) return item;
+        return createSwitcherSword();
+    }
+
+    @EventHandler
+    public void onSwitcherInventoryOpen(InventoryOpenEvent event) {
+        Inventory inventory = event.getInventory();
+        for (int slot = 0; slot < inventory.getSize(); slot++) {
+            ItemStack item = inventory.getItem(slot);
+            ItemStack restored = restoreExpiredSwitcher(item);
+            if (restored != item) inventory.setItem(slot, restored);
+        }
+    }
+
+    @EventHandler
+    public void onSwitcherItemPickup(EntityPickupItemEvent event) {
+        ItemStack item = event.getItem().getItemStack();
+        ItemStack restored = restoreExpiredSwitcher(item);
+        if (restored != item) event.getItem().setItemStack(restored);
     }
 
     private void restoreSwitcherSword(Player player) {
