@@ -208,7 +208,7 @@ public final class ShopVillagerManager implements Listener {
             String type = clicked.getItemMeta().getPersistentDataContainer().get(orbitalKey, PersistentDataType.STRING);
             if (type == null) return;
             int price = switch (type) { case "rain" -> 100; case "stab" -> 125; case "lunar" -> 175; default -> 250; };
-            if (!takeCore(player, price)) { player.sendMessage(Component.text("You need " + price + " Core. Your balance: " + getBalance(player) + ".")); return; }
+            if (!takeCore(player, price)) { player.sendMessage(Component.text("You need " + price + " Core (Nether Stars).")); return; }
             player.getInventory().addItem(createOrbital(type)).values().forEach(drop -> player.getWorld().dropItemNaturally(player.getLocation(), drop));
             player.sendMessage(Component.text("Purchased " + type.toUpperCase() + " Orbital."));
             return;
@@ -231,7 +231,7 @@ public final class ShopVillagerManager implements Listener {
 
     private void buyItems(Player player, Trade trade) {
         if (!takeCore(player, trade.price())) {
-            player.sendMessage(Component.text("You need " + trade.price() + " Core to buy that. Your balance: " + getBalance(player) + "."));
+            player.sendMessage(Component.text("You need " + trade.price() + " Core (Nether Stars) to buy that."));
             return;
         }
         if (trade.id().equals("armor_set")) {
@@ -285,8 +285,8 @@ public final class ShopVillagerManager implements Listener {
             remaining -= take;
         }
         player.getInventory().setStorageContents(contents);
-        addBalance(player, trade.price());
-        player.sendMessage(Component.text("Sold " + trade.amount() + " " + trade.display() + " for " + trade.price() + " Core. Balance: " + getBalance(player) + "."));
+        giveCore(player, trade.price());
+        player.sendMessage(Component.text("Sold " + trade.amount() + " " + trade.display() + " for " + trade.price() + " Core."));
     }
 
     private ItemStack createOrbital(String type) {
@@ -311,52 +311,50 @@ public final class ShopVillagerManager implements Listener {
             .forEach(drop -> player.getWorld().dropItemNaturally(player.getLocation(), drop));
     }
 
-    public int getBalance(Player player) {
-        return Math.max(0, plugin.getConfig().getInt("core-balances." + player.getUniqueId(), 0));
+    private ItemStack coreItem(int amount) {
+        ItemStack item = new ItemStack(Material.NETHER_STAR, Math.max(1, Math.min(64, amount)));
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(Component.text("Core", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE)
+            .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true));
+        meta.lore(List.of(Component.text("CORE SMP currency", net.kyori.adventure.text.format.NamedTextColor.GRAY)));
+        meta.getPersistentDataContainer().set(shardKey, PersistentDataType.BYTE, (byte) 1);
+        item.setItemMeta(meta);
+        return item;
     }
 
-    public void addBalance(Player player, int amount) {
-        if (amount <= 0) return;
-        String path = "core-balances." + player.getUniqueId();
-        plugin.getConfig().set(path, Math.addExact(getBalance(player), amount));
-        plugin.saveConfig();
+    private void giveCore(Player player, int amount) {
+        int remaining = amount;
+        while (remaining > 0) {
+            int stack = Math.min(64, remaining);
+            give(player, coreItem(stack));
+            remaining -= stack;
+        }
     }
 
-    public void setBalance(Player player, int amount) {
-        plugin.getConfig().set("core-balances." + player.getUniqueId(), Math.max(0, amount));
-        plugin.saveConfig();
-    }
-
-    public boolean takeCore(Player player, int amount) {
-        if (amount < 0 || getBalance(player) < amount) return false;
-        setBalance(player, getBalance(player) - amount);
+    private boolean takeCore(Player player, int amount) {
+        if (amount <= 0) return amount == 0;
+        int found = 0;
+        for (ItemStack item : player.getInventory().getStorageContents()) {
+            if (isCore(item)) found += item.getAmount();
+        }
+        if (found < amount) return false;
+        int remaining = amount;
+        ItemStack[] contents = player.getInventory().getStorageContents();
+        for (int i = 0; i < contents.length && remaining > 0; i++) {
+            ItemStack item = contents[i];
+            if (!isCore(item)) continue;
+            int take = Math.min(remaining, item.getAmount());
+            item.setAmount(item.getAmount() - take);
+            if (item.getAmount() <= 0) contents[i] = null;
+            remaining -= take;
+        }
+        player.getInventory().setStorageContents(contents);
         return true;
     }
 
-    public void handleCoreCommand(CommandSender sender, String[] args) {
-        if (args.length == 0 || args[0].equalsIgnoreCase("balance")) {
-            if (!(sender instanceof Player player)) { sender.sendMessage("Players only."); return; }
-            sender.sendMessage(Component.text("Your Core balance: " + getBalance(player)));
-            return;
-        }
-        if (!sender.isOp()) { sender.sendMessage(Component.text("Only operators can manage Core balances.")); return; }
-        if (args.length != 3 || !(args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("take"))) {
-            sender.sendMessage(Component.text("Usage: /core balance OR /core <give|set|take> <player> <amount>"));
-            return;
-        }
-        Player target = Bukkit.getPlayerExact(args[1]);
-        if (target == null) { sender.sendMessage(Component.text("That player must be online.")); return; }
-        int amount;
-        try { amount = Integer.parseInt(args[2]); } catch (NumberFormatException ex) { sender.sendMessage(Component.text("Enter a whole-number amount.")); return; }
-        if (amount < 0 || amount > 100000000) { sender.sendMessage(Component.text("Amount must be between 0 and 100000000.")); return; }
-        switch (args[0].toLowerCase(java.util.Locale.ROOT)) {
-            case "give" -> addBalance(target, amount);
-            case "set" -> setBalance(target, amount);
-            case "take" -> setBalance(target, Math.max(0, getBalance(target) - amount));
-            default -> { return; }
-        }
-        sender.sendMessage(Component.text("Updated " + target.getName() + "'s Core balance to " + getBalance(target) + "."));
-        target.sendMessage(Component.text("Your Core balance is now " + getBalance(target) + "."));
+    private boolean isCore(ItemStack item) {
+        return item != null && item.getType() == Material.NETHER_STAR && item.hasItemMeta()
+            && item.getItemMeta().getPersistentDataContainer().has(shardKey, PersistentDataType.BYTE);
     }
 
     public void removeTargeted(Player player) {
