@@ -40,6 +40,47 @@ public final class ShopVillagerManager implements Listener {
         villager.setPersistent(true);
     }
 
+    public void spawnShopVillager(Player player, String type) {
+        String normalized = type.toLowerCase(java.util.Locale.ROOT);
+        String displayName;
+        Villager.Profession profession;
+        switch (normalized) {
+            case "armor" -> {
+                displayName = "Armor Villager";
+                profession = Villager.Profession.ARMORER;
+            }
+            case "normal" -> {
+                displayName = "Normal Items Villager";
+                profession = Villager.Profession.TOOLSMITH;
+            }
+            case "mythical" -> {
+                displayName = "Mythical Weapons Villager";
+                profession = Villager.Profession.WEAPONSMITH;
+            }
+            case "seller" -> {
+                displayName = "Seller Villager";
+                profession = Villager.Profession.BUTCHER;
+            }
+            default -> {
+                player.sendMessage(Component.text("Type must be armor, normal, mythical, or seller."));
+                return;
+            }
+        }
+
+        Vector direction = player.getLocation().getDirection().setY(0).normalize();
+        if (direction.lengthSquared() == 0) direction = new Vector(0, 0, 1);
+        var spawnLocation = player.getLocation().clone().add(direction.multiply(2));
+        spawnLocation.setPitch(0);
+        Villager villager = player.getWorld().spawn(spawnLocation, Villager.class);
+        villager.setProfession(profession);
+        villager.setVillagerLevel(5);
+        villager.setCustomName(displayName);
+        villager.setCustomNameVisible(true);
+        villager.setCanPickupItems(false);
+        markShopVillager(villager);
+        player.sendMessage(Component.text("Spawned " + displayName + "."));
+    }
+
     public void removeTargeted(Player player) {
         var eye = player.getEyeLocation();
         Vector direction = eye.getDirection();
