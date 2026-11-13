@@ -64,3 +64,7 @@ commands:
   cheatban:
     description: Ban a player for cheating for a chosen duration (OP only)
     usage: /cheatban <player> <duration>
+
+  shopvillager:
+    description: Manage custom CORE SMP shop villagers (OP only)
+    usage: /shopvillager <remove|removeall>
