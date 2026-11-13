@@ -130,12 +130,12 @@ public final class ShopVillagerManager implements Listener {
             name.startsWith("Mythical") ? "mythical" : "seller");
     }
 
-    private void openShop(Player player, String category) {
+    public void openShop(Player player, String category) {
         String title = switch (category) {
-            case "armor" -> "Armor Villager";
-            case "kits" -> "Kit Villager";
-            case "mythical" -> "Mythical Weapons Villager";
-            default -> "Seller Villager";
+            case "armor" -> "Armor Shop";
+            case "kits" -> "Kits Shop";
+            case "mythical" -> "Mythical Shop";
+            default -> "Seller Shop";
         };
         int size = 54;
         Inventory inv = Bukkit.createInventory(null, size, Component.text(title));
@@ -339,7 +339,7 @@ public final class ShopVillagerManager implements Listener {
             }
             return;
         }
-        if (!title.contains("Villager")) return;
+        if (!title.endsWith(" Shop")) return;
         event.setCancelled(true);
         if (!(event.getWhoClicked() instanceof Player player)) return;
         if (event.getClickedInventory() == null || event.getClickedInventory() != event.getView().getTopInventory()) return;
@@ -376,7 +376,7 @@ public final class ShopVillagerManager implements Listener {
             }
             return;
         }
-        if (title.contains("Villager")) event.setCancelled(true);
+        if (title.endsWith(" Shop")) event.setCancelled(true);
     }
 
 
