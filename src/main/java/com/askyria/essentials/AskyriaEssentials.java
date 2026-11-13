@@ -80,7 +80,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private BukkitTask simulatedPlayersTicker;
     private SuperTotemManager superTotemManager;
     private ShopVillagerManager shopVillagerManager;
-    private ExtendedEnderChestManager extendedEnderChestManager;
     private boolean simulatedPlayersEnabled = false;
     private final List<String> simulatedPlayerNames = new ArrayList<>();
     private final Map<UUID, Set<UUID>> sentFakeEntries = new HashMap<>();
@@ -140,8 +139,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         shopVillagerManager = new ShopVillagerManager(this);
         Bukkit.getPluginManager().registerEvents(shopVillagerManager, this);
         getCommand("shopvillager").setExecutor(this);
-        extendedEnderChestManager = new ExtendedEnderChestManager(this);
-        Bukkit.getPluginManager().registerEvents(extendedEnderChestManager, this);
+        Bukkit.getPluginManager().registerEvents(new LegacyEnderChestMigration(this), this);
         fakePlayerPacketListener = new PacketListenerAbstract(PacketListenerPriority.NORMAL) {
             @Override
             public void onPacketSend(com.github.retrooper.packetevents.event.PacketSendEvent event) {
@@ -209,7 +207,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     @Override
     public void onDisable() {
         if (combatTicker != null) combatTicker.cancel();
-        if (extendedEnderChestManager != null) extendedEnderChestManager.saveAll();
         if (tabTicker != null) tabTicker.cancel();
         if (simulatedPlayersTicker != null) simulatedPlayersTicker.cancel();
         if (fakePlayerPacketListener != null) {
