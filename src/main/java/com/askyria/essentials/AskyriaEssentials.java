@@ -901,12 +901,14 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 }
                 if (args.length == 2 && args[0].equalsIgnoreCase("spawn")) {
                     shopVillagerManager.spawnShopVillager(player, args[1]);
+                } else if (args.length == 2 && args[0].equalsIgnoreCase("edit")) {
+                    shopVillagerManager.openEditor(player, args[1].toLowerCase(java.util.Locale.ROOT));
                 } else if (args.length == 1 && args[0].equalsIgnoreCase("remove")) {
                     shopVillagerManager.removeTargeted(player);
                 } else if (args.length == 1 && args[0].equalsIgnoreCase("removeall")) {
                     shopVillagerManager.removeAll(player);
                 } else {
-                    sender.sendMessage(Component.text("Usage: /shopvillager spawn <armor|gear|mythical|seller>"));
+                    sender.sendMessage(Component.text("Usage: /shopvillager spawn <armor|gear|mythical|seller> OR /shopvillager edit <armor|gear|mythical|seller>"));
                     sender.sendMessage(Component.text("Or: /shopvillager remove OR /shopvillager removeall"));
                 }
                 return true;
