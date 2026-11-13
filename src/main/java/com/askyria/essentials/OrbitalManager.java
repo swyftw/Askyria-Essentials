@@ -30,6 +30,7 @@ import org.bukkit.util.Vector;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class OrbitalManager implements CommandExecutor, Listener {
     private final JavaPlugin plugin;
