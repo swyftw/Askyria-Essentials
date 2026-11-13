@@ -906,7 +906,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 } else if (args.length == 1 && args[0].equalsIgnoreCase("removeall")) {
                     shopVillagerManager.removeAll(player);
                 } else {
-                    sender.sendMessage(Component.text("Usage: /shopvillager spawn <armor|normal|mythical|seller>"));
+                    sender.sendMessage(Component.text("Usage: /shopvillager spawn <armor|gear|mythical|seller>"));
                     sender.sendMessage(Component.text("Or: /shopvillager remove OR /shopvillager removeall"));
                 }
                 return true;
