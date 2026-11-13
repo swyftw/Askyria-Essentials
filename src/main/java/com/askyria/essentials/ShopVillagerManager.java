@@ -63,18 +63,12 @@ public final class ShopVillagerManager implements Listener {
         add("kit_spear_mace", Material.SHULKER_BOX, 1, 2400, "Spear Mace Kit", "kits");
 
         // Exactly three ore-block trades, plus rare valuables.
-        add("sell_iron", Material.IRON_BLOCK, 16, 1, "Iron Blocks", "seller");
         add("sell_diamond_blocks", Material.DIAMOND_BLOCK, 16, 8, "Diamond Blocks", "seller");
         add("sell_netherite", Material.NETHERITE_BLOCK, 1, 20, "Netherite Blocks", "seller");
-        add("sell_totem", Material.TOTEM_OF_UNDYING, 8, 12, "Totems of Undying", "seller");
         add("sell_elytra", Material.ELYTRA, 4, 16, "Elytra", "seller");
-        add("sell_heavycore", Material.HEAVY_CORE, 8, 24, "Heavy Cores", "seller");
-        add("sell_star", Material.NETHER_STAR, 16, 32, "Nether Stars", "seller");
         add("sell_shulker", Material.SHULKER_BOX, 16, 12, "Shulker Boxes", "seller");
         add("sell_egg", Material.DRAGON_EGG, 1, 250, "Dragon Egg", "seller");
         add("sell_netherite_ingots", Material.NETHERITE_INGOT, 8, 8, "Netherite Ingots", "seller");
-        add("sell_diamonds", Material.DIAMOND, 32, 4, "Diamonds", "seller");
-        add("sell_emeralds", Material.EMERALD, 32, 2, "Emeralds", "seller");
         add("sell_beacon", Material.BEACON, 2, 40, "Beacons", "seller");
         add("sell_mace", Material.MACE, 1, 50, "Maces", "seller");
         add("sell_tridents", Material.TRIDENT, 4, 24, "Tridents", "seller");
@@ -485,12 +479,12 @@ public final class ShopVillagerManager implements Listener {
         ItemStack box = new ItemStack(Material.SHULKER_BOX);
         BlockStateMeta meta = (BlockStateMeta) box.getItemMeta();
         ShulkerBox state = (ShulkerBox) meta.getBlockState();
-        Inventory contents = state.getInventory();
         List<ItemStack> items = kitContents(id);
+        Inventory contents = state.getSnapshotInventory();
+        contents.clear();
         for (int i = 0; i < items.size() && i < contents.getSize(); i++) {
             contents.setItem(i, items.get(i));
         }
-        meta.setBlockState(state);
         String name = switch (id) {
             case "kit_diamond_mace" -> "§b§lDIAMOND MACE KIT";
             case "kit_smp" -> "§d§lSMP KIT";
@@ -498,7 +492,10 @@ public final class ShopVillagerManager implements Listener {
             default -> "§5§lSPEAR MACE KIT";
         };
         meta.setDisplayName(name);
-        meta.setLore(List.of("§7CORE SMP combat kit", "§ePre-filled shulker box"));
+        meta.setLore(List.of("§7CORE SMP combat kit", "§ePre-filled shulker box", "§aContents packed inside"));
+        if (!meta.setBlockState(state)) {
+            plugin.getLogger().warning("Could not store contents for kit " + id);
+        }
         box.setItemMeta(meta);
         return box;
     }
