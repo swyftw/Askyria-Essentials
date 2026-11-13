@@ -18,6 +18,9 @@ commands:
   discord:
     description: Show the Askyria SMP Discord invite
     usage: /discord
+  spawn:
+    description: Teleport to the current world spawn
+    usage: /spawn
   top1:
     description: Give a player the yellow TOP1 rank
     usage: /top1 <player>
