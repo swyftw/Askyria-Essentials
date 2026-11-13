@@ -634,8 +634,15 @@ public final class ShopVillagerManager implements Listener {
         ItemMeta meta = item.getItemMeta();
         meta.displayName(Component.text("SWITCHER", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE)
             .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true));
-        meta.lore(List.of(Component.text("Sneak + right-click to become a mace"),
-            Component.text("Mace form: 2 minutes"), Component.text("Cooldown: 5 minutes")));
+        meta.lore(List.of(
+            Component.text("MAXED NETHERITE WEAPON", net.kyori.adventure.text.format.NamedTextColor.AQUA)
+                .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true),
+            Component.text("Sneak + Right Click", net.kyori.adventure.text.format.NamedTextColor.YELLOW),
+            Component.text("Switch into a powerful mace form", net.kyori.adventure.text.format.NamedTextColor.GRAY),
+            Component.text("Mace Form: 2 Minutes", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE),
+            Component.text("Mace Damage: 2x", net.kyori.adventure.text.format.NamedTextColor.RED),
+            Component.text("Cooldown: 5 Minutes", net.kyori.adventure.text.format.NamedTextColor.GOLD)
+        ));
         meta.getPersistentDataContainer().set(switcherKey, PersistentDataType.STRING, "sword");
         item.setItemMeta(meta);
         return item;
