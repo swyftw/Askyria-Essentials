@@ -908,7 +908,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 } else if (args.length == 1 && args[0].equalsIgnoreCase("removeall")) {
                     shopVillagerManager.removeAll(player);
                 } else {
-                    sender.sendMessage(Component.text("Usage: /shopvillager spawn <armor|gear|mythical|seller> OR /shopvillager edit <armor|gear|mythical|seller>"));
+                    sender.sendMessage(Component.text("Usage: /shopvillager spawn <armor|kits|mythical|seller> OR /shopvillager edit <armor|kits|mythical|seller>"));
                     sender.sendMessage(Component.text("Or: /shopvillager remove OR /shopvillager removeall"));
                 }
                 return true;
@@ -1111,7 +1111,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                     if (option.startsWith(args[0].toLowerCase())) suggestions.add(option);
                 }
             } else if (args.length == 2 && args[0].equalsIgnoreCase("spawn")) {
-                for (String type : List.of("armor", "normal", "mythical", "seller")) {
+                for (String type : List.of("armor", "kits", "mythical", "seller")) {
                     if (type.startsWith(args[1].toLowerCase())) suggestions.add(type);
                 }
             }
