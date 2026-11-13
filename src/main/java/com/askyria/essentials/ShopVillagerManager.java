@@ -146,20 +146,59 @@ public final class ShopVillagerManager implements Listener {
             case "mythical" -> "Mythical Weapons Villager";
             default -> "Seller Villager";
         };
-        Inventory inv = Bukkit.createInventory(null, 54, Component.text(title));
-        int slot = 0;
+        int size = category.equals("normal") || category.equals("seller") ? 45 : 27;
+        Inventory inv = Bukkit.createInventory(null, size, Component.text(title));
+        fillShopFrame(inv);
+        ItemStack info = new ItemStack(Material.NETHER_STAR);
+        ItemMeta infoMeta = info.getItemMeta();
+        infoMeta.displayName(Component.text("CORE SMP SHOP", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE)
+            .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true));
+        infoMeta.lore(List.of(
+            Component.text("Currency: physical Core Nether Stars"),
+            Component.text(category.equals("seller") ? "Click an item to sell it." : "Click an item to purchase it.")
+        ));
+        info.setItemMeta(infoMeta);
+        inv.setItem(4, info);
+
         if (category.equals("mythical")) {
             addOrbitalIcon(inv, 10, "rain", "RAIN ORBITAL", 100);
             addOrbitalIcon(inv, 12, "stab", "STAB ORBITAL", 125);
             addOrbitalIcon(inv, 14, "lunar", "LUNAR ORBITAL", 175);
             addOrbitalIcon(inv, 16, "nuke", "NUKE ORBITAL", 250);
         } else {
+            int[] armorSlots = {10, 12, 14, 16, 22};
+            int[] normalSlots = {
+                10, 11, 12, 13, 14, 15, 16,
+                19, 20, 21, 22, 23, 24, 25,
+                28, 29, 30, 31
+            };
+            int[] sellerSlots = {
+                10, 11, 12, 13, 14, 15, 16,
+                19, 20, 21, 22, 23, 24, 25
+            };
+            int index = 0;
             for (Trade trade : trades.values()) {
                 if (!trade.category().equals(category)) continue;
-                inv.setItem(slot++, tradeIcon(trade, category.equals("seller")));
+                int[] slots = category.equals("armor") ? armorSlots :
+                    category.equals("normal") ? normalSlots : sellerSlots;
+                if (index < slots.length) inv.setItem(slots[index++], tradeIcon(trade, category.equals("seller")));
             }
         }
         player.openInventory(inv);
+    }
+
+    private void fillShopFrame(Inventory inv) {
+        ItemStack pane = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
+        ItemMeta meta = pane.getItemMeta();
+        meta.displayName(Component.text(" "));
+        pane.setItemMeta(meta);
+        for (int slot = 0; slot < inv.getSize(); slot++) {
+            int row = slot / 9;
+            int col = slot % 9;
+            if (row == 0 || row == inv.getSize() / 9 - 1 || col == 0 || col == 8) {
+                inv.setItem(slot, pane);
+            }
+        }
     }
 
     private ItemStack tradeIcon(Trade trade, boolean selling) {
