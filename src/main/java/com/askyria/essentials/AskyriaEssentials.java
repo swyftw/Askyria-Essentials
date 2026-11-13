@@ -741,9 +741,11 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         long now = System.currentTimeMillis();
         long rankRemaining = Math.max(0L, (rankAbilityCooldowns.getOrDefault(id, 0L) - now + 999L) / 1000L);
         boolean showRank = topRank(player) > 0 && rankRemaining > 0L;
+        long switcherRemaining = shopVillagerManager == null ? 0L : shopVillagerManager.getSwitcherCooldownSeconds(player);
+        boolean showSwitcher = switcherRemaining > 0L;
 
         Scoreboard board = cooldownBoards.get(id);
-        if (!showRank) {
+        if (!showRank && !showSwitcher) {
             if (board != null) {
                 Objective objective = board.getObjective("ask_cd");
                 if (objective != null) objective.unregister();
@@ -774,7 +776,8 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             objective.setDisplaySlot(DisplaySlot.SIDEBAR);
         }
         for (String entry : board.getEntries()) board.resetScores(entry);
-        if (showRank) objective.getScore("TOP " + topRank(player) + ": " + rankRemaining + "s").setScore(1);
+        if (showRank) objective.getScore("TOP " + topRank(player) + ": " + rankRemaining + "s").setScore(2);
+        if (showSwitcher) objective.getScore("SWITCHER: " + (switcherRemaining / 60) + "m " + (switcherRemaining % 60) + "s").setScore(1);
     }
 
     private String rankTag(int rank) {
