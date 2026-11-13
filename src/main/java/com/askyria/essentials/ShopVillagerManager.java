@@ -277,6 +277,7 @@ public final class ShopVillagerManager implements Listener {
         String title = "Edit " + switch (category) {
             case "armor" -> "Armor";
             case "kits" -> "Restock Kits";
+            case "mystery" -> "Mystery Box";
             case "mythical" -> "Mythical";
             default -> "Seller";
         } + " Shop";
