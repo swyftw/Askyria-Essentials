@@ -26,17 +26,20 @@ import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 import io.github.retrooper.packetevents.util.SpigotConversionUtil;
 
-public final class ShopNpcManager extends PacketListenerAbstract {
+public final class ShopNpcManager extends PacketListenerAbstract implements Listener {
     private record ShopNpc(String type, String name, String description, NamedTextColor color) {}
 
     private static final Map<String, ShopNpc> DEFINITIONS = Map.of(
         "armor", new ShopNpc("armor", "ARMOR", "Protection V • Netherite Gear", NamedTextColor.AQUA),
-        "kits", new ShopNpc("kits", "KITS", "Combat Kits • Choose Your Loadout", NamedTextColor.GREEN),
-        "mythical", new ShopNpc("mythical", "MYTHICAL", "Rare Orbital Weapons", NamedTextColor.LIGHT_PURPLE),
         "seller", new ShopNpc("seller", "SELLER", "Trade Valuables for Core", NamedTextColor.GOLD)
     );
 
@@ -154,17 +157,22 @@ public final class ShopNpcManager extends PacketListenerAbstract {
         }
     }
 
-    public void onPlayerJoin(Player player) {
-        Bukkit.getScheduler().runTask(plugin, () -> spawnForPlayer(player));
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Bukkit.getScheduler().runTask(plugin, () -> spawnForPlayer(event.getPlayer()));
     }
 
-    public void onPlayerWorldChange(Player player) {
+    @EventHandler
+    public void onPlayerWorldChange(PlayerChangedWorldEvent event) {
+        Player player = event.getPlayer();
         Object channel = PacketEvents.getAPI().getPlayerManager().getChannel(player);
         if (channel != null) for (NPC npc : npcs.values()) npc.despawn(channel);
         Bukkit.getScheduler().runTask(plugin, () -> spawnForPlayer(player));
     }
 
-    public void onPlayerQuit(Player player) {
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        Player player = event.getPlayer();
         Object channel = PacketEvents.getAPI().getPlayerManager().getChannel(player);
         if (channel != null) for (NPC npc : npcs.values()) npc.despawn(channel);
     }
