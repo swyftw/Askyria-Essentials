@@ -899,10 +899,10 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 openKitsMenu(player);
                 return true;
             }
-            case "shopvillager", "shopnpc" -> {
+            case "shopvillager" -> {
                 if (!requireOp(sender)) return true;
                 if (!(sender instanceof Player player)) {
-                    sender.sendMessage(Component.text("Only players can remove shop villagers."));
+                    sender.sendMessage(Component.text("Only players can manage shop villagers."));
                     return true;
                 }
                 if (args.length == 2 && args[0].equalsIgnoreCase("spawn")) {
@@ -914,8 +914,28 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 } else if (args.length == 1 && args[0].equalsIgnoreCase("removeall")) {
                     shopVillagerManager.removeAll(player);
                 } else {
-                    sender.sendMessage(Component.text("Usage: /shopnpc spawn <armor|kits|mythical|seller> OR /shopnpc edit <armor|kits|mythical|seller>"));
-                    sender.sendMessage(Component.text("Or: /shopnpc remove <type> OR /shopnpc removeall"));
+                    sender.sendMessage(Component.text("Usage: /shopvillager spawn <armor|kits|mythical|seller>"));
+                }
+                return true;
+            }
+            case "shopnpc" -> {
+                if (!requireOp(sender)) return true;
+                if (!(sender instanceof Player player)) {
+                    sender.sendMessage(Component.text("Only players can manage shop NPCs."));
+                    return true;
+                }
+                if (args.length == 2 && args[0].equalsIgnoreCase("spawn")) {
+                    shopNpcManager.spawnShopNpc(player, args[1]);
+                } else if (args.length == 2 && args[0].equalsIgnoreCase("edit")) {
+                    shopVillagerManager.openEditor(player, args[1].toLowerCase(java.util.Locale.ROOT));
+                } else if (args.length == 2 && args[0].equalsIgnoreCase("remove")) {
+                    shopNpcManager.removeShopNpc(player, args[1].toLowerCase(java.util.Locale.ROOT));
+                } else if (args.length == 1 && args[0].equalsIgnoreCase("removeall")) {
+                    shopNpcManager.removeAll(player);
+                } else {
+                    sender.sendMessage(Component.text("Usage: /shopnpc spawn <armor|kits|mythical|seller>"));
+                    sender.sendMessage(Component.text("/shopnpc edit <armor|kits|mythical|seller>"));
+                    sender.sendMessage(Component.text("/shopnpc remove <type> OR /shopnpc removeall"));
                 }
                 return true;
             }
