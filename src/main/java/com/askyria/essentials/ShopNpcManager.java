@@ -19,13 +19,13 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
-import org.bukkit.Display;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
+import org.bukkit.entity.Display;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
@@ -40,6 +40,8 @@ public final class ShopNpcManager extends PacketListenerAbstract implements List
 
     private static final Map<String, ShopNpc> DEFINITIONS = Map.of(
         "armor", new ShopNpc("armor", "ARMOR", "Protection V • Netherite Gear", NamedTextColor.AQUA),
+        "kits", new ShopNpc("kits", "KITS", "Combat Kits • Choose Your Loadout", NamedTextColor.GREEN),
+        "mythical", new ShopNpc("mythical", "MYTHICAL", "Rare Orbital Weapons", NamedTextColor.LIGHT_PURPLE),
         "seller", new ShopNpc("seller", "SELLER", "Trade Valuables for Core", NamedTextColor.GOLD)
     );
 
@@ -129,8 +131,9 @@ public final class ShopNpcManager extends PacketListenerAbstract implements List
         display.setShadowed(true);
         display.setDefaultBackground(false);
         display.setLineWidth(240);
-        display.setText(Component.text(definition.description(), definition.color())
-            .decorate(TextDecoration.BOLD));
+        display.setText(net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacySection()
+            .serialize(Component.text(definition.description(), definition.color())
+                .decorate(TextDecoration.BOLD)));
         display.getPersistentDataContainer().set(hologramKey, PersistentDataType.BYTE, (byte) 1);
         display.getPersistentDataContainer().set(hologramTypeKey, PersistentDataType.STRING, type);
     }
