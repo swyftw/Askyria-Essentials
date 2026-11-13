@@ -70,10 +70,10 @@ public final class ShopVillagerManager implements Listener {
         add("armor_set", Material.NETHERITE_INGOT, 1, 150, "Full Netherite Set (Protection V)", "armor");
 
         // Four pre-filled combat kits replace the old Gear shop.
-        add("kit_diamond_mace", Material.SHULKER_BOX, 1, 40, "Diamond Mace Kit", "kits");
-        add("kit_smp", Material.SHULKER_BOX, 1, 50, "SMP Kit", "kits");
-        add("kit_ely_mace", Material.SHULKER_BOX, 1, 65, "Ely Mace Kit", "kits");
-        add("kit_spear_mace", Material.SHULKER_BOX, 1, 75, "Spear Mace Kit", "kits");
+        add("kit_diamond_mace", Material.SHULKER_BOX, 1, 40, "Diamond Mace Restock", "kits");
+        add("kit_smp", Material.SHULKER_BOX, 1, 50, "SMP Restock", "kits");
+        add("kit_ely_mace", Material.SHULKER_BOX, 1, 65, "Ely Mace Restock", "kits");
+        add("kit_spear_mace", Material.SHULKER_BOX, 1, 75, "Spear Mace Restock", "kits");
 
         // Exactly three ore-block trades, plus rare valuables.
         add("sell_diamond_blocks", Material.DIAMOND_BLOCK, 16, 2, "Diamond Blocks", "seller");
@@ -113,7 +113,7 @@ public final class ShopVillagerManager implements Listener {
         Villager.Profession profession;
         switch (normalized) {
             case "armor" -> { displayName = "Armor Villager"; profession = Villager.Profession.ARMORER; }
-            case "kits" -> { displayName = "Kit Villager"; profession = Villager.Profession.TOOLSMITH; }
+            case "kits" -> { displayName = "Restock Kits Villager"; profession = Villager.Profession.TOOLSMITH; }
             case "mythical" -> { displayName = "Mythical Weapons Villager"; profession = Villager.Profession.WEAPONSMITH; }
             case "seller" -> { displayName = "Seller Villager"; profession = Villager.Profession.BUTCHER; }
             default -> { player.sendMessage(Component.text("Type must be armor, kits, mythical, or seller.")); return; }
@@ -139,14 +139,14 @@ public final class ShopVillagerManager implements Listener {
         String name = event.getRightClicked().getCustomName();
         if (name == null) return;
         openShop(player, name.startsWith("Armor") ? "armor" :
-            name.startsWith("Kit") ? "kits" :
+            (name.startsWith("Kit") || name.startsWith("Restock")) ? "kits" :
             name.startsWith("Mythical") ? "mythical" : "seller");
     }
 
     public void openShop(Player player, String category) {
         String title = switch (category) {
             case "armor" -> "Armor Shop";
-            case "kits" -> "Kits Shop";
+            case "kits" -> "Restock Kits";
             case "mythical" -> "Mythical Shop";
             default -> "Seller Shop";
         };
@@ -249,7 +249,7 @@ public final class ShopVillagerManager implements Listener {
         }
         String title = "Edit " + switch (category) {
             case "armor" -> "Armor";
-            case "kits" -> "Kits";
+            case "kits" -> "Restock Kits";
             case "mythical" -> "Mythical";
             default -> "Seller";
         } + " Shop";
@@ -371,7 +371,7 @@ public final class ShopVillagerManager implements Listener {
         ItemStack clicked = event.getCurrentItem();
         if (clicked == null || clicked.getType().isAir()) return;
         String plainTitle = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(event.getView().title());
-        String category = plainTitle.startsWith("Armor") ? "armor" : plainTitle.startsWith("Kit") ? "kits" :
+        String category = plainTitle.startsWith("Armor") ? "armor" : (plainTitle.startsWith("Kit") || plainTitle.startsWith("Restock")) ? "kits" :
             plainTitle.startsWith("Mythical") ? "mythical" : "seller";
         if (category.equals("mythical")) {
             String type = clicked.getItemMeta().getPersistentDataContainer().get(orbitalKey, PersistentDataType.STRING);
