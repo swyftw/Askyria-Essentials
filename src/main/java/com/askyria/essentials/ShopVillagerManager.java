@@ -69,11 +69,10 @@ public final class ShopVillagerManager implements Listener {
         add("armor_boots", Material.NETHERITE_BOOTS, 1, 40, "Netherite Boots (Protection V)", "armor");
         add("armor_set", Material.NETHERITE_INGOT, 1, 150, "Full Netherite Set (Protection V)", "armor");
 
-        // Four pre-filled combat kits replace the old Gear shop.
-        add("kit_diamond_mace", Material.SHULKER_BOX, 1, 40, "Diamond Mace Restock", "kits");
-        add("kit_smp", Material.SHULKER_BOX, 1, 50, "SMP Restock", "kits");
-        add("kit_ely_mace", Material.SHULKER_BOX, 1, 65, "Ely Mace Restock", "kits");
-        add("kit_spear_mace", Material.SHULKER_BOX, 1, 75, "Spear Mace Restock", "kits");
+        // Three repeatable restock tiers. OP Restock includes maxed gear, never a mace.
+        add("restock_normal", Material.SHULKER_BOX, 1, 40, "Normal Restock", "kits");
+        add("restock_good", Material.SHULKER_BOX, 1, 60, "Good Restock", "kits");
+        add("restock_op", Material.SHULKER_BOX, 1, 85, "OP Restock", "kits");
 
         // Exactly three ore-block trades, plus rare valuables.
         add("sell_diamond_blocks", Material.DIAMOND_BLOCK, 16, 2, "Diamond Blocks", "seller");
@@ -292,9 +291,7 @@ public final class ShopVillagerManager implements Listener {
     private int[] defaultSlots(String category) {
         if (category.equals("armor")) return new int[]{20, 22, 24, 30, 32};
         if (category.equals("mythical")) return new int[]{20, 22, 24, 31, 40};
-        if (category.equals("kits")) return new int[]{
-            10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34
-        };
+        if (category.equals("kits")) return new int[]{20, 22, 24};
         return new int[]{
             10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34,37,38,39,40,41,42,43
         };
@@ -427,77 +424,76 @@ public final class ShopVillagerManager implements Listener {
         return item;
     }
 
+    private ItemStack kitFireworks(int amount) {
+        ItemStack rockets = new ItemStack(Material.FIREWORK_ROCKET, amount);
+        org.bukkit.inventory.meta.FireworkMeta meta =
+            (org.bukkit.inventory.meta.FireworkMeta) rockets.getItemMeta();
+        meta.setPower((byte) 3);
+        rockets.setItemMeta(meta);
+        return rockets;
+    }
+
     private List<ItemStack> kitContents(String id) {
         List<ItemStack> items = new ArrayList<>();
-        boolean diamond = id.equals("kit_diamond_mace");
-        Material armor = diamond ? Material.DIAMOND_HELMET : Material.NETHERITE_HELMET;
-        items.add(kitArmor(armor, diamond));
-        items.add(kitArmor(diamond ? Material.DIAMOND_CHESTPLATE : Material.NETHERITE_CHESTPLATE, diamond));
-        items.add(kitArmor(diamond ? Material.DIAMOND_LEGGINGS : Material.NETHERITE_LEGGINGS, diamond));
-        items.add(kitArmor(diamond ? Material.DIAMOND_BOOTS : Material.NETHERITE_BOOTS, diamond));
+        if (id.equals("restock_normal")) {
+            items.add(new ItemStack(Material.ENDER_PEARL, 16));
+            items.add(new ItemStack(Material.GOLDEN_APPLE, 16));
+            items.add(new ItemStack(Material.COOKED_BEEF, 32));
+            items.add(new ItemStack(Material.COBWEB, 16));
+            items.add(new ItemStack(Material.ARROW, 32));
+            items.add(new ItemStack(Material.FIREWORK_ROCKET, 32));
+        } else if (id.equals("restock_good")) {
+            items.add(new ItemStack(Material.ENDER_PEARL, 32));
+            items.add(new ItemStack(Material.GOLDEN_APPLE, 32));
+            items.add(new ItemStack(Material.TOTEM_OF_UNDYING, 2));
+            items.add(new ItemStack(Material.COBWEB, 32));
+            items.add(new ItemStack(Material.EXPERIENCE_BOTTLE, 64));
+            items.add(new ItemStack(Material.FIREWORK_ROCKET, 64));
+            items.add(kitPotion(PotionType.STRENGTH, 1));
+            items.add(kitPotion(PotionType.SWIFTNESS, 1));
+            items.add(kitPotion(PotionType.FIRE_RESISTANCE, 1));
+        } else if (id.equals("restock_op")) {
+            items.add(kitArmor(Material.NETHERITE_HELMET, false));
+            items.add(kitArmor(Material.NETHERITE_CHESTPLATE, false));
+            items.add(kitArmor(Material.NETHERITE_LEGGINGS, false));
+            items.add(kitArmor(Material.NETHERITE_BOOTS, false));
 
-        if (id.equals("kit_diamond_mace")) {
-            ItemStack pick = kitEnchanted(Material.NETHERITE_PICKAXE, Enchantment.EFFICIENCY, 5);
-            pick.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-            pick.addUnsafeEnchantment(Enchantment.MENDING, 1);
-            items.add(pick);
-            items.add(new ItemStack(Material.OAK_LOG, 64));
-            items.add(new ItemStack(Material.PACKED_ICE, 64));
-            items.add(new ItemStack(Material.WATER_BUCKET, 3));
-            items.add(new ItemStack(Material.TOTEM_OF_UNDYING));
-            items.add(new ItemStack(Material.COBWEB, 64));
-            items.add(new ItemStack(Material.ARROW, 64));
-        } else if (id.equals("kit_ely_mace")) {
-            ItemStack elytra = new ItemStack(Material.ELYTRA);
-            elytra.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-            elytra.addUnsafeEnchantment(Enchantment.MENDING, 1);
-            items.add(elytra);
-            items.add(new ItemStack(Material.FIREWORK_ROCKET, 64));
-            items.add(new ItemStack(Material.FIREWORK_ROCKET, 64));
-            items.add(new ItemStack(Material.TOTEM_OF_UNDYING, 4));
-        } else if (id.equals("kit_spear_mace")) {
-            ItemStack trident = kitEnchanted(Material.TRIDENT, Enchantment.IMPALING, 5);
-            trident.addUnsafeEnchantment(Enchantment.LOYALTY, 3);
-            trident.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-            trident.addUnsafeEnchantment(Enchantment.MENDING, 1);
-            items.add(trident);
-            items.add(new ItemStack(Material.IRON_INGOT, 64));
-            items.add(new ItemStack(Material.TOTEM_OF_UNDYING, 4));
-        } else {
+            ItemStack sword = kitEnchanted(Material.NETHERITE_SWORD, Enchantment.SHARPNESS, 5);
+            sword.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+            sword.addUnsafeEnchantment(Enchantment.FIRE_ASPECT, 2);
+            sword.addUnsafeEnchantment(Enchantment.LOOTING, 3);
+            sword.addUnsafeEnchantment(Enchantment.MENDING, 1);
+            items.add(sword);
+
+            ItemStack axe = kitEnchanted(Material.NETHERITE_AXE, Enchantment.SHARPNESS, 5);
+            axe.addUnsafeEnchantment(Enchantment.EFFICIENCY, 5);
+            axe.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+            axe.addUnsafeEnchantment(Enchantment.MENDING, 1);
+            items.add(axe);
+
+            ItemStack pickaxe = kitEnchanted(Material.NETHERITE_PICKAXE, Enchantment.EFFICIENCY, 5);
+            pickaxe.addUnsafeEnchantment(Enchantment.FORTUNE, 3);
+            pickaxe.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+            pickaxe.addUnsafeEnchantment(Enchantment.MENDING, 1);
+            items.add(pickaxe);
+
+            ItemStack bow = kitEnchanted(Material.BOW, Enchantment.POWER, 5);
+            bow.addUnsafeEnchantment(Enchantment.FLAME, 1);
+            bow.addUnsafeEnchantment(Enchantment.PUNCH, 2);
+            bow.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+            bow.addUnsafeEnchantment(Enchantment.INFINITY, 1);
+            items.add(bow);
             items.add(new ItemStack(Material.SHIELD));
+            items.add(new ItemStack(Material.ENDER_PEARL, 32));
+            items.add(new ItemStack(Material.GOLDEN_APPLE, 32));
             items.add(new ItemStack(Material.TOTEM_OF_UNDYING, 4));
-            items.add(new ItemStack(Material.COBWEB, 64));
+            items.add(new ItemStack(Material.COBWEB, 32));
+            items.add(kitFireworks(64));
+            items.add(kitPotion(PotionType.STRENGTH, 1));
+            items.add(kitPotion(PotionType.SWIFTNESS, 1));
+            items.add(kitPotion(PotionType.FIRE_RESISTANCE, 1));
+            items.add(kitPotion(PotionType.STRONG_HEALING, 1));
         }
-
-        ItemStack sword = kitEnchanted(Material.NETHERITE_SWORD, Enchantment.SHARPNESS, 5);
-        sword.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-        sword.addUnsafeEnchantment(Enchantment.FIRE_ASPECT, 2);
-        sword.addUnsafeEnchantment(Enchantment.LOOTING, 3);
-        sword.addUnsafeEnchantment(Enchantment.MENDING, 1);
-        items.add(sword);
-
-        ItemStack axe = kitEnchanted(Material.NETHERITE_AXE, Enchantment.SHARPNESS, 5);
-        axe.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-        axe.addUnsafeEnchantment(Enchantment.EFFICIENCY, 5);
-        axe.addUnsafeEnchantment(Enchantment.MENDING, 1);
-        items.add(axe);
-
-        ItemStack mace = kitEnchanted(Material.MACE, Enchantment.DENSITY, 5);
-        mace.addUnsafeEnchantment(Enchantment.WIND_BURST, 2);
-        mace.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-        mace.addUnsafeEnchantment(Enchantment.MENDING, 1);
-        items.add(mace);
-
-        items.add(new ItemStack(Material.ENDER_PEARL, 16));
-        items.add(new ItemStack(Material.GOLDEN_APPLE, 64));
-        items.add(kitPotion(PotionType.STRENGTH, 1));
-        items.add(kitPotion(PotionType.STRENGTH, 1));
-        items.add(kitPotion(PotionType.SWIFTNESS, 1));
-        items.add(kitPotion(PotionType.SWIFTNESS, 1));
-        items.add(kitPotion(PotionType.FIRE_RESISTANCE, 1));
-        items.add(kitPotion(PotionType.FIRE_RESISTANCE, 1));
-        items.add(kitPotion(PotionType.STRONG_HEALING, 1));
-        items.add(kitPotion(PotionType.STRONG_HEALING, 1));
         return items;
     }
 
@@ -506,8 +502,6 @@ public final class ShopVillagerManager implements Listener {
         BlockStateMeta meta = (BlockStateMeta) box.getItemMeta();
         ShulkerBox state = (ShulkerBox) meta.getBlockState();
         List<ItemStack> items = kitContents(id);
-        // Use the shulker block state's live inventory before writing it back
-        // to BlockStateMeta. This ensures the item actually carries its contents.
         Inventory contents = state.getInventory();
         contents.clear();
         for (int i = 0; i < items.size() && i < contents.getSize(); i++) {
@@ -515,13 +509,12 @@ public final class ShopVillagerManager implements Listener {
             if (packed != null && !packed.getType().isAir()) contents.setItem(i, packed.clone());
         }
         String name = switch (id) {
-            case "kit_diamond_mace" -> "§b§lDIAMOND MACE KIT";
-            case "kit_smp" -> "§d§lSMP KIT";
-            case "kit_ely_mace" -> "§5§lELY MACE KIT";
-            default -> "§5§lSPEAR MACE KIT";
+            case "restock_normal" -> "§a§lNORMAL RESTOCK";
+            case "restock_good" -> "§b§lGOOD RESTOCK";
+            default -> "§d§lOP RESTOCK";
         };
         meta.setDisplayName(name);
-        meta.setLore(List.of("§7CORE SMP combat kit", "§ePre-filled shulker box", "§aContents packed inside"));
+        meta.setLore(List.of("§7CORE SMP • Repeatable supplies", "§eOpen to claim your restock", "§aPacked shulker box"));
         meta.setBlockState(state);
         box.setItemMeta(meta);
         return box;
