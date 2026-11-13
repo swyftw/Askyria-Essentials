@@ -1107,7 +1107,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             for (Player player : Bukkit.getOnlinePlayers()) {
                 if (player.getName().toLowerCase().startsWith(args[0].toLowerCase())) suggestions.add(player.getName());
             }
-        } else if (command.getName().equalsIgnoreCase("shopvillager") && sender.isOp() && args.length == 1) {
+        } else if (command.getName().equalsIgnoreCase("shopvillager") && sender.isOp()) {
             if (args.length == 1) {
                 for (String option : List.of("spawn", "remove", "removeall")) {
                     if (option.startsWith(args[0].toLowerCase())) suggestions.add(option);
