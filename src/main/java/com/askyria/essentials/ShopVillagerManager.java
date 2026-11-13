@@ -17,7 +17,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
-import org.bukkit.event.player.PlayerInteractAtEntityEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
@@ -32,7 +32,8 @@ public final class ShopVillagerManager implements Listener {
     private final NamespacedKey shopVillagerKey;
     private final NamespacedKey shardKey;
     private final NamespacedKey orbitalKey;
-    private final Map<String, Trade> trades = new HashMap<>();
+    private final NamespacedKey tradeKey;
+    private final Map<String, Trade> trades = new java.util.LinkedHashMap<>();
 
     private record Trade(String id, Material material, int amount, int price, String display, String category) {}
 
@@ -41,6 +42,7 @@ public final class ShopVillagerManager implements Listener {
         this.shopVillagerKey = new NamespacedKey(plugin, "core_shop_villager");
         this.shardKey = new NamespacedKey(plugin, "core_shard");
         this.orbitalKey = new NamespacedKey(plugin, "orbital_type");
+        this.tradeKey = new NamespacedKey(plugin, "core_shop_trade");
         add("armor_helmet", Material.NETHERITE_HELMET, 1, 600, "Netherite Helmet (Protection V)", "armor");
         add("armor_chest", Material.NETHERITE_CHESTPLATE, 1, 900, "Netherite Chestplate (Protection V)", "armor");
         add("armor_legs", Material.NETHERITE_LEGGINGS, 1, 750, "Netherite Leggings (Protection V)", "armor");
@@ -126,7 +128,7 @@ public final class ShopVillagerManager implements Listener {
     }
 
     @EventHandler
-    public void onShopVillagerInteract(PlayerInteractAtEntityEvent event) {
+    public void onShopVillagerInteract(PlayerInteractEntityEvent event) {
         if (!isShopVillager(event.getRightClicked())) return;
         event.setCancelled(true);
         Player player = event.getPlayer();
@@ -170,9 +172,10 @@ public final class ShopVillagerManager implements Listener {
         if (trade.id().equals("armor_set")) icon.addUnsafeEnchantment(Enchantment.PROTECTION, 5);
         ItemMeta meta = icon.getItemMeta();
         meta.displayName(Component.text((selling ? "Sell " : "") + trade.display()));
+        meta.getPersistentDataContainer().set(tradeKey, PersistentDataType.STRING, trade.id());
         meta.lore(List.of(
             Component.text("Quantity: " + trade.amount()),
-            Component.text(selling ? "You receive: " + trade.price() + " Core Shards" : "Price: " + trade.price() + " Core Shards"),
+            Component.text(selling ? "You receive: " + trade.price() + " Core" : "Price: " + trade.price() + " Core"),
             Component.text("Click to " + (selling ? "sell" : "purchase"))
         ));
         icon.setItemMeta(meta);
@@ -183,14 +186,15 @@ public final class ShopVillagerManager implements Listener {
         ItemStack icon = new ItemStack(Material.FISHING_ROD);
         ItemMeta meta = icon.getItemMeta();
         meta.displayName(Component.text(display));
-        meta.lore(List.of(Component.text("Price: " + price + " Core Shards"), Component.text("Single-use orbital")));
+        meta.getPersistentDataContainer().set(orbitalKey, PersistentDataType.STRING, type);
+        meta.lore(List.of(Component.text("Price: " + price + " Core"), Component.text("Single-use orbital")));
         icon.setItemMeta(meta);
         inv.setItem(slot, icon);
     }
 
     @EventHandler
     public void onShopClick(InventoryClickEvent event) {
-        String title = event.getView().title().toString();
+        String title = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(event.getView().title());
         if (!title.contains("Villager")) return;
         event.setCancelled(true);
         if (!(event.getWhoClicked() instanceof Player player)) return;
@@ -201,18 +205,18 @@ public final class ShopVillagerManager implements Listener {
         String category = plainTitle.startsWith("Armor") ? "armor" : plainTitle.startsWith("Normal") ? "normal" :
             plainTitle.startsWith("Mythical") ? "mythical" : "seller";
         if (category.equals("mythical")) {
-            String display = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(clicked.getItemMeta().displayName());
-            String type = display.toLowerCase(java.util.Locale.ROOT).replace(" orbital", "");
+            String type = clicked.getItemMeta().getPersistentDataContainer().get(orbitalKey, PersistentDataType.STRING);
+            if (type == null) return;
             int price = switch (type) { case "rain" -> 100; case "stab" -> 125; case "lunar" -> 175; default -> 250; };
-            if (!takeShards(player, price)) { player.sendMessage(Component.text("You need " + price + " Core Shards.")); return; }
+            if (!takeCore(player, price)) { player.sendMessage(Component.text("You need " + price + " Core. Your balance: " + getBalance(player) + ".")); return; }
             player.getInventory().addItem(createOrbital(type)).values().forEach(drop -> player.getWorld().dropItemNaturally(player.getLocation(), drop));
             player.sendMessage(Component.text("Purchased " + type.toUpperCase() + " Orbital."));
             return;
         }
-        String clickedName = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(clicked.getItemMeta().displayName());
-        for (Trade trade : trades.values()) {
-            if (!trade.category().equals(category)) continue;
-            if (!clickedName.endsWith(trade.display())) continue;
+        String tradeId = clicked.getItemMeta().getPersistentDataContainer().get(tradeKey, PersistentDataType.STRING);
+        Trade selected = tradeId == null ? null : trades.get(tradeId);
+        if (selected != null && selected.category().equals(category)) {
+            Trade trade = selected;
             if (category.equals("seller")) sellItems(player, trade);
             else buyItems(player, trade);
             return;
@@ -226,8 +230,8 @@ public final class ShopVillagerManager implements Listener {
     }
 
     private void buyItems(Player player, Trade trade) {
-        if (!takeShards(player, trade.price())) {
-            player.sendMessage(Component.text("You need " + trade.price() + " Core Shards to buy that."));
+        if (!takeCore(player, trade.price())) {
+            player.sendMessage(Component.text("You need " + trade.price() + " Core to buy that. Your balance: " + getBalance(player) + "."));
             return;
         }
         if (trade.id().equals("armor_set")) {
@@ -251,7 +255,7 @@ public final class ShopVillagerManager implements Listener {
             }
             give(player, item);
         }
-        player.sendMessage(Component.text("Purchase complete."));
+        player.sendMessage(Component.text("Purchase complete. Core balance: " + getBalance(player) + "."));
     }
 
     private ItemStack enchantedArmor(Material material) {
@@ -281,8 +285,8 @@ public final class ShopVillagerManager implements Listener {
             remaining -= take;
         }
         player.getInventory().setStorageContents(contents);
-        give(player, shardItem(trade.price()));
-        player.sendMessage(Component.text("Sold " + trade.amount() + " " + trade.display() + " for " + trade.price() + " Core Shards."));
+        addBalance(player, trade.price());
+        player.sendMessage(Component.text("Sold " + trade.amount() + " " + trade.display() + " for " + trade.price() + " Core. Balance: " + getBalance(player) + "."));
     }
 
     private ItemStack createOrbital(String type) {
@@ -302,43 +306,52 @@ public final class ShopVillagerManager implements Listener {
         return item;
     }
 
-    private ItemStack shardItem(int amount) {
-        ItemStack item = new ItemStack(Material.AMETHYST_SHARD, amount);
-        ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text("Core Shard"));
-        meta.lore(List.of(Component.text("CORE SMP currency")));
-        meta.getPersistentDataContainer().set(shardKey, PersistentDataType.BYTE, (byte) 1);
-        item.setItemMeta(meta);
-        return item;
+    public int getBalance(Player player) {
+        return Math.max(0, plugin.getConfig().getInt("core-balances." + player.getUniqueId(), 0));
     }
 
-    private boolean takeShards(Player player, int amount) {
-        int total = 0;
-        for (ItemStack item : player.getInventory().getStorageContents()) {
-            if (isShard(item)) total += item.getAmount();
-        }
-        if (total < amount) return false;
-        int remaining = amount;
-        ItemStack[] contents = player.getInventory().getStorageContents();
-        for (int i = 0; i < contents.length && remaining > 0; i++) {
-            ItemStack item = contents[i];
-            if (!isShard(item)) continue;
-            int take = Math.min(remaining, item.getAmount());
-            item.setAmount(item.getAmount() - take);
-            if (item.getAmount() <= 0) contents[i] = null;
-            remaining -= take;
-        }
-        player.getInventory().setStorageContents(contents);
+    public void addBalance(Player player, int amount) {
+        if (amount <= 0) return;
+        String path = "core-balances." + player.getUniqueId();
+        plugin.getConfig().set(path, Math.addExact(getBalance(player), amount));
+        plugin.saveConfig();
+    }
+
+    public void setBalance(Player player, int amount) {
+        plugin.getConfig().set("core-balances." + player.getUniqueId(), Math.max(0, amount));
+        plugin.saveConfig();
+    }
+
+    public boolean takeCore(Player player, int amount) {
+        if (amount < 0 || getBalance(player) < amount) return false;
+        setBalance(player, getBalance(player) - amount);
         return true;
     }
 
-    private boolean isShard(ItemStack item) {
-        return item != null && item.getType() == Material.AMETHYST_SHARD && item.hasItemMeta()
-            && item.getItemMeta().getPersistentDataContainer().has(shardKey, PersistentDataType.BYTE);
-    }
-
-    private void give(Player player, ItemStack item) {
-        player.getInventory().addItem(item).values().forEach(drop -> player.getWorld().dropItemNaturally(player.getLocation(), drop));
+    public void handleCoreCommand(CommandSender sender, String[] args) {
+        if (args.length == 0 || args[0].equalsIgnoreCase("balance")) {
+            if (!(sender instanceof Player player)) { sender.sendMessage("Players only."); return; }
+            sender.sendMessage(Component.text("Your Core balance: " + getBalance(player)));
+            return;
+        }
+        if (!sender.isOp()) { sender.sendMessage(Component.text("Only operators can manage Core balances.")); return; }
+        if (args.length != 3 || !(args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("take"))) {
+            sender.sendMessage(Component.text("Usage: /core balance OR /core <give|set|take> <player> <amount>"));
+            return;
+        }
+        Player target = Bukkit.getPlayerExact(args[1]);
+        if (target == null) { sender.sendMessage(Component.text("That player must be online.")); return; }
+        int amount;
+        try { amount = Integer.parseInt(args[2]); } catch (NumberFormatException ex) { sender.sendMessage(Component.text("Enter a whole-number amount.")); return; }
+        if (amount < 0 || amount > 100000000) { sender.sendMessage(Component.text("Amount must be between 0 and 100000000.")); return; }
+        switch (args[0].toLowerCase(java.util.Locale.ROOT)) {
+            case "give" -> addBalance(target, amount);
+            case "set" -> setBalance(target, amount);
+            case "take" -> setBalance(target, Math.max(0, getBalance(target) - amount));
+            default -> { return; }
+        }
+        sender.sendMessage(Component.text("Updated " + target.getName() + "'s Core balance to " + getBalance(target) + "."));
+        target.sendMessage(Component.text("Your Core balance is now " + getBalance(target) + "."));
     }
 
     public void removeTargeted(Player player) {
