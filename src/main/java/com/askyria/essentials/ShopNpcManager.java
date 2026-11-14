@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
@@ -23,6 +24,7 @@ import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.entity.Display;
@@ -40,7 +42,7 @@ public final class ShopNpcManager extends PacketListenerAbstract implements List
 
     private static final Map<String, ShopNpc> DEFINITIONS = Map.of(
         "armor", new ShopNpc("armor", "ARMOR", "Protection V • Netherite Gear", NamedTextColor.AQUA),
-        "mystery", new ShopNpc("mystery", "MYSTERY BOX", "Pay 15–50 Cores • Win Random Loot", NamedTextColor.LIGHT_PURPLE),
+        "mystery", new ShopNpc("mystery", "MYSTERY BOX", "Pay 50 Cores • Win Random Loot", NamedTextColor.LIGHT_PURPLE),
         "mythical", new ShopNpc("mythical", "MYTHICAL WEAPONS", "Rare Abilities", NamedTextColor.LIGHT_PURPLE),
         "seller", new ShopNpc("seller", "SELLER", "Trade Valuables for Core", NamedTextColor.GOLD)
     );
@@ -160,12 +162,24 @@ public final class ShopNpcManager extends PacketListenerAbstract implements List
     private void removeOldHolograms() {
         for (World world : Bukkit.getWorlds()) {
             for (Entity entity : new ArrayList<>(world.getEntities())) {
-                if (entity instanceof TextDisplay display
-                        && display.getPersistentDataContainer().has(hologramKey, PersistentDataType.BYTE)) {
-                    display.remove();
+                boolean pluginHologram = entity instanceof TextDisplay display
+                    && display.getPersistentDataContainer().has(hologramKey, PersistentDataType.BYTE);
+                boolean retiredKitsHologram = false;
+                if (entity instanceof TextDisplay display) {
+                    String text = PlainTextComponentSerializer.plainText().serialize(display.text());
+                    retiredKitsHologram = isRetiredKitsText(text);
+                } else if (entity instanceof ArmorStand stand && stand.getCustomName() != null) {
+                    retiredKitsHologram = isRetiredKitsText(org.bukkit.ChatColor.stripColor(stand.getCustomName()));
                 }
+                if (pluginHologram || retiredKitsHologram) entity.remove();
             }
         }
+    }
+
+    private boolean isRetiredKitsText(String text) {
+        if (text == null) return false;
+        String normalized = text.toLowerCase(java.util.Locale.ROOT);
+        return normalized.contains("combat kits") || normalized.contains("choose your loadout");
     }
 
     private void spawnForPlayer(Player player) {
