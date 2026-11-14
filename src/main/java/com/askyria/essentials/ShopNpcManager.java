@@ -66,7 +66,8 @@ public final class ShopNpcManager extends PacketListenerAbstract implements List
         removeOldHolograms();
         // Retire only the old shop villagers created by this plugin.
         shops.removeAll(Bukkit.getConsoleSender());
-        // Retire the former Kits NPC; Mystery Box replaces that shop.
+        removeRetiredKitsEntities();
+        // Retire the former Kits NPC and its saved location.
         plugin.getConfig().set("shop-npcs.kits", null);
         plugin.getConfig().set("shop-npcs.mystery", null);
         plugin.saveConfig();
@@ -172,6 +173,22 @@ public final class ShopNpcManager extends PacketListenerAbstract implements List
                     retiredKitsHologram = isRetiredKitsText(org.bukkit.ChatColor.stripColor(stand.getCustomName()));
                 }
                 if (pluginHologram || retiredKitsHologram) entity.remove();
+            }
+        }
+    }
+
+    private void removeRetiredKitsEntities() {
+        for (World world : Bukkit.getWorlds()) {
+            for (Entity entity : new ArrayList<>(world.getEntities())) {
+                if (!(entity instanceof Villager) && !(entity instanceof ArmorStand)) continue;
+                String name = entity.getCustomName();
+                if (name == null) continue;
+                String normalized = org.bukkit.ChatColor.stripColor(name).trim().toLowerCase(java.util.Locale.ROOT);
+                if (normalized.equals("restock kits villager") || normalized.equals("kits villager")
+                        || normalized.equals("kits npc") || normalized.equals("restock kits")
+                        || normalized.equals("kits")) {
+                    entity.remove();
+                }
             }
         }
     }
