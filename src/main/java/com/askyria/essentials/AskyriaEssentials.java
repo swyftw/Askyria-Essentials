@@ -1340,7 +1340,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                     if (option.startsWith(args[0].toLowerCase())) suggestions.add(option);
                 }
             } else if (args.length == 2 && args[0].equalsIgnoreCase("spawn")) {
-                for (String type : List.of("armor", "mystery", "mythical", "seller")) {
+                for (String type : List.of("armor", "mythical", "seller")) {
                     if (type.startsWith(args[1].toLowerCase())) suggestions.add(type);
                 }
             }
