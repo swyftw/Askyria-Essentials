@@ -82,6 +82,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private final Map<UUID, Long> rankAbilityCooldowns = new HashMap<>();
     private final Map<UUID, Scoreboard> cooldownOriginalBoards = new HashMap<>();
     private final Map<UUID, Scoreboard> cooldownBoards = new HashMap<>();
+    private final Map<UUID, Set<String>> cooldownSidebarEntries = new HashMap<>();
     private static final String DEATH_RESTORE_PATH = "death-restores.";
     private BukkitTask combatTicker;
     private BukkitTask tabTicker;
@@ -201,7 +202,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                         : Math.max(0L, (protectionExpiry - nowTick + 999L) / 1000L);
                     long minutes = seconds / 60L;
                     long remainder = seconds % 60L;
-                    player.sendActionBar(Component.text("PROTECTED " + minutes + "m " + remainder + "s"));
+                    player.sendActionBar(Component.text("PROTECTED " + minutes + "m " + remainder + "s", net.kyori.adventure.text.format.NamedTextColor.GREEN));
                     continue;
                 }
                 Long until = combatUntil.get(player.getUniqueId());
@@ -209,9 +210,9 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 long seconds = Math.max(0L, (until - nowTick + 999L) / 1000L);
                 if (seconds <= 0) {
                     combatUntil.remove(player.getUniqueId());
-                    player.sendActionBar(Component.text("You are no longer in combat."));
+                    player.sendActionBar(Component.text("You are no longer in combat.", net.kyori.adventure.text.format.NamedTextColor.GREEN));
                 } else {
-                    player.sendActionBar(Component.text("COMBAT " + seconds + "s"));
+                    player.sendActionBar(Component.text("COMBAT " + seconds + "s", net.kyori.adventure.text.format.NamedTextColor.RED));
                 }
             }
         }, 0L, 5L);
@@ -555,6 +556,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         sentFakeEntries.remove(player.getUniqueId());
         cooldownOriginalBoards.remove(player.getUniqueId());
         cooldownBoards.remove(player.getUniqueId());
+        cooldownSidebarEntries.remove(player.getUniqueId());
         Bukkit.getScheduler().runTask(this, this::updateTabLists);
         Long until = combatUntil.remove(player.getUniqueId());
         if (until != null && until > System.currentTimeMillis()) {
@@ -756,6 +758,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 if (objective != null) objective.unregister();
                 Scoreboard original = cooldownOriginalBoards.remove(id);
                 cooldownBoards.remove(id);
+                cooldownSidebarEntries.remove(id);
                 if (original != null && player.getScoreboard() == board) player.setScoreboard(original);
             }
             return;
@@ -777,12 +780,23 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
 
         Objective objective = board.getObjective("ask_cd");
         if (objective == null) {
-            objective = board.registerNewObjective("ask_cd", org.bukkit.scoreboard.Criteria.DUMMY, Component.text("COOLDOWNS"));
+            objective = board.registerNewObjective("ask_cd", org.bukkit.scoreboard.Criteria.DUMMY, Component.text("COOLDOWNS", net.kyori.adventure.text.format.NamedTextColor.GOLD));
             objective.setDisplaySlot(DisplaySlot.SIDEBAR);
         }
-        for (String entry : board.getEntries()) board.resetScores(entry);
-        if (showRank) objective.getScore("#" + topRank(player) + ": " + rankRemaining + "s").setScore(2);
-        if (showSwitcher) objective.getScore("SWITCHER: " + (switcherRemaining / 60) + "m " + (switcherRemaining % 60) + "s").setScore(1);
+        Set<String> previousEntries = cooldownSidebarEntries.computeIfAbsent(id, ignored -> new HashSet<>());
+        for (String entry : previousEntries) board.resetScores(entry);
+        previousEntries.clear();
+        if (showRank) {
+            String entry = ChatColor.YELLOW + "TOP " + topRank(player) + ChatColor.WHITE + " " + rankRemaining + "s";
+            objective.getScore(entry).setScore(2);
+            previousEntries.add(entry);
+        }
+        if (showSwitcher) {
+            String entry = ChatColor.AQUA + "SWITCHER " + ChatColor.WHITE
+                + (switcherRemaining / 60) + "m " + (switcherRemaining % 60) + "s";
+            objective.getScore(entry).setScore(1);
+            previousEntries.add(entry);
+        }
     }
 
     private String rankTag(int rank) {
