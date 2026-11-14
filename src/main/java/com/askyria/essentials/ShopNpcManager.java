@@ -42,7 +42,6 @@ public final class ShopNpcManager extends PacketListenerAbstract implements List
 
     private static final Map<String, ShopNpc> DEFINITIONS = Map.of(
         "armor", new ShopNpc("armor", "ARMOR", "Protection V • Netherite Gear", NamedTextColor.AQUA),
-        "mystery", new ShopNpc("mystery", "MYSTERY BOX", "Pay 50 Cores • Win Random Loot", NamedTextColor.LIGHT_PURPLE),
         "mythical", new ShopNpc("mythical", "MYTHICAL WEAPONS", "Rare Abilities", NamedTextColor.LIGHT_PURPLE),
         "seller", new ShopNpc("seller", "SELLER", "Trade Valuables for Core", NamedTextColor.GOLD)
     );
@@ -69,6 +68,7 @@ public final class ShopNpcManager extends PacketListenerAbstract implements List
         shops.removeAll(Bukkit.getConsoleSender());
         // Retire the former Kits NPC; Mystery Box replaces that shop.
         plugin.getConfig().set("shop-npcs.kits", null);
+        plugin.getConfig().set("shop-npcs.mystery", null);
         plugin.saveConfig();
         var section = plugin.getConfig().getConfigurationSection("shop-npcs");
         if (section == null) return;
@@ -91,7 +91,7 @@ public final class ShopNpcManager extends PacketListenerAbstract implements List
     public void spawnShopNpc(Player creator, String type) {
         ShopNpc definition = DEFINITIONS.get(type.toLowerCase(java.util.Locale.ROOT));
         if (definition == null) {
-            creator.sendMessage(Component.text("Use armor, mystery, mythical, or seller."));
+            creator.sendMessage(Component.text("Use armor, mythical, or seller."));
             return;
         }
         Location location = creator.getLocation().clone();
@@ -179,7 +179,7 @@ public final class ShopNpcManager extends PacketListenerAbstract implements List
     private boolean isRetiredKitsText(String text) {
         if (text == null) return false;
         String normalized = text.toLowerCase(java.util.Locale.ROOT);
-        return normalized.contains("combat kits") || normalized.contains("choose your loadout");
+        return normalized.equals("kits") || normalized.equals("restock kits") || normalized.equals("mystery") || normalized.equals("mystery box") || normalized.contains("combat kits") || normalized.contains("choose your loadout");
     }
 
     private void spawnForPlayer(Player player) {
@@ -215,7 +215,7 @@ public final class ShopNpcManager extends PacketListenerAbstract implements List
 
     public void removeShopNpc(Player player, String type) {
         if (!DEFINITIONS.containsKey(type)) {
-            player.sendMessage(Component.text("Use armor, mystery, mythical, or seller."));
+            player.sendMessage(Component.text("Use armor, mythical, or seller."));
             return;
         }
         removeNpc(type);
