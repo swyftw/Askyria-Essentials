@@ -196,6 +196,10 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             long nowTick = System.currentTimeMillis();
             for (Player player : Bukkit.getOnlinePlayers()) {
                 updateAbilityCooldownSidebar(player);
+                if (isInSpawnProtection(player.getLocation())) {
+                    player.sendActionBar(Component.text("SPAWN PROTECTED", net.kyori.adventure.text.format.NamedTextColor.GREEN));
+                    continue;
+                }
                 if (isProtected(player)) {
                     Long protectionExpiry = protectedUntil.get(player.getUniqueId());
                     long seconds = protectionExpiry == null ? 0L
