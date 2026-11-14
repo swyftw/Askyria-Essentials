@@ -107,10 +107,10 @@ public final class ShopVillagerManager implements Listener {
         Villager.Profession profession;
         switch (normalized) {
             case "armor" -> { displayName = "Armor Villager"; profession = Villager.Profession.ARMORER; }
-            case "kits" -> { displayName = "Restock Kits Villager"; profession = Villager.Profession.TOOLSMITH; }
+            case "kits" -> { player.sendMessage(Component.text("The Kits NPC has been retired.")); return; }
             case "mythical" -> { displayName = "Mythical Weapons Villager"; profession = Villager.Profession.WEAPONSMITH; }
             case "seller" -> { displayName = "Seller Villager"; profession = Villager.Profession.BUTCHER; }
-            default -> { player.sendMessage(Component.text("Type must be armor, kits, mythical, or seller.")); return; }
+            default -> { player.sendMessage(Component.text("Type must be armor, mythical, or seller.")); return; }
         }
         Vector direction = player.getLocation().getDirection().setY(0).normalize();
         if (direction.lengthSquared() == 0) direction = new Vector(0, 0, 1);
