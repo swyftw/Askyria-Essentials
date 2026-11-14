@@ -186,6 +186,11 @@ public final class ShopNpcManager extends PacketListenerAbstract implements List
     }
 
     private void removeRetiredKitsEntity(Entity entity) {
+        if (entity instanceof TextDisplay display) {
+            String text = PlainTextComponentSerializer.plainText().serialize(display.text());
+            if (isRetiredKitsText(org.bukkit.ChatColor.stripColor(text))) entity.remove();
+            return;
+        }
         if (!(entity instanceof Villager) && !(entity instanceof ArmorStand)) return;
         String name = entity.getCustomName();
         if (name == null) return;
