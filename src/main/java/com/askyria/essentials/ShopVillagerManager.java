@@ -322,8 +322,6 @@ public final class ShopVillagerManager implements Listener {
             if (id != null) plugin.getConfig().set("shop-layout." + category + "." + id, slot);
             String orbital = item.getItemMeta().getPersistentDataContainer().get(orbitalKey, PersistentDataType.STRING);
             if (orbital != null) plugin.getConfig().set("shop-layout." + category + "." + orbital, slot);
-            String mystery = item.getItemMeta().getPersistentDataContainer().get(mysteryBoxKey, PersistentDataType.STRING);
-            if (mystery != null) plugin.getConfig().set("shop-layout." + category + "." + mystery, slot);
         }
         plugin.saveConfig();
         editing.remove(player.getUniqueId());
