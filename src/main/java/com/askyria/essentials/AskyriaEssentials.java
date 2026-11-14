@@ -970,7 +970,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     }
 
     private void denySpawnAction(Player player) {
-        player.sendActionBar(Component.text("SPAWN IS PROTECTED"));
+        player.sendActionBar(Component.text("SPAWN IS PROTECTED", net.kyori.adventure.text.format.NamedTextColor.GREEN));
     }
 
     @EventHandler
