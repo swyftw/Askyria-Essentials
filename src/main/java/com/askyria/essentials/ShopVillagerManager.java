@@ -48,7 +48,6 @@ public final class ShopVillagerManager implements Listener {
     private final NamespacedKey tradeKey;
     private final NamespacedKey switcherKey;
     private final NamespacedKey switcherExpiryKey;
-    private final NamespacedKey mysteryBoxKey;
     private final Map<java.util.UUID, Long> switcherCooldowns = new HashMap<>();
     private final Map<java.util.UUID, BukkitTask> switcherReturnTasks = new HashMap<>();
     private final Map<String, Trade> trades = new java.util.LinkedHashMap<>();
@@ -64,7 +63,6 @@ public final class ShopVillagerManager implements Listener {
         this.tradeKey = new NamespacedKey(plugin, "core_shop_trade");
         this.switcherKey = new NamespacedKey(plugin, "switcher_form");
         this.switcherExpiryKey = new NamespacedKey(plugin, "switcher_expiry");
-        this.mysteryBoxKey = new NamespacedKey(plugin, "mystery_box_tier");
         add("armor_helmet", Material.NETHERITE_HELMET, 1, 40, "Netherite Helmet (Protection V)", "armor");
         add("armor_chest", Material.NETHERITE_CHESTPLATE, 1, 50, "Netherite Chestplate (Protection V)", "armor");
         add("armor_legs", Material.NETHERITE_LEGGINGS, 1, 45, "Netherite Leggings (Protection V)", "armor");
@@ -142,7 +140,6 @@ public final class ShopVillagerManager implements Listener {
     public void openShop(Player player, String category) {
         String title = switch (category) {
             case "armor" -> "Armor Shop";
-            case "mystery" -> "Mystery Box Shop";
             case "kits" -> "Restock Kits";
             case "mythical" -> "Mythical Shop";
             default -> "Seller Shop";
@@ -162,9 +159,7 @@ public final class ShopVillagerManager implements Listener {
         info.setItemMeta(infoMeta);
         inv.setItem(4, info);
 
-        if (category.equals("mystery")) {
-            addMysteryBoxIcon(inv, 22);
-        } else if (category.equals("mythical")) {
+        if (category.equals("mythical")) {
             String[] ids = {"rain", "stab", "lunar", "nuke", "switcher"};
             String[] names = {"RAIN ORBITAL", "STAB ORBITAL", "LUNAR ORBITAL", "NUKE ORBITAL", "SWITCHER"};
             int[] prices = {15, 22, 30, 45, 75};
@@ -230,26 +225,6 @@ public final class ShopVillagerManager implements Listener {
         return icon;
     }
 
-    private void addMysteryBoxIcon(Inventory inv, int slot) {
-        ItemStack icon = new ItemStack(Material.ENDER_CHEST);
-        ItemMeta meta = icon.getItemMeta();
-        meta.displayName(Component.text("MYSTERY BOX", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE)
-            .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true));
-        meta.lore(List.of(
-            Component.text("POSSIBLE REWARDS:", net.kyori.adventure.text.format.NamedTextColor.GRAY),
-            Component.text("Golden Apples • Ender Pearls • Beef • Arrows • Cobwebs • XP Bottles", net.kyori.adventure.text.format.NamedTextColor.WHITE),
-            Component.text("Totems • Diamonds • Enchanted Diamond Gear", net.kyori.adventure.text.format.NamedTextColor.AQUA),
-            Component.text("Heavy Cores • Netherite Ingots • Netherite Gear", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE),
-            Component.text("Density V Mace • Wind Burst III Mace", net.kyori.adventure.text.format.NamedTextColor.GOLD),
-            Component.text("Price: 50 Cores", net.kyori.adventure.text.format.NamedTextColor.YELLOW),
-            Component.text("One random reward • All rewards in one pool", net.kyori.adventure.text.format.NamedTextColor.GREEN),
-            Component.text("Click to pay and open", net.kyori.adventure.text.format.NamedTextColor.GREEN)
-        ));
-        meta.getPersistentDataContainer().set(mysteryBoxKey, PersistentDataType.STRING, "all");
-        icon.setItemMeta(meta);
-        inv.setItem(slot, icon);
-    }
-
     private void addOrbitalIcon(Inventory inv, int slot, String type, String display, int price) {
         ItemStack icon = type.equals("switcher") ? createSwitcherSword() : createOrbital(type);
         ItemMeta meta = icon.getItemMeta();
@@ -262,23 +237,20 @@ public final class ShopVillagerManager implements Listener {
     }
 
     public void openEditor(Player player, String category) {
-        if (!List.of("armor", "kits", "mystery", "mythical", "seller").contains(category)) {
+        if (!List.of("armor", "kits", "mythical", "seller").contains(category)) {
             player.sendMessage(Component.text("Use armor, kits, mythical, or seller."));
             return;
         }
         String title = "Edit " + switch (category) {
             case "armor" -> "Armor";
             case "kits" -> "Restock Kits";
-            case "mystery" -> "Mystery Box";
             case "mythical" -> "Mythical";
             default -> "Seller";
         } + " Shop";
         Inventory inv = Bukkit.createInventory(null, 54, Component.text(title));
         int[] defaults = defaultSlots(category);
         Map<String, Integer> layout = loadLayout(category);
-        if (category.equals("mystery")) {
-            addMysteryBoxIcon(inv, 22);
-        } else if (category.equals("mythical")) {
+        if (category.equals("mythical")) {
             String[] ids = {"rain", "stab", "lunar", "nuke", "switcher"};
             String[] names = {"RAIN ORBITAL", "STAB ORBITAL", "LUNAR ORBITAL", "NUKE ORBITAL", "SWITCHER"};
             int[] prices = {15, 22, 30, 45, 75};
@@ -313,7 +285,6 @@ public final class ShopVillagerManager implements Listener {
 
     private int[] defaultSlots(String category) {
         if (category.equals("armor")) return new int[]{20, 22, 24, 30, 32};
-        if (category.equals("mystery")) return new int[]{20, 22, 24, 31};
         if (category.equals("mythical")) return new int[]{20, 22, 24, 31, 40};
         if (category.equals("kits")) return new int[]{20, 22, 24};
         return new int[]{
@@ -395,15 +366,8 @@ public final class ShopVillagerManager implements Listener {
         if (clicked == null || clicked.getType().isAir()) return;
         String plainTitle = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(event.getView().title());
         String category = plainTitle.startsWith("Armor") ? "armor" :
-            plainTitle.startsWith("Mystery") ? "mystery" :
             (plainTitle.startsWith("Kit") || plainTitle.startsWith("Restock")) ? "kits" :
             plainTitle.startsWith("Mythical") ? "mythical" : "seller";
-        if (category.equals("mystery")) {
-            String box = clicked.getItemMeta().getPersistentDataContainer().get(mysteryBoxKey, PersistentDataType.STRING);
-            if (!"all".equals(box)) return;
-            openMysteryBox(player);
-            return;
-        }
         if (category.equals("mythical")) {
             String type = clicked.getItemMeta().getPersistentDataContainer().get(orbitalKey, PersistentDataType.STRING);
             if (type == null) return;
@@ -422,57 +386,6 @@ public final class ShopVillagerManager implements Listener {
             else buyItems(player, trade);
             return;
         }
-    }
-
-    private void openMysteryBox(Player player) {
-        final int price = 50;
-        if (!takeCore(player, price)) {
-            player.sendMessage(Component.text("You need 50 Cores to open this Mystery Box."));
-            return;
-        }
-        ItemStack reward = rollMysteryReward();
-        give(player, reward);
-        player.sendMessage(Component.text("MYSTERY BOX • You won: " + reward.getType().name().replace('_', ' '),
-            net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE));
-    }
-
-    private ItemStack rollMysteryReward() {
-        List<ItemStack> rewards = new ArrayList<>();
-        rewards.add(new ItemStack(Material.GOLDEN_APPLE, 8));
-        rewards.add(new ItemStack(Material.ENDER_PEARL, 12));
-        rewards.add(new ItemStack(Material.COOKED_BEEF, 32));
-        rewards.add(new ItemStack(Material.ARROW, 32));
-        rewards.add(new ItemStack(Material.COBWEB, 12));
-        rewards.add(new ItemStack(Material.EXPERIENCE_BOTTLE, 24));
-        rewards.add(new ItemStack(Material.GOLDEN_APPLE, 24));
-        rewards.add(new ItemStack(Material.ENDER_PEARL, 24));
-        rewards.add(new ItemStack(Material.TOTEM_OF_UNDYING, 1));
-        rewards.add(kitEnchanted(Material.DIAMOND_SWORD, Enchantment.SHARPNESS, 5));
-        rewards.add(kitEnchanted(Material.DIAMOND_PICKAXE, Enchantment.EFFICIENCY, 5));
-        rewards.add(new ItemStack(Material.DIAMOND, 12));
-        rewards.add(new ItemStack(Material.TOTEM_OF_UNDYING, 2));
-        rewards.add(new ItemStack(Material.HEAVY_CORE, 1));
-        rewards.add(kitArmor(Material.DIAMOND_CHESTPLATE, false));
-        ItemStack epicMace = kitEnchanted(Material.MACE, Enchantment.DENSITY, 5);
-        epicMace.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-        rewards.add(epicMace);
-        rewards.add(new ItemStack(Material.NETHERITE_INGOT, 2));
-        rewards.add(kitEnchanted(Material.NETHERITE_SWORD, Enchantment.SHARPNESS, 5));
-        rewards.add(new ItemStack(Material.HEAVY_CORE, 2));
-        rewards.add(new ItemStack(Material.TOTEM_OF_UNDYING, 4));
-        ItemStack legendaryMace = kitEnchanted(Material.MACE, Enchantment.DENSITY, 5);
-        legendaryMace.addUnsafeEnchantment(Enchantment.WIND_BURST, 3);
-        legendaryMace.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-        legendaryMace.addUnsafeEnchantment(Enchantment.MENDING, 1);
-        rewards.add(legendaryMace);
-        ItemStack sword = kitEnchanted(Material.NETHERITE_SWORD, Enchantment.SHARPNESS, 5);
-        sword.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-        sword.addUnsafeEnchantment(Enchantment.LOOTING, 3);
-        sword.addUnsafeEnchantment(Enchantment.MENDING, 1);
-        rewards.add(sword);
-        rewards.add(kitArmor(Material.NETHERITE_CHESTPLATE, false));
-        rewards.add(new ItemStack(Material.NETHERITE_INGOT, 4));
-        return rewards.get(java.util.concurrent.ThreadLocalRandom.current().nextInt(rewards.size())).clone();
     }
 
     public void onShopDrag(InventoryDragEvent event) {
