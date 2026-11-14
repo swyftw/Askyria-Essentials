@@ -32,6 +32,7 @@ import org.bukkit.entity.Display;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.persistence.PersistentDataType;
@@ -180,18 +181,21 @@ public final class ShopNpcManager extends PacketListenerAbstract implements List
 
     private void removeRetiredKitsEntities() {
         for (World world : Bukkit.getWorlds()) {
-            for (Entity entity : new ArrayList<>(world.getEntities())) {
-                if (!(entity instanceof Villager) && !(entity instanceof ArmorStand)) continue;
-                String name = entity.getCustomName();
-                if (name == null) continue;
-                String normalized = org.bukkit.ChatColor.stripColor(name).trim().toLowerCase(java.util.Locale.ROOT);
-                if (normalized.equals("restock kits villager") || normalized.equals("kits villager")
-                        || normalized.equals("kits npc") || normalized.equals("restock kits")
-                        || normalized.equals("kits")) {
-                    entity.remove();
-                }
-            }
+            for (Entity entity : new ArrayList<>(world.getEntities())) removeRetiredKitsEntity(entity);
         }
+    }
+
+    private void removeRetiredKitsEntity(Entity entity) {
+        if (!(entity instanceof Villager) && !(entity instanceof ArmorStand)) return;
+        String name = entity.getCustomName();
+        if (name == null) return;
+        String normalized = org.bukkit.ChatColor.stripColor(name).trim().toLowerCase(java.util.Locale.ROOT);
+        if (normalized.contains("kit") || normalized.contains("loadout")) entity.remove();
+    }
+
+    @EventHandler
+    public void onChunkLoad(ChunkLoadEvent event) {
+        for (Entity entity : event.getChunk().getEntities()) removeRetiredKitsEntity(entity);
     }
 
     private boolean isRetiredKitsText(String text) {
