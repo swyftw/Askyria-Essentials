@@ -1128,8 +1128,8 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 } else if (args.length == 1 && args[0].equalsIgnoreCase("removeall")) {
                     shopNpcManager.removeAll(player);
                 } else {
-                    sender.sendMessage(Component.text("Usage: /shopnpc spawn <armor|mystery|mythical|seller>"));
-                    sender.sendMessage(Component.text("/shopnpc edit <armor|mystery|mythical|seller>"));
+                    sender.sendMessage(Component.text("Usage: /shopnpc spawn <armor|mythical|seller>"));
+                    sender.sendMessage(Component.text("/shopnpc edit <armor|mythical|seller>"));
                     sender.sendMessage(Component.text("/shopnpc remove <type> OR /shopnpc removeall"));
                 }
                 return true;
@@ -1350,7 +1350,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                     if (option.startsWith(args[0].toLowerCase())) suggestions.add(option);
                 }
             } else if (args.length == 2 && List.of("spawn", "edit", "remove").contains(args[0].toLowerCase())) {
-                for (String type : List.of("armor", "mystery", "mythical", "seller")) {
+                for (String type : List.of("armor", "mythical", "seller")) {
                     if (type.startsWith(args[1].toLowerCase())) suggestions.add(type);
                 }
             }
