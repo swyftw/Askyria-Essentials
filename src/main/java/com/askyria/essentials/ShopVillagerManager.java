@@ -46,10 +46,6 @@ public final class ShopVillagerManager implements Listener {
     private final NamespacedKey shardKey;
     private final NamespacedKey orbitalKey;
     private final NamespacedKey tradeKey;
-    private final NamespacedKey switcherKey;
-    private final NamespacedKey switcherExpiryKey;
-    private final Map<java.util.UUID, Long> switcherCooldowns = new HashMap<>();
-    private final Map<java.util.UUID, BukkitTask> switcherReturnTasks = new HashMap<>();
     private final Map<String, Trade> trades = new java.util.LinkedHashMap<>();
     private final Map<java.util.UUID, String> editing = new HashMap<>();
 
@@ -61,25 +57,26 @@ public final class ShopVillagerManager implements Listener {
         this.shardKey = new NamespacedKey(plugin, "core_shard");
         this.orbitalKey = new NamespacedKey(plugin, "orbital_type");
         this.tradeKey = new NamespacedKey(plugin, "core_shop_trade");
-        this.switcherKey = new NamespacedKey(plugin, "switcher_form");
-        this.switcherExpiryKey = new NamespacedKey(plugin, "switcher_expiry");
         add("armor_helmet", Material.NETHERITE_HELMET, 1, 40, "Netherite Helmet (Protection V)", "armor");
         add("armor_chest", Material.NETHERITE_CHESTPLATE, 1, 50, "Netherite Chestplate (Protection V)", "armor");
         add("armor_legs", Material.NETHERITE_LEGGINGS, 1, 45, "Netherite Leggings (Protection V)", "armor");
         add("armor_boots", Material.NETHERITE_BOOTS, 1, 40, "Netherite Boots (Protection V)", "armor");
         add("armor_set", Material.NETHERITE_INGOT, 1, 150, "Full Netherite Set (Protection V)", "armor");
 
-        // Exactly three ore-block trades, plus rare valuables.
+        // Seller trades pay a small amount of Cores to keep the economy balanced.
         add("sell_diamond_blocks", Material.DIAMOND_BLOCK, 16, 2, "Diamond Blocks", "seller");
         add("sell_netherite", Material.NETHERITE_BLOCK, 1, 5, "Netherite Blocks", "seller");
-        add("sell_elytra", Material.ELYTRA, 4, 4, "Elytra", "seller");
-        add("sell_shulker", Material.SHULKER_BOX, 16, 3, "Shulker Boxes", "seller");
-        add("sell_egg", Material.DRAGON_EGG, 1, 40, "Dragon Egg", "seller");
-        add("sell_netherite_ingots", Material.NETHERITE_INGOT, 8, 2, "Netherite Ingots", "seller");
-        add("sell_beacon", Material.BEACON, 2, 10, "Beacons", "seller");
-        add("sell_mace", Material.MACE, 1, 10, "Maces", "seller");
-        add("sell_tridents", Material.TRIDENT, 4, 6, "Tridents", "seller");
-        add("sell_egapples", Material.ENCHANTED_GOLDEN_APPLE, 16, 8, "Enchanted Golden Apples", "seller");
+        add("sell_elytra", Material.ELYTRA, 1, 4, "Elytra", "seller");
+        add("sell_shulker", Material.SHULKER_BOX, 16, 2, "Shulker Boxes", "seller");
+        add("sell_netherite_ingots", Material.NETHERITE_INGOT, 8, 3, "Netherite Ingots", "seller");
+        add("sell_beacon", Material.BEACON, 1, 4, "Beacons", "seller");
+        add("sell_tridents", Material.TRIDENT, 1, 3, "Tridents", "seller");
+        add("sell_egapples", Material.ENCHANTED_GOLDEN_APPLE, 8, 2, "Enchanted Golden Apples", "seller");
+        add("sell_diamonds", Material.DIAMOND, 32, 1, "Diamonds", "seller");
+        add("sell_emerald_blocks", Material.EMERALD_BLOCK, 16, 2, "Emerald Blocks", "seller");
+        add("sell_ancient_debris", Material.ANCIENT_DEBRIS, 8, 3, "Ancient Debris", "seller");
+        add("sell_nether_stars", Material.NETHER_STAR, 1, 5, "Nether Stars", "seller");
+        add("sell_heart_of_sea", Material.HEART_OF_THE_SEA, 1, 2, "Hearts of the Sea", "seller");
     }
 
     private void add(String id, Material material, int amount, int price, String display, String category) {
@@ -160,10 +157,10 @@ public final class ShopVillagerManager implements Listener {
         inv.setItem(4, info);
 
         if (category.equals("mythical")) {
-            String[] ids = {"rain", "stab", "lunar", "nuke", "switcher"};
-            String[] names = {"RAIN ORBITAL", "STAB ORBITAL", "LUNAR ORBITAL", "NUKE ORBITAL", "SWITCHER"};
-            int[] prices = {15, 22, 30, 45, 75};
-            int[] defaults = {20, 22, 24, 31, 40};
+            String[] ids = {"rain", "stab", "lunar", "nuke"};
+            String[] names = {"RAIN ORBITAL", "STAB ORBITAL", "LUNAR ORBITAL", "NUKE ORBITAL"};
+            int[] prices = {150, 150, 150, 150};
+            int[] defaults = {20, 22, 24, 31};
             Map<String, Integer> layout = loadLayout(category);
             for (int i = 0; i < ids.length; i++) addOrbitalIcon(inv,
                 layout.getOrDefault(ids[i], defaults[i]), ids[i], names[i], prices[i]);
@@ -226,7 +223,7 @@ public final class ShopVillagerManager implements Listener {
     }
 
     private void addOrbitalIcon(Inventory inv, int slot, String type, String display, int price) {
-        ItemStack icon = type.equals("switcher") ? createSwitcherSword() : createOrbital(type);
+        ItemStack icon = createOrbital(type);
         ItemMeta meta = icon.getItemMeta();
         List<Component> lore = new ArrayList<>(meta.lore() == null ? List.of() : meta.lore());
         lore.add(Component.text("Price: " + price + " Core", net.kyori.adventure.text.format.NamedTextColor.GREEN));
@@ -251,9 +248,9 @@ public final class ShopVillagerManager implements Listener {
         int[] defaults = defaultSlots(category);
         Map<String, Integer> layout = loadLayout(category);
         if (category.equals("mythical")) {
-            String[] ids = {"rain", "stab", "lunar", "nuke", "switcher"};
-            String[] names = {"RAIN ORBITAL", "STAB ORBITAL", "LUNAR ORBITAL", "NUKE ORBITAL", "SWITCHER"};
-            int[] prices = {15, 22, 30, 45, 75};
+            String[] ids = {"rain", "stab", "lunar", "nuke"};
+            String[] names = {"RAIN ORBITAL", "STAB ORBITAL", "LUNAR ORBITAL", "NUKE ORBITAL"};
+            int[] prices = {150, 150, 150, 150};
             for (int i = 0; i < ids.length; i++) {
                 ItemStack icon = orbitalEditorIcon(ids[i], names[i], prices[i]);
                 inv.setItem(layout.getOrDefault(ids[i], defaults[i]), icon);
@@ -303,7 +300,7 @@ public final class ShopVillagerManager implements Listener {
     }
 
     private ItemStack orbitalEditorIcon(String type, String name, int price) {
-        ItemStack icon = type.equals("switcher") ? createSwitcherSword() : createOrbital(type);
+        ItemStack icon = createOrbital(type);
         ItemMeta meta = icon.getItemMeta();
         List<Component> lore = new ArrayList<>(meta.lore() == null ? List.of() : meta.lore());
         lore.add(Component.text("Price: " + price + " Core", net.kyori.adventure.text.format.NamedTextColor.GREEN));
@@ -369,11 +366,12 @@ public final class ShopVillagerManager implements Listener {
         if (category.equals("mythical")) {
             String type = clicked.getItemMeta().getPersistentDataContainer().get(orbitalKey, PersistentDataType.STRING);
             if (type == null) return;
-            int price = switch (type) { case "rain" -> 15; case "stab" -> 22; case "lunar" -> 30; case "nuke" -> 45; case "switcher" -> 75; default -> 45; };
-            if (!takeCore(player, price)) { player.sendMessage(Component.text("You need " + price + " Core (Nether Stars).")); return; }
-            ItemStack reward = type.equals("switcher") ? createSwitcherSword() : createOrbital(type);
+            if (!List.of("rain", "stab", "lunar", "nuke").contains(type)) return;
+            int price = 150;
+            if (!takeCore(player, price)) { player.sendMessage(Component.text("You need " + price + " Cores (Nether Stars).")); return; }
+            ItemStack reward = createOrbital(type);
             player.getInventory().addItem(reward).values().forEach(drop -> player.getWorld().dropItemNaturally(player.getLocation(), drop));
-            player.sendMessage(Component.text(type.equals("switcher") ? "Purchased SWITCHER. Sneak + right-click to transform it." : "Purchased " + type.toUpperCase() + " Orbital."));
+            player.sendMessage(Component.text("Purchased " + type.toUpperCase() + " Orbital for 150 Cores."));
             return;
         }
         String tradeId = clicked.getItemMeta().getPersistentDataContainer().get(tradeKey, PersistentDataType.STRING);
@@ -626,141 +624,6 @@ public final class ShopVillagerManager implements Listener {
         player.sendMessage(Component.text("Sold " + trade.amount() + " " + trade.display() + " for " + trade.price() + " Core."));
     }
 
-    private ItemStack createSwitcherSword() {
-        ItemStack item = new ItemStack(Material.NETHERITE_SWORD);
-        item.addUnsafeEnchantment(Enchantment.SHARPNESS, 5);
-        item.addUnsafeEnchantment(Enchantment.KNOCKBACK, 2);
-        item.addUnsafeEnchantment(Enchantment.FIRE_ASPECT, 2);
-        item.addUnsafeEnchantment(Enchantment.LOOTING, 3);
-        item.addUnsafeEnchantment(Enchantment.SWEEPING_EDGE, 3);
-        item.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-        item.addUnsafeEnchantment(Enchantment.MENDING, 1);
-        ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text("SWITCHER", net.kyori.adventure.text.format.NamedTextColor.GOLD)
-            .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true));
-        meta.lore(List.of(
-            Component.text("MAXED OUT", net.kyori.adventure.text.format.NamedTextColor.AQUA)
-                .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true),
-            Component.text("Sneak + Right Click", net.kyori.adventure.text.format.NamedTextColor.YELLOW),
-            Component.text("Switch into a powerful mace form", net.kyori.adventure.text.format.NamedTextColor.GRAY),
-            Component.text("Mace Form: 2 Minutes", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE),
-            Component.text("Mace Damage: 2x", net.kyori.adventure.text.format.NamedTextColor.RED),
-            Component.text("Cooldown: 5 Minutes", net.kyori.adventure.text.format.NamedTextColor.GOLD)
-        ));
-        meta.getPersistentDataContainer().set(switcherKey, PersistentDataType.STRING, "sword");
-        meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS);
-        item.setItemMeta(meta);
-        return item;
-    }
-
-    private ItemStack createSwitcherMace(long expiresAt) {
-        ItemStack item = new ItemStack(Material.MACE);
-        item.addUnsafeEnchantment(Enchantment.DENSITY, 5);
-        item.addUnsafeEnchantment(Enchantment.WIND_BURST, 3);
-        item.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-        item.addUnsafeEnchantment(Enchantment.MENDING, 1);
-        ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text("SWITCHER • MACE FORM", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE)
-            .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true));
-        meta.lore(List.of(Component.text("Deals double damage"),
-            Component.text("Returns to sword form after 2 minutes")));
-        meta.getPersistentDataContainer().set(switcherKey, PersistentDataType.STRING, "mace");
-        meta.getPersistentDataContainer().set(switcherExpiryKey, PersistentDataType.LONG, expiresAt);
-        item.setItemMeta(meta);
-        return item;
-    }
-
-    @EventHandler
-    public void onSwitcherActivate(PlayerInteractEvent event) {
-        if (event.getHand() != EquipmentSlot.HAND) return;
-        if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
-        Player player = event.getPlayer();
-        if (!player.isSneaking()) return;
-        ItemStack held = event.getItem();
-        if (held == null || !held.hasItemMeta()) return;
-        String form = held.getItemMeta().getPersistentDataContainer().get(switcherKey, PersistentDataType.STRING);
-        if (!"sword".equals(form)) return;
-        event.setCancelled(true);
-        long now = System.currentTimeMillis();
-        long expiry = switcherCooldowns.getOrDefault(player.getUniqueId(), 0L);
-        if (expiry > now) {
-            long seconds = (expiry - now + 999L) / 1000L;
-            player.sendActionBar(Component.text("SWITCHER COOLDOWN • " + (seconds / 60) + "m " + (seconds % 60) + "s"));
-            return;
-        }
-        int slot = player.getInventory().getHeldItemSlot();
-        player.getInventory().setItem(slot, createSwitcherMace(now + 120_000L));
-        java.util.UUID id = player.getUniqueId();
-        switcherCooldowns.put(id, now + 300_000L);
-        BukkitTask previous = switcherReturnTasks.remove(id);
-        if (previous != null) previous.cancel();
-        BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            Player online = Bukkit.getPlayer(id);
-            if (online != null) restoreSwitcherSword(online);
-            switcherReturnTasks.remove(id);
-        }, 2400L);
-        switcherReturnTasks.put(id, task);
-        player.sendMessage(Component.text("SWITCHER activated. Mace form lasts 2 minutes; cooldown is 5 minutes."));
-    }
-
-    private ItemStack restoreExpiredSwitcher(ItemStack item) {
-        if (item == null || !item.hasItemMeta()) return item;
-        var pdc = item.getItemMeta().getPersistentDataContainer();
-        String form = pdc.get(switcherKey, PersistentDataType.STRING);
-        Long expiresAt = pdc.get(switcherExpiryKey, PersistentDataType.LONG);
-        if (!"mace".equals(form) || expiresAt == null || System.currentTimeMillis() < expiresAt) return item;
-        return createSwitcherSword();
-    }
-
-    @EventHandler
-    public void onSwitcherInventoryOpen(InventoryOpenEvent event) {
-        Inventory inventory = event.getInventory();
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            ItemStack item = inventory.getItem(slot);
-            ItemStack restored = restoreExpiredSwitcher(item);
-            if (restored != item) inventory.setItem(slot, restored);
-        }
-    }
-
-    @EventHandler
-    public void onSwitcherItemPickup(EntityPickupItemEvent event) {
-        ItemStack item = event.getItem().getItemStack();
-        ItemStack restored = restoreExpiredSwitcher(item);
-        if (restored != item) event.getItem().setItemStack(restored);
-    }
-
-    private void restoreSwitcherSword(Player player) {
-        for (int slot = 0; slot < player.getInventory().getSize(); slot++) {
-            ItemStack item = player.getInventory().getItem(slot);
-            if (item == null || !item.hasItemMeta()) continue;
-            String form = item.getItemMeta().getPersistentDataContainer().get(switcherKey, PersistentDataType.STRING);
-            if ("mace".equals(form)) {
-                player.getInventory().setItem(slot, createSwitcherSword());
-                player.sendMessage(Component.text("SWITCHER returned to sword form."));
-                return;
-            }
-        }
-        ItemStack offhand = player.getInventory().getItemInOffHand();
-        if (offhand.hasItemMeta() && "mace".equals(offhand.getItemMeta().getPersistentDataContainer().get(switcherKey, PersistentDataType.STRING))) {
-            player.getInventory().setItemInOffHand(createSwitcherSword());
-            player.sendMessage(Component.text("SWITCHER returned to sword form."));
-        }
-    }
-
-    @EventHandler
-    public void onSwitcherMaceDamage(EntityDamageByEntityEvent event) {
-        if (!(event.getDamager() instanceof Player player)) return;
-        ItemStack weapon = player.getInventory().getItemInMainHand();
-        if (weapon == null || !weapon.hasItemMeta()) return;
-        if ("mace".equals(weapon.getItemMeta().getPersistentDataContainer().get(switcherKey, PersistentDataType.STRING))) {
-            event.setDamage(event.getDamage() * 2.0);
-        }
-    }
-
-    public long getSwitcherCooldownSeconds(Player player) {
-        return Math.max(0L, (switcherCooldowns.getOrDefault(player.getUniqueId(), 0L) - System.currentTimeMillis() + 999L) / 1000L);
-    }
-
     private ItemStack createOrbital(String type) {
         ItemStack item = new ItemStack(Material.FISHING_ROD);
         item.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
@@ -786,8 +649,7 @@ public final class ShopVillagerManager implements Listener {
         meta.displayName(Component.text(name, color)
             .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true));
         meta.lore(List.of(
-            Component.text("MAXED ORBITAL WEAPON", net.kyori.adventure.text.format.NamedTextColor.GOLD)
-                .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true),
+            Component.text("Single-use orbital item", net.kyori.adventure.text.format.NamedTextColor.GOLD),
             Component.text(ability, net.kyori.adventure.text.format.NamedTextColor.GRAY),
             Component.text("Right-click to launch", net.kyori.adventure.text.format.NamedTextColor.YELLOW),
             Component.text("Single-use • consumed on launch", net.kyori.adventure.text.format.NamedTextColor.RED)
