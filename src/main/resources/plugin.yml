@@ -23,7 +23,7 @@ commands:
     usage: /spawn
   protection:
     description: Manage temporary player protection (OP only; players may clear their own)
-    usage: /protection give <player> [duration> OR /protection remove <player> OR /protection clear
+    usage: /protection give <player> [duration] OR /protection remove <player> OR /protection clear
   cleartag:
     description: Completely remove a player's tag
     usage: /cleartag <player>
