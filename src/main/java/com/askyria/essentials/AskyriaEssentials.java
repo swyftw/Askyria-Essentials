@@ -79,7 +79,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private final Map<UUID, Long> combatUntil = new HashMap<>();
     private final Map<UUID, BukkitTask> spawnTeleportTasks = new HashMap<>();
     private final Map<UUID, Long> spawnCooldowns = new HashMap<>();
-    private final Map<UUID, Long> rankAbilityCooldowns = new HashMap<>();
     private final Map<UUID, Scoreboard> cooldownOriginalBoards = new HashMap<>();
     private final Map<UUID, Scoreboard> cooldownBoards = new HashMap<>();
     private final Map<UUID, Set<String>> cooldownSidebarEntries = new HashMap<>();
@@ -195,7 +194,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         combatTicker = Bukkit.getScheduler().runTaskTimer(this, () -> {
             long nowTick = System.currentTimeMillis();
             for (Player player : Bukkit.getOnlinePlayers()) {
-                updateAbilityCooldownSidebar(player);
                 if (isInSpawnProtection(player.getLocation())) {
                     player.sendActionBar(Component.text("SPAWN PROTECTED", net.kyori.adventure.text.format.NamedTextColor.GREEN));
                     continue;
@@ -518,22 +516,10 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             getConfig().set("seen-player." + id, true);
             getConfig().set("protected-players." + id, expiry);
 
-            // One-time CORE SMP starter kit for first-time players.
-            player.getInventory().setArmorContents(new ItemStack[] {
-                new ItemStack(Material.IRON_BOOTS),
-                new ItemStack(Material.IRON_LEGGINGS),
-                new ItemStack(Material.IRON_CHESTPLATE),
-                new ItemStack(Material.IRON_HELMET)
-            });
+            // One-time CORE SMP starter kit: food only.
             List<ItemStack> starterItems = List.of(
-                new ItemStack(Material.STONE_SWORD),
-                new ItemStack(Material.STONE_PICKAXE),
-                new ItemStack(Material.STONE_AXE),
-                new ItemStack(Material.STONE_SHOVEL),
                 new ItemStack(Material.COOKED_BEEF, 32),
-                new ItemStack(Material.BREAD, 16),
-                new ItemStack(Material.TORCH, 16),
-                new ItemStack(Material.SHIELD)
+                new ItemStack(Material.BREAD, 16)
             );
             Map<Integer, ItemStack> starterLeftovers =
                 player.getInventory().addItem(starterItems.toArray(new ItemStack[0]));
@@ -737,83 +723,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         }
     }
 
-    private int topRank(Player player) {
-        String raw = rawTags.get(player.getUniqueId());
-        if (raw == null) return 0;
-        String normalized = raw.toUpperCase().replaceAll("<[^>]*>", "");
-        for (int rank = 1; rank <= 5; rank++) {
-            if (normalized.contains("#" + rank) || normalized.contains("TOP " + rank) || normalized.contains("TOP" + rank)) return rank;
-        }
-        return 0;
-    }
-
-    private void updateAbilityCooldownSidebar(Player player) {
-        UUID id = player.getUniqueId();
-        long now = System.currentTimeMillis();
-        long rankRemaining = Math.max(0L, (rankAbilityCooldowns.getOrDefault(id, 0L) - now + 999L) / 1000L);
-        boolean showRank = topRank(player) > 0 && rankRemaining > 0L;
-        long switcherRemaining = shopVillagerManager == null ? 0L : shopVillagerManager.getSwitcherCooldownSeconds(player);
-        boolean showSwitcher = switcherRemaining > 0L;
-
-        Scoreboard board = cooldownBoards.get(id);
-        if (!showRank && !showSwitcher) {
-            if (board != null) {
-                Objective objective = board.getObjective("ask_cd");
-                if (objective != null) objective.unregister();
-                Scoreboard original = cooldownOriginalBoards.remove(id);
-                cooldownBoards.remove(id);
-                cooldownSidebarEntries.remove(id);
-                if (original != null && player.getScoreboard() == board) player.setScoreboard(original);
-            }
-            return;
-        }
-
-        if (board == null) {
-            Scoreboard original = player.getScoreboard();
-            board = Bukkit.getScoreboardManager().getNewScoreboard();
-            for (Team source : original.getTeams()) {
-                Team copy = board.registerNewTeam(source.getName());
-                copy.prefix(source.prefix());
-                copy.suffix(source.suffix());
-                for (String entry : source.getEntries()) copy.addEntry(entry);
-            }
-            cooldownOriginalBoards.put(id, original);
-            cooldownBoards.put(id, board);
-            player.setScoreboard(board);
-        }
-
-        Objective objective = board.getObjective("ask_cd");
-        if (objective == null) {
-            objective = board.registerNewObjective("ask_cd", org.bukkit.scoreboard.Criteria.DUMMY, Component.text("COOLDOWNS", net.kyori.adventure.text.format.NamedTextColor.GOLD));
-            objective.setDisplaySlot(DisplaySlot.SIDEBAR);
-        }
-        Set<String> previousEntries = cooldownSidebarEntries.computeIfAbsent(id, ignored -> new HashSet<>());
-        for (String entry : previousEntries) board.resetScores(entry);
-        previousEntries.clear();
-        if (showRank) {
-            String entry = ChatColor.YELLOW + "TOP " + topRank(player) + ChatColor.WHITE + " " + rankRemaining + "s";
-            objective.getScore(entry).setScore(2);
-            previousEntries.add(entry);
-        }
-        if (showSwitcher) {
-            String entry = ChatColor.AQUA + "SWITCHER " + ChatColor.WHITE
-                + (switcherRemaining / 60) + "m " + (switcherRemaining % 60) + "s";
-            objective.getScore(entry).setScore(1);
-            previousEntries.add(entry);
-        }
-    }
-
-    private String rankTag(int rank) {
-        return switch (rank) {
-            case 1 -> "<#FFFF00><bold>[#1]</bold></#FFFF00>";
-            case 2 -> "<#808080><bold>[#2]</bold></#808080>";
-            case 3 -> "<#CD7F32><bold>[#3]</bold></#CD7F32>";
-            case 4 -> "<white><bold>[#4]</bold></white>";
-            case 5 -> "<white><bold>[#5]</bold></white>";
-            default -> "";
-        };
-    }
-
     private void setStoredTag(Player player, String raw) {
         UUID id = player.getUniqueId();
         rawTags.put(id, raw);
@@ -877,80 +786,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         sender.sendMessage(Component.text("Restored " + target.getName() + "'s most recent death loot."));
         target.sendMessage(Component.text("Your most recent death loot has been restored."));
         return true;
-    }
-
-    @EventHandler
-    public void onTopRankDeath(PlayerDeathEvent event) {
-        Player victim = event.getEntity();
-        Player killer = victim.getKiller();
-        if (killer == null || killer.equals(victim)) return;
-
-        int victimRank = topRank(victim);
-        int killerRank = topRank(killer);
-        if (victimRank == 0 || killerRank == 0) return;
-
-        // Higher rank number means lower standing: only an upset by the lower-ranked
-        // player swaps the two ranks. Higher-ranked players killing lower-ranked
-        // players does not change either rank.
-        if (killerRank < victimRank) return;
-
-        setStoredTag(killer, rankTag(victimRank));
-        setStoredTag(victim, rankTag(killerRank));
-        Bukkit.broadcast(Component.text(killer.getName() + " defeated #" + victimRank
-            + " and swapped ranks with " + victim.getName() + "!"));
-    }
-
-    @EventHandler
-    public void onTopRankCrouchJump(PlayerMoveEvent event) {
-        Player player = event.getPlayer();
-        int rank = topRank(player);
-        if (rank == 0 || !player.isSneaking() || player.isOnGround()) return;
-        if (event.getTo() == null || event.getTo().getY() <= event.getFrom().getY()) return;
-        long now = System.currentTimeMillis();
-        if (now < rankAbilityCooldowns.getOrDefault(player.getUniqueId(), 0L)) return;
-        switch (rank) {
-            case 1 -> {
-                player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 25 * 20, 1, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 10 * 20, 0, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 15 * 20, 0, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 25 * 20, 0, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 5 * 20, 0, true, true, true));
-            }
-            case 2 -> {
-                player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 22 * 20, 1, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 15 * 20, 0, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 10 * 20, 0, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 18 * 20, 0, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 5 * 20, 0, true, true, true));
-            }
-            case 3 -> {
-                player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 18 * 20, 0, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 8 * 20, 0, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, 25 * 20, 0, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 18 * 20, 0, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 5 * 20, 0, true, true, true));
-            }
-            case 4 -> {
-                player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 22 * 20, 1, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 22 * 20, 1, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 15 * 20, 0, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 5 * 20, 0, true, true, true));
-            }
-            case 5 -> {
-                player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 18 * 20, 0, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 25 * 20, 1, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 10 * 20, 0, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 15 * 20, 0, true, true, true));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 5 * 20, 0, true, true, true));
-            }
-            default -> { return; }
-        }
-        long cooldown = rank == 3 || rank == 5 ? 75_000L : 60_000L;
-        rankAbilityCooldowns.put(player.getUniqueId(), now + cooldown);
-        player.sendMessage(Component.text("#" + rank + " ability activated!"));
-        player.getWorld().playSound(player.getLocation(), org.bukkit.Sound.ENTITY_PLAYER_LEVELUP, 0.7f, 1.4f);
-        player.getWorld().spawnParticle(org.bukkit.Particle.TOTEM_OF_UNDYING,
-            player.getLocation().add(0, 1, 0), 24, 0.45, 0.6, 0.45, 0.05);
     }
 
     @EventHandler
@@ -1171,56 +1006,60 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 return true;
             }
             case "spawn" -> {
+                if (!requireOp(sender)) return true;
                 if (!(sender instanceof Player player)) {
                     sender.sendMessage(Component.text("Only players can use /spawn."));
                     return true;
                 }
-                beginSpawnTeleport(player);
+                player.teleport(player.getWorld().getSpawnLocation());
+                player.sendMessage(Component.text("Teleported to spawn."));
                 return true;
             }
             case "protection" -> {
-                if (!(sender instanceof Player player)) {
-                    sender.sendMessage("Only players can use this command."); return true;
-                }
-                if (args.length != 1 || !args[0].equalsIgnoreCase("clear")) {
-                    player.sendMessage(Component.text("Usage: /protection clear")); return true;
-                }
-                if (protectedUntil.remove(player.getUniqueId()) != null) {
-                    saveProtectionData();
-                    player.sendMessage(Component.text("Your protection has been removed. You can now take damage."));
-                } else player.sendMessage(Component.text("You do not have active protection."));
-                return true;
-            }
-            case "top1", "top2", "top3", "top4", "top5" -> {
-                if (!requireOp(sender)) return true;
-                if (args.length != 1) {
-                    sender.sendMessage(Component.text("Usage: /" + command.getName().toLowerCase() + " <player>"));
-                    return true;
-                }
-                Player target = Bukkit.getPlayerExact(args[0]);
-                if (target == null) {
-                    sender.sendMessage(Component.text("Player '" + args[0] + "' is not online."));
-                    return true;
-                }
-                int rank = Integer.parseInt(command.getName().substring(3));
-                // Keep each TOP rank unique: remove it from its current holder first.
-                for (Map.Entry<UUID, String> entry : new HashMap<>(rawTags).entrySet()) {
-                    String normalized = entry.getValue().toUpperCase().replaceAll("<[^>]*>", "");
-                    if (normalized.contains("TOP " + rank) || normalized.contains("TOP" + rank)) {
-                        Player oldHolder = Bukkit.getPlayer(entry.getKey());
-                        if (oldHolder != null && !oldHolder.equals(target)) {
-                            clearStoredTag(oldHolder);
-                        } else if (oldHolder == null) {
-                            rawTags.remove(entry.getKey());
-                            tags.remove(entry.getKey());
-                            getConfig().set("player-tags." + entry.getKey(), null);
-                        }
+                if (args.length == 1 && args[0].equalsIgnoreCase("clear")) {
+                    if (!(sender instanceof Player player)) {
+                        sender.sendMessage(Component.text("Only players can clear their own protection."));
+                        return true;
                     }
+                    if (protectedUntil.remove(player.getUniqueId()) != null) {
+                        saveProtectionData();
+                        player.sendMessage(Component.text("Your protection has been removed."));
+                    } else player.sendMessage(Component.text("You do not have active protection."));
+                    return true;
                 }
-                setStoredTag(target, rankTag(rank));
-                saveConfig();
-                sender.sendMessage(Component.text("Gave " + target.getName() + " #" + rank + ". "));
-                Bukkit.broadcast(Component.text(target.getName() + " is now #" + rank + "!"));
+                if (!requireOp(sender)) return true;
+                if (args.length < 2 || args.length > 3) {
+                    sender.sendMessage(Component.text("Usage: /protection give <player> [duration] OR /protection remove <player>"));
+                    return true;
+                }
+                String action = args[0].toLowerCase(java.util.Locale.ROOT);
+                Player target = Bukkit.getPlayerExact(args[1]);
+                if (target == null) {
+                    sender.sendMessage(Component.text("Player '" + args[1] + "' is not online."));
+                    return true;
+                }
+                if (action.equals("give")) {
+                    java.time.Duration duration = parseBanDuration(args.length == 3 ? args[2] : "5m");
+                    if (duration == null || duration.isZero()) {
+                        sender.sendMessage(Component.text("Use a positive duration such as 5m, 30m, 2h, or 1d."));
+                        return true;
+                    }
+                    long expiry = System.currentTimeMillis() + duration.toMillis();
+                    protectedUntil.put(target.getUniqueId(), expiry);
+                    saveProtectionData();
+                    sender.sendMessage(Component.text("Gave " + target.getName() + " protection for " + (args.length == 3 ? args[2] : "5m") + "."));
+                    target.sendMessage(Component.text("You have been given temporary protection."));
+                    return true;
+                }
+                if (action.equals("remove")) {
+                    if (protectedUntil.remove(target.getUniqueId()) != null) {
+                        saveProtectionData();
+                        sender.sendMessage(Component.text("Removed " + target.getName() + "'s protection."));
+                        target.sendMessage(Component.text("Your protection has been removed."));
+                    } else sender.sendMessage(Component.text(target.getName() + " does not have active protection."));
+                    return true;
+                }
+                sender.sendMessage(Component.text("Use /protection give <player> [duration] or /protection remove <player>."));
                 return true;
             }
             case "igncolor" -> {
@@ -1375,8 +1214,17 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 String color = args.length == 3 ? "#FFFF00" : args.length == 4 ? "#FFEA00" : "#FFD700";
                 if (color.toLowerCase().startsWith(args[args.length - 1].toLowerCase())) suggestions.add(color);
             }
-        } else if (command.getName().equalsIgnoreCase("protection") && args.length == 1 && sender instanceof Player) {
-            if ("clear".startsWith(args[0].toLowerCase())) suggestions.add("clear");
+        } else if (command.getName().equalsIgnoreCase("protection") && sender.isOp()) {
+            if (args.length == 1) {
+                for (String option : List.of("give", "remove")) {
+                    if (option.startsWith(args[0].toLowerCase())) suggestions.add(option);
+                }
+            } else if (args.length == 2 && List.of("give", "remove").contains(args[0].toLowerCase())) {
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    if (player.getName().toLowerCase().startsWith(args[1].toLowerCase())) suggestions.add(player.getName());
+                }
+            } else if (args.length == 1 && sender instanceof Player
+                    && "clear".startsWith(args[0].toLowerCase())) suggestions.add("clear");
         } else if ((command.getName().equalsIgnoreCase("invsee") || command.getName().equalsIgnoreCase("endersee")) && args.length == 1) {
             if (sender.isOp()) for (Player player : Bukkit.getOnlinePlayers()) {
                 if (player.getName().toLowerCase().startsWith(args[0].toLowerCase())) suggestions.add(player.getName());
