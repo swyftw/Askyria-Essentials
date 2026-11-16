@@ -19,26 +19,11 @@ commands:
     description: Show the Askyria SMP Discord invite
     usage: /discord
   spawn:
-    description: Teleport to the current world spawn
+    description: Instantly teleport an operator to the current world spawn
     usage: /spawn
-  top1:
-    description: Give a player the yellow #1 rank
-    usage: /top1 <player>
-  top2:
-    description: Give a player the gray #2 rank
-    usage: /top2 <player>
-  top3:
-    description: Give a player the bronze #3 rank
-    usage: /top3 <player>
-  top4:
-    description: Give a player the #4 rank
-    usage: /top4 <player>
-  top5:
-    description: Give a player the #5 rank
-    usage: /top5 <player>
   protection:
-    description: Clear your own new-player protection
-    usage: /protection clear
+    description: Manage temporary player protection (OP only; players may clear their own)
+    usage: /protection give <player> [duration> OR /protection remove <player> OR /protection clear
   cleartag:
     description: Completely remove a player's tag
     usage: /cleartag <player>
