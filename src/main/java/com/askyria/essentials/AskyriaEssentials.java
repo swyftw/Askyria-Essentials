@@ -970,7 +970,10 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         if (!location.getWorld().equals(spawn.getWorld())) return false;
         double dx = location.getX() - spawn.getX();
         double dz = location.getZ() - spawn.getZ();
-        return dx * dx + dz * dz <= (double) radius * radius;
+        double heightAboveSpawn = location.getY() - spawn.getY();
+        return dx * dx + dz * dz <= (double) radius * radius
+            && heightAboveSpawn >= 0.0
+            && heightAboveSpawn <= 180.0;
     }
 
     private void denySpawnAction(Player player) {
