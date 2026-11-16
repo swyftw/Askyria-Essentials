@@ -861,12 +861,14 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
 
     @EventHandler
     public void onSpawnEntityExplosion(EntityExplodeEvent event) {
-        if (isInSpawnProtection(event.getLocation())) event.blockList().clear();
+        // Filter affected blocks individually so TNT cannot damage protected blocks,
+        // even when the TNT itself explodes outside the protected radius.
+        event.blockList().removeIf(block -> isInSpawnProtection(block.getLocation()));
     }
 
     @EventHandler
     public void onSpawnBlockExplosion(BlockExplodeEvent event) {
-        if (isInSpawnProtection(event.getBlock().getLocation())) event.blockList().clear();
+        event.blockList().removeIf(block -> isInSpawnProtection(block.getLocation()));
     }
 
     @EventHandler
