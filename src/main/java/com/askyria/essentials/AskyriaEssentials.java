@@ -1214,17 +1214,17 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 String color = args.length == 3 ? "#FFFF00" : args.length == 4 ? "#FFEA00" : "#FFD700";
                 if (color.toLowerCase().startsWith(args[args.length - 1].toLowerCase())) suggestions.add(color);
             }
-        } else if (command.getName().equalsIgnoreCase("protection") && sender.isOp()) {
+        } else if (command.getName().equalsIgnoreCase("protection")) {
             if (args.length == 1) {
-                for (String option : List.of("give", "remove")) {
+                List<String> options = sender.isOp() ? List.of("give", "remove", "clear") : List.of("clear");
+                for (String option : options) {
                     if (option.startsWith(args[0].toLowerCase())) suggestions.add(option);
                 }
-            } else if (args.length == 2 && List.of("give", "remove").contains(args[0].toLowerCase())) {
+            } else if (sender.isOp() && args.length == 2 && List.of("give", "remove").contains(args[0].toLowerCase())) {
                 for (Player player : Bukkit.getOnlinePlayers()) {
                     if (player.getName().toLowerCase().startsWith(args[1].toLowerCase())) suggestions.add(player.getName());
                 }
-            } else if (args.length == 1 && sender instanceof Player
-                    && "clear".startsWith(args[0].toLowerCase())) suggestions.add("clear");
+            }
         } else if ((command.getName().equalsIgnoreCase("invsee") || command.getName().equalsIgnoreCase("endersee")) && args.length == 1) {
             if (sender.isOp()) for (Player player : Bukkit.getOnlinePlayers()) {
                 if (player.getName().toLowerCase().startsWith(args[0].toLowerCase())) suggestions.add(player.getName());
