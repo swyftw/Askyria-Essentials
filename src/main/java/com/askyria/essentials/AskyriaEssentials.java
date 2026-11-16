@@ -737,17 +737,30 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         rawTags.remove(id);
         tags.remove(id);
         getConfig().set("player-tags." + id, null);
+
+        // Remove this plugin's tag team from every scoreboard currently in use.
         String teamName = "ask_" + id.toString().replace("-", "").substring(0, 12);
         java.util.Set<Scoreboard> boards = new java.util.HashSet<>();
         boards.add(Bukkit.getScoreboardManager().getMainScoreboard());
-        for (Player viewer : Bukkit.getOnlinePlayers()) boards.add(viewer.getScoreboard());
+        for (Player viewer : Bukkit.getOnlinePlayers()) {
+            boards.add(viewer.getScoreboard());
+        }
         for (Scoreboard board : boards) {
             Team team = board.getTeam(teamName);
             if (team != null) {
                 team.removeEntry(player.getName());
-                if (team.getEntries().isEmpty()) team.unregister();
+                if (team.getEntries().isEmpty()) {
+                    team.unregister();
+                } else {
+                    team.prefix(Component.empty());
+                    team.suffix(Component.empty());
+                }
             }
         }
+
+        // Restore the player's normal display and TAB names immediately.
+        applyIgnColor(player);
+        player.playerListName(player.displayName());
         saveConfig();
         updateTabLists();
     }
