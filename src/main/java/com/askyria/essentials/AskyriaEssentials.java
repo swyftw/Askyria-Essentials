@@ -1093,6 +1093,36 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         switch (command.getName().toLowerCase()) {
+            case "announcement" -> {
+                if (!requireOp(sender)) return true;
+                if (args.length < 2 || !args[0].equalsIgnoreCase("send")) {
+                    sender.sendMessage(Component.text("Usage: /announcement send <message>"));
+                    return true;
+                }
+                String message = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length)).trim();
+                if (message.isEmpty()) {
+                    sender.sendMessage(Component.text("Enter an announcement message."));
+                    return true;
+                }
+                if (message.length() > 256) {
+                    sender.sendMessage(Component.text("Announcement must be 256 characters or fewer."));
+                    return true;
+                }
+                Component announcement = mini.deserialize(message);
+                net.kyori.adventure.title.Title title = net.kyori.adventure.title.Title.title(
+                    Component.text("ANNOUNCEMENT", net.kyori.adventure.text.format.NamedTextColor.GOLD,
+                        net.kyori.adventure.text.format.TextDecoration.BOLD),
+                    announcement,
+                    net.kyori.adventure.title.Title.Times.times(
+                        java.time.Duration.ofMillis(500),
+                        java.time.Duration.ofSeconds(5),
+                        java.time.Duration.ofMillis(1000)
+                    )
+                );
+                for (Player online : Bukkit.getOnlinePlayers()) online.showTitle(title);
+                sender.sendMessage(Component.text("Announcement displayed to " + Bukkit.getOnlinePlayers().size() + " player(s)."));
+                return true;
+            }
             case "kits" -> {
                 if (!requireOp(sender)) return true;
                 if (!(sender instanceof Player player)) {
@@ -1342,6 +1372,12 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> suggestions = new ArrayList<>();
+        if (command.getName().equalsIgnoreCase("announcement")) {
+            if (sender.isOp() && args.length == 1 && "send".startsWith(args[0].toLowerCase(java.util.Locale.ROOT))) {
+                suggestions.add("send");
+            }
+            return suggestions;
+        }
         if (command.getName().equalsIgnoreCase("deathrestore") && sender.isOp() && args.length == 1) {
             for (Player player : Bukkit.getOnlinePlayers()) {
                 if (player.getName().toLowerCase().startsWith(args[0].toLowerCase())) suggestions.add(player.getName());
