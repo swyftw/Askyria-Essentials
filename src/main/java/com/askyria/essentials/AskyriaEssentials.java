@@ -121,10 +121,15 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private volatile long chatCooldownMillis = 3000L;
     private volatile long duplicateWindowMillis = 30000L;
     private volatile String chatBypassPermission = "askyriaessentials.chatfilter.bypass";
+    private volatile boolean capsFilterEnabled = true, characterSpamEnabled = true, nearDuplicateEnabled = true, linkSpamEnabled = true;
+    private volatile int maxMessagesPerWindow = 5;
+    private volatile long messageWindowMillis = 10000L, minimumMessageGapMillis = 1200L;
 
     private static final class ChatState {
         private long lastMessageAt;
         private String lastMessage;
+        private final java.util.ArrayDeque<Long> recentMessageTimes = new java.util.ArrayDeque<>();
+        private final java.util.ArrayDeque<String> recentMessages = new java.util.ArrayDeque<>();
     }
 
     @Override
@@ -531,31 +536,38 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         String message = PlainTextComponentSerializer.plainText().serialize(event.message());
         if (message == null || message.isBlank()) return;
 
-        if (containsBlockedChatWord(message)) {
-            event.setCancelled(true);
-            sendChatModerationNotice(player, "Your message was blocked by the chat filter.");
-            return;
-        }
-
-        if (!antiSpamEnabled) return;
-        String normalized = message.toLowerCase(java.util.Locale.ROOT)
-            .replaceAll("\\s+", " ").trim();
-        long now = System.currentTimeMillis();
-        ChatState state = chatStates.computeIfAbsent(player.getUniqueId(), ignored -> new ChatState());
         String blockReason = null;
-        synchronized (state) {
-            if (duplicateChatEnabled && state.lastMessage != null
-                    && normalized.equals(state.lastMessage)
-                    && now - state.lastMessageAt < duplicateWindowMillis) {
-                blockReason = "Please don't repeat the same message.";
-            } else if (state.lastMessageAt > 0L && now - state.lastMessageAt < chatCooldownMillis) {
-                blockReason = "You're sending messages too quickly. Please slow down.";
-            } else {
-                state.lastMessage = normalized;
-                state.lastMessageAt = now;
+        if (containsBlockedChatWord(message)) blockReason = "Your message was blocked by the chat filter.";
+        else if (linkSpamEnabled && containsLinkOrIp(message)) blockReason = "Links and server addresses are not allowed in public chat.";
+        else if (characterSpamEnabled && hasCharacterSpam(message)) blockReason = "Please don't spam repeated characters.";
+        else if (capsFilterEnabled && hasExcessiveCaps(message)) blockReason = "Please avoid excessive capital letters.";
+
+        if (blockReason == null && antiSpamEnabled) {
+            String normalized = message.toLowerCase(java.util.Locale.ROOT).replaceAll("\\s+", " ").trim();
+            String similar = normalizeForSimilarity(message);
+            long now = System.currentTimeMillis();
+            ChatState state = chatStates.computeIfAbsent(player.getUniqueId(), ignored -> new ChatState());
+            synchronized (state) {
+                while (!state.recentMessageTimes.isEmpty() && now - state.recentMessageTimes.peekFirst() > messageWindowMillis) {
+                    state.recentMessageTimes.removeFirst();
+                    state.recentMessages.removeFirst();
+                }
+                boolean repeated = duplicateChatEnabled && state.lastMessage != null && normalized.equals(state.lastMessage)
+                    && now - state.lastMessageAt < duplicateWindowMillis;
+                boolean nearRepeated = nearDuplicateEnabled && !similar.isBlank() && state.recentMessages.contains(similar);
+                if (repeated || nearRepeated) blockReason = "Please don't repeat or slightly change the same message.";
+                else if (state.lastMessageAt > 0L && now - state.lastMessageAt < minimumMessageGapMillis)
+                    blockReason = "You're sending messages too quickly. Please slow down.";
+                else if (state.recentMessageTimes.size() >= maxMessagesPerWindow)
+                    blockReason = "Chat rate limit reached. Wait a moment before sending again.";
+                else {
+                    state.lastMessage = normalized;
+                    state.lastMessageAt = now;
+                    state.recentMessageTimes.addLast(now);
+                    state.recentMessages.addLast(similar);
+                }
             }
         }
-
         if (blockReason != null) {
             event.setCancelled(true);
             sendChatModerationNotice(player, blockReason);
@@ -570,6 +582,13 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         getConfig().addDefault("chat-filter.anti-spam.cooldown-seconds", 3);
         getConfig().addDefault("chat-filter.anti-spam.block-duplicate-messages", true);
         getConfig().addDefault("chat-filter.anti-spam.duplicate-window-seconds", 30);
+        getConfig().addDefault("chat-filter.anti-spam.max-messages-per-window", 5);
+        getConfig().addDefault("chat-filter.anti-spam.window-seconds", 10);
+        getConfig().addDefault("chat-filter.anti-spam.minimum-message-gap-millis", 1200);
+        getConfig().addDefault("chat-filter.anti-spam.near-duplicate-detection", true);
+        getConfig().addDefault("chat-filter.filters.excessive-caps", true);
+        getConfig().addDefault("chat-filter.filters.character-spam", true);
+        getConfig().addDefault("chat-filter.filters.links-and-ips", true);
         getConfig().options().copyDefaults(true);
         chatFilterEnabled = getConfig().getBoolean("chat-filter.enabled", true);
         antiSpamEnabled = getConfig().getBoolean("chat-filter.anti-spam.enabled", true);
@@ -578,6 +597,13 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             getConfig().getLong("chat-filter.anti-spam.cooldown-seconds", 3L)) * 1000L;
         duplicateWindowMillis = Math.max(0L,
             getConfig().getLong("chat-filter.anti-spam.duplicate-window-seconds", 30L)) * 1000L;
+        maxMessagesPerWindow = Math.max(2, getConfig().getInt("chat-filter.anti-spam.max-messages-per-window", 5));
+        messageWindowMillis = Math.max(1000L, getConfig().getLong("chat-filter.anti-spam.window-seconds", 10L)) * 1000L;
+        minimumMessageGapMillis = Math.max(0L, getConfig().getLong("chat-filter.anti-spam.minimum-message-gap-millis", 1200L));
+        nearDuplicateEnabled = getConfig().getBoolean("chat-filter.anti-spam.near-duplicate-detection", true);
+        capsFilterEnabled = getConfig().getBoolean("chat-filter.filters.excessive-caps", true);
+        characterSpamEnabled = getConfig().getBoolean("chat-filter.filters.character-spam", true);
+        linkSpamEnabled = getConfig().getBoolean("chat-filter.filters.links-and-ips", true);
         chatBypassPermission = getConfig().getString(
             "chat-filter.bypass-permission", "askyriaessentials.chatfilter.bypass");
         if (chatBypassPermission == null || chatBypassPermission.isBlank()) {
@@ -590,6 +616,27 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             .distinct()
             .toList();
         saveConfig();
+    }
+
+    private String normalizeForSimilarity(String message) {
+        return message.toLowerCase(java.util.Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]", "").replaceAll("(.)\\1{2,}", "$1$1");
+    }
+
+    private boolean hasCharacterSpam(String message) {
+        return message.matches("(?s).*(.)\\1{5,}.*");
+    }
+
+    private boolean hasExcessiveCaps(String message) {
+        long letters = message.chars().filter(Character::isLetter).count();
+        long upper = message.chars().filter(Character::isUpperCase).count();
+        return letters >= 8 && upper >= 8 && upper >= Math.ceil(letters * 0.75);
+    }
+
+    private boolean containsLinkOrIp(String message) {
+        String lower = message.toLowerCase(java.util.Locale.ROOT);
+        return lower.matches("(?s).*\\b(?:https?://|www\\.)\\S+.*")
+            || lower.matches("(?s).*\\b(?:[a-z0-9-]+\\.)+(?:com|net|org|gg|io|xyz|me|co|info|biz)\\b.*")
+            || lower.matches("(?s).*\\b(?:[0-9]{1,3}\\.){3}[0-9]{1,3}(?::[0-9]{1,5})?\\b.*");
     }
 
     private boolean containsBlockedChatWord(String message) {
