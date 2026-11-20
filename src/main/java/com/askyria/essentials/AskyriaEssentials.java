@@ -1119,7 +1119,10 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                         java.time.Duration.ofMillis(1000)
                     )
                 );
-                for (Player online : Bukkit.getOnlinePlayers()) online.showTitle(title);
+                for (Player online : Bukkit.getOnlinePlayers()) {
+                    online.showTitle(title);
+                    online.playSound(online.getLocation(), org.bukkit.Sound.BLOCK_NOTE_BLOCK_BELL, 1.0f, 1.0f);
+                }
                 sender.sendMessage(Component.text("Announcement displayed to " + Bukkit.getOnlinePlayers().size() + " player(s)."));
                 return true;
             }
