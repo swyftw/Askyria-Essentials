@@ -6,6 +6,10 @@ depend: [packetevents]
 author: Askyria
 description: Askyria server essentials
 commands:
+  announcement:
+    description: Display a full-screen announcement to every online player (OP only)
+    usage: /announcement send <message>
+    aliases: [annoucment, announce]
   kits:
     description: Open the operator-only kit selection menu
     usage: /kits
