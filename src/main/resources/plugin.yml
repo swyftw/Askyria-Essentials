@@ -1,5 +1,5 @@
 name: AskyriaEssentials
-version: 1.0.0
+version: 1.0.1
 main: com.askyria.essentials.AskyriaEssentials
 api-version: '1.21'
 depend: [packetevents]
@@ -59,3 +59,8 @@ commands:
   shopnpc:
     description: Manage player-shaped CORE SMP shop NPCs (OP only)
     usage: /shopnpc <spawn|edit|remove> <armor|kits|mythical|seller> OR removeall
+
+permissions:
+  askyriaessentials.chatfilter.bypass:
+    description: Bypass CORE SMP chat moderation filters
+    default: op

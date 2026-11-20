@@ -1,3 +1,15 @@
 end-closed: false
 protected-players: {}
 player-tags: {}
+
+# CORE SMP chat moderation
+chat-filter:
+  enabled: true
+  # Add blocked words below. Matching ignores capitalization and surrounding punctuation.
+  blocked-words: []
+  bypass-permission: askyriaessentials.chatfilter.bypass
+  anti-spam:
+    enabled: true
+    cooldown-seconds: 3
+    block-duplicate-messages: true
+    duplicate-window-seconds: 30
