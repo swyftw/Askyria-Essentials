@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.Set;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
@@ -111,6 +112,20 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         "FrostByte77", "MangoMiner", "SilentBirch", "KokoBlocks"
     );
     private final MiniMessage mini = MiniMessage.miniMessage();
+    private final java.util.concurrent.ConcurrentMap<UUID, ChatState> chatStates =
+        new java.util.concurrent.ConcurrentHashMap<>();
+    private volatile List<String> blockedChatWords = List.of();
+    private volatile boolean chatFilterEnabled = true;
+    private volatile boolean antiSpamEnabled = true;
+    private volatile boolean duplicateChatEnabled = true;
+    private volatile long chatCooldownMillis = 3000L;
+    private volatile long duplicateWindowMillis = 30000L;
+    private volatile String chatBypassPermission = "askyriaessentials.chatfilter.bypass";
+
+    private static final class ChatState {
+        private long lastMessageAt;
+        private String lastMessage;
+    }
 
     @Override
     public void onEnable() {
@@ -118,6 +133,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         Bukkit.removeRecipe(new org.bukkit.NamespacedKey(this, "god_mace"));
         Bukkit.removeRecipe(new org.bukkit.NamespacedKey(this, "god_spear_recipe"));
         saveDefaultConfig();
+        loadChatModerationSettings();
         long now = System.currentTimeMillis();
         if (getConfig().isConfigurationSection("protected-players")) {
             for (String key : getConfig().getConfigurationSection("protected-players").getKeys(false)) {
@@ -505,6 +521,94 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         }
     }
 
+    @EventHandler(priority = org.bukkit.event.EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onChatModeration(AsyncChatEvent event) {
+        if (!chatFilterEnabled) return;
+
+        Player player = event.getPlayer();
+        if (player.hasPermission(chatBypassPermission)) return;
+
+        String message = PlainTextComponentSerializer.plainText().serialize(event.message());
+        if (message == null || message.isBlank()) return;
+
+        if (containsBlockedChatWord(message)) {
+            event.setCancelled(true);
+            sendChatModerationNotice(player, "Your message was blocked by the chat filter.");
+            return;
+        }
+
+        if (!antiSpamEnabled) return;
+        String normalized = message.toLowerCase(java.util.Locale.ROOT)
+            .replaceAll("\\s+", " ").trim();
+        long now = System.currentTimeMillis();
+        ChatState state = chatStates.computeIfAbsent(player.getUniqueId(), ignored -> new ChatState());
+        String blockReason = null;
+        synchronized (state) {
+            if (duplicateChatEnabled && state.lastMessage != null
+                    && normalized.equals(state.lastMessage)
+                    && now - state.lastMessageAt < duplicateWindowMillis) {
+                blockReason = "Please don't repeat the same message.";
+            } else if (state.lastMessageAt > 0L && now - state.lastMessageAt < chatCooldownMillis) {
+                blockReason = "You're sending messages too quickly. Please slow down.";
+            } else {
+                state.lastMessage = normalized;
+                state.lastMessageAt = now;
+            }
+        }
+
+        if (blockReason != null) {
+            event.setCancelled(true);
+            sendChatModerationNotice(player, blockReason);
+        }
+    }
+
+    private void loadChatModerationSettings() {
+        getConfig().addDefault("chat-filter.enabled", true);
+        getConfig().addDefault("chat-filter.blocked-words", List.of());
+        getConfig().addDefault("chat-filter.bypass-permission", "askyriaessentials.chatfilter.bypass");
+        getConfig().addDefault("chat-filter.anti-spam.enabled", true);
+        getConfig().addDefault("chat-filter.anti-spam.cooldown-seconds", 3);
+        getConfig().addDefault("chat-filter.anti-spam.block-duplicate-messages", true);
+        getConfig().addDefault("chat-filter.anti-spam.duplicate-window-seconds", 30);
+        getConfig().options().copyDefaults(true);
+        chatFilterEnabled = getConfig().getBoolean("chat-filter.enabled", true);
+        antiSpamEnabled = getConfig().getBoolean("chat-filter.anti-spam.enabled", true);
+        duplicateChatEnabled = getConfig().getBoolean("chat-filter.anti-spam.block-duplicate-messages", true);
+        chatCooldownMillis = Math.max(0L,
+            getConfig().getLong("chat-filter.anti-spam.cooldown-seconds", 3L)) * 1000L;
+        duplicateWindowMillis = Math.max(0L,
+            getConfig().getLong("chat-filter.anti-spam.duplicate-window-seconds", 30L)) * 1000L;
+        chatBypassPermission = getConfig().getString(
+            "chat-filter.bypass-permission", "askyriaessentials.chatfilter.bypass");
+        if (chatBypassPermission == null || chatBypassPermission.isBlank()) {
+            chatBypassPermission = "askyriaessentials.chatfilter.bypass";
+        }
+        blockedChatWords = getConfig().getStringList("chat-filter.blocked-words").stream()
+            .map(word -> word.toLowerCase(java.util.Locale.ROOT)
+                .replaceAll("[^\\p{L}\\p{N}]", ""))
+            .filter(word -> !word.isBlank())
+            .distinct()
+            .toList();
+        saveConfig();
+    }
+
+    private boolean containsBlockedChatWord(String message) {
+        if (blockedChatWords.isEmpty()) return false;
+        for (String token : message.toLowerCase(java.util.Locale.ROOT).split("\\s+")) {
+            String normalizedToken = token.replaceAll("[^\\p{L}\\p{N}]", "");
+            if (blockedChatWords.contains(normalizedToken)) return true;
+        }
+        return false;
+    }
+
+    private void sendChatModerationNotice(Player player, String message) {
+        Bukkit.getScheduler().runTask(this, () -> {
+            if (player.isOnline()) {
+                player.sendMessage(Component.text(message, net.kyori.adventure.text.format.NamedTextColor.RED));
+            }
+        });
+    }
+
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         event.joinMessage(null);
@@ -547,6 +651,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         cooldownOriginalBoards.remove(player.getUniqueId());
         cooldownBoards.remove(player.getUniqueId());
         cooldownSidebarEntries.remove(player.getUniqueId());
+        chatStates.remove(player.getUniqueId());
         Bukkit.getScheduler().runTask(this, this::updateTabLists);
         Long until = combatUntil.remove(player.getUniqueId());
         if (until != null && until > System.currentTimeMillis()) {
