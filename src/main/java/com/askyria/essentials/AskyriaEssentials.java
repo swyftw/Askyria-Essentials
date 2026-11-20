@@ -635,7 +635,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private boolean containsLinkOrIp(String message) {
         String lower = message.toLowerCase(java.util.Locale.ROOT);
         return lower.matches("(?s).*\\b(?:https?://|www\\.)\\S+.*")
-            || lower.matches("(?s).*\\b(?:[a-z0-9-]+\\.)+(?:com|net|org|gg|io|xyz|me|co|info|biz)\\b.*")
+            || lower.matches("(?s).*\\b(?:[a-z0-9-]+\\.)+(?:com|net|org|gg|io|xyz|me|co|info|biz|quest)\\b.*")
             || lower.matches("(?s).*\\b(?:[0-9]{1,3}\\.){3}[0-9]{1,3}(?::[0-9]{1,5})?\\b.*");
     }
 
