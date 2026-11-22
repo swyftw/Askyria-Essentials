@@ -234,7 +234,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         }
     }
 
-    private void removeRetiredShopEntities(Entity[] entities) {
+    private void removeRetiredShopEntities(Iterable<Entity> entities) {
         org.bukkit.NamespacedKey shopVillagerKey =
             new org.bukkit.NamespacedKey(this, "core_shop_villager");
         org.bukkit.NamespacedKey shopNpcHologramKey =
@@ -250,7 +250,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
 
     @EventHandler
     public void onChunkLoadCleanupRetiredShopEntities(ChunkLoadEvent event) {
-        removeRetiredShopEntities(event.getChunk().getEntities());
+        removeRetiredShopEntities(java.util.Arrays.asList(event.getChunk().getEntities()));
     }
 
     private void saveProtectionData() {
