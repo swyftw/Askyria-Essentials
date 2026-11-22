@@ -1,5 +1,5 @@
 name: AskyriaEssentials
-version: 1.0.6
+version: 1.0.7
 main: com.askyria.essentials.AskyriaEssentials
 api-version: '1.21'
 depend: [packetevents]
@@ -49,3 +49,6 @@ commands:
   cheatban:
     description: Ban a player for cheating for a chosen duration (OP only)
     usage: /cheatban <player> <duration>
+  combatfriend:
+    description: Send and manage mutual combat friend requests
+    usage: /combatfriend <add|accept|deny|remove|list> [player]
