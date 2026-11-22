@@ -1315,8 +1315,8 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                     for (Player online : Bukkit.getOnlinePlayers()) {
                         if (online != sender && online.getName().toLowerCase().startsWith(args[1].toLowerCase())) suggestions.add(online.getName());
                     }
-                } else if (action.equals("accept") || action.equals("deny")) {
-                    for (UUID id : pendingCombatFriendRequests.getOrDefault(((Player) sender).getUniqueId(), Set.of())) {
+                } else if ((action.equals("accept") || action.equals("deny")) && sender instanceof Player player) {
+                    for (UUID id : pendingCombatFriendRequests.getOrDefault(player.getUniqueId(), Set.of())) {
                         String name = Bukkit.getOfflinePlayer(id).getName();
                         if (name != null && name.toLowerCase().startsWith(args[1].toLowerCase())) suggestions.add(name);
                     }
