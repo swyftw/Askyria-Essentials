@@ -43,13 +43,6 @@ commands:
   orbital:
     description: Give and use Orbital TNT strike items (OP only)
     usage: /orbital [@s] <kit|rain|stab|nuke|lunar|grapple>
-  supertotem:
-    description: Give yourself or another player a Super Totem (OP only)
-    usage: /supertotem [player]
-  deathrestore:
-    description: Restore a player's most recently saved death loot
-    usage: /deathrestore <player>
-
   igncolor:
     description: Set a player's username gradient (OP only)
     usage: /igncolor <player> fade3 <color1> <color2> <color3> OR /igncolor <player> clear
@@ -57,14 +50,4 @@ commands:
     description: Ban a player for cheating for a chosen duration (OP only)
     usage: /cheatban <player> <duration>
 
-  shopvillager:
-    description: Manage custom CORE SMP shop villagers (OP only)
-    usage: /shopvillager <spawn|edit> <armor|kits|mythical|seller> OR remove OR removeall
-  shopnpc:
-    description: Manage player-shaped CORE SMP shop NPCs (OP only)
-    usage: /shopnpc <spawn|edit|remove> <armor|kits|mythical|seller> OR removeall
-
-permissions:
-  askyriaessentials.chatfilter.bypass:
-    description: Bypass CORE SMP chat moderation filters
     default: op
