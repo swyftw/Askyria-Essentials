@@ -1,5 +1,5 @@
 name: AskyriaEssentials
-version: 1.0.5
+version: 1.0.6
 main: com.askyria.essentials.AskyriaEssentials
 api-version: '1.21'
 depend: [packetevents]
