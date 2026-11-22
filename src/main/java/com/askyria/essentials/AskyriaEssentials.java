@@ -25,7 +25,6 @@ import java.util.HashSet;
 import java.util.Set;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
@@ -83,13 +82,9 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private final Map<UUID, Scoreboard> cooldownOriginalBoards = new HashMap<>();
     private final Map<UUID, Scoreboard> cooldownBoards = new HashMap<>();
     private final Map<UUID, Set<String>> cooldownSidebarEntries = new HashMap<>();
-    private static final String DEATH_RESTORE_PATH = "death-restores.";
     private BukkitTask combatTicker;
     private BukkitTask tabTicker;
     private BukkitTask simulatedPlayersTicker;
-    private SuperTotemManager superTotemManager;
-    private ShopVillagerManager shopVillagerManager;
-    private ShopNpcManager shopNpcManager;
     private boolean simulatedPlayersEnabled = false;
     private final List<String> simulatedPlayerNames = new ArrayList<>();
     private final Map<UUID, Set<UUID>> sentFakeEntries = new HashMap<>();
@@ -112,33 +107,12 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         "FrostByte77", "MangoMiner", "SilentBirch", "KokoBlocks"
     );
     private final MiniMessage mini = MiniMessage.miniMessage();
-    private final java.util.concurrent.ConcurrentMap<UUID, ChatState> chatStates =
-        new java.util.concurrent.ConcurrentHashMap<>();
-    private volatile List<String> blockedChatWords = List.of();
-    private volatile boolean chatFilterEnabled = true;
-    private volatile boolean antiSpamEnabled = true;
-    private volatile boolean duplicateChatEnabled = true;
-    private volatile long chatCooldownMillis = 3000L;
-    private volatile long duplicateWindowMillis = 30000L;
-    private volatile String chatBypassPermission = "askyriaessentials.chatfilter.bypass";
-    private volatile boolean capsFilterEnabled = true, characterSpamEnabled = true, nearDuplicateEnabled = true, linkSpamEnabled = true;
-    private volatile int maxMessagesPerWindow = 5;
-    private volatile long messageWindowMillis = 10000L, minimumMessageGapMillis = 1200L;
-
-    private static final class ChatState {
-        private long lastMessageAt;
-        private String lastMessage;
-        private final java.util.ArrayDeque<Long> recentMessageTimes = new java.util.ArrayDeque<>();
-        private final java.util.ArrayDeque<String> recentMessages = new java.util.ArrayDeque<>();
-    }
-
     @Override
     public void onEnable() {
         // Remove retired Askyria custom weapon recipes from the server recipe registry.
         Bukkit.removeRecipe(new org.bukkit.NamespacedKey(this, "god_mace"));
         Bukkit.removeRecipe(new org.bukkit.NamespacedKey(this, "god_spear_recipe"));
         saveDefaultConfig();
-        loadChatModerationSettings();
         long now = System.currentTimeMillis();
         if (getConfig().isConfigurationSection("protected-players")) {
             for (String key : getConfig().getConfigurationSection("protected-players").getKeys(false)) {
@@ -167,15 +141,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             }
         }
         Bukkit.getPluginManager().registerEvents(this, this);
-        shopVillagerManager = new ShopVillagerManager(this);
-        Bukkit.getPluginManager().registerEvents(shopVillagerManager, this);
-        getCommand("shopvillager").setExecutor(this);
-        getCommand("shopnpc").setExecutor(this);
-        shopNpcManager = new ShopNpcManager(this, shopVillagerManager);
-        PacketEvents.getAPI().getEventManager().registerListener(shopNpcManager);
-        Bukkit.getPluginManager().registerEvents(shopNpcManager, this);
-        shopNpcManager.load();
-        Bukkit.getPluginManager().registerEvents(new LegacyEnderChestMigration(this), this);
         fakePlayerPacketListener = new PacketListenerAbstract(PacketListenerPriority.NORMAL) {
             @Override
             public void onPacketSend(com.github.retrooper.packetevents.event.PacketSendEvent event) {
@@ -207,11 +172,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         OrbitalManager orbitalManager = new OrbitalManager(this);
         Bukkit.getPluginManager().registerEvents(orbitalManager, this);
         getCommand("orbital").setExecutor(orbitalManager);
-        superTotemManager = new SuperTotemManager(this);
-        Bukkit.getPluginManager().registerEvents(superTotemManager, this);
-        getCommand("supertotem").setExecutor(superTotemManager);
-        getCommand("deathrestore").setExecutor(this);
-        getCommand("deathrestore").setTabCompleter(this);
         combatTicker = Bukkit.getScheduler().runTaskTimer(this, () -> {
             long nowTick = System.currentTimeMillis();
             for (Player player : Bukkit.getOnlinePlayers()) {
@@ -250,7 +210,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         spawnTeleportTasks.clear();
         if (tabTicker != null) tabTicker.cancel();
         if (simulatedPlayersTicker != null) simulatedPlayersTicker.cancel();
-        if (shopNpcManager != null) PacketEvents.getAPI().getEventManager().unregisterListener(shopNpcManager);
         if (fakePlayerPacketListener != null) {
             PacketEvents.getAPI().getEventManager().unregisterListener(fakePlayerPacketListener);
         }
@@ -526,136 +485,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         }
     }
 
-    @EventHandler(priority = org.bukkit.event.EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onChatModeration(AsyncChatEvent event) {
-        if (!chatFilterEnabled) return;
-
-        Player player = event.getPlayer();
-        if (player.hasPermission(chatBypassPermission)) return;
-
-        String message = PlainTextComponentSerializer.plainText().serialize(event.message());
-        if (message == null || message.isBlank()) return;
-
-        String blockReason = null;
-        if (containsBlockedChatWord(message)) blockReason = "Your message was blocked by the chat filter.";
-        else if (linkSpamEnabled && containsLinkOrIp(message)) blockReason = "Links and server addresses are not allowed in public chat.";
-        else if (characterSpamEnabled && hasCharacterSpam(message)) blockReason = "Please don't spam repeated characters.";
-        else if (capsFilterEnabled && hasExcessiveCaps(message)) blockReason = "Please avoid excessive capital letters.";
-
-        if (blockReason == null && antiSpamEnabled) {
-            String normalized = message.toLowerCase(java.util.Locale.ROOT).replaceAll("\\s+", " ").trim();
-            String similar = normalizeForSimilarity(message);
-            long now = System.currentTimeMillis();
-            ChatState state = chatStates.computeIfAbsent(player.getUniqueId(), ignored -> new ChatState());
-            synchronized (state) {
-                while (!state.recentMessageTimes.isEmpty() && now - state.recentMessageTimes.peekFirst() > messageWindowMillis) {
-                    state.recentMessageTimes.removeFirst();
-                    state.recentMessages.removeFirst();
-                }
-                boolean repeated = duplicateChatEnabled && state.lastMessage != null && normalized.equals(state.lastMessage)
-                    && now - state.lastMessageAt < duplicateWindowMillis;
-                boolean nearRepeated = nearDuplicateEnabled && !similar.isBlank() && state.recentMessages.contains(similar);
-                if (repeated || nearRepeated) blockReason = "Please don't repeat or slightly change the same message.";
-                else if (state.lastMessageAt > 0L && now - state.lastMessageAt < minimumMessageGapMillis)
-                    blockReason = "You're sending messages too quickly. Please slow down.";
-                else if (state.recentMessageTimes.size() >= maxMessagesPerWindow)
-                    blockReason = "Chat rate limit reached. Wait a moment before sending again.";
-                else {
-                    state.lastMessage = normalized;
-                    state.lastMessageAt = now;
-                    state.recentMessageTimes.addLast(now);
-                    state.recentMessages.addLast(similar);
-                }
-            }
-        }
-        if (blockReason != null) {
-            event.setCancelled(true);
-            sendChatModerationNotice(player, blockReason);
-        }
-    }
-
-    private void loadChatModerationSettings() {
-        getConfig().addDefault("chat-filter.enabled", true);
-        getConfig().addDefault("chat-filter.blocked-words", List.of());
-        getConfig().addDefault("chat-filter.bypass-permission", "askyriaessentials.chatfilter.bypass");
-        getConfig().addDefault("chat-filter.anti-spam.enabled", true);
-        getConfig().addDefault("chat-filter.anti-spam.cooldown-seconds", 3);
-        getConfig().addDefault("chat-filter.anti-spam.block-duplicate-messages", true);
-        getConfig().addDefault("chat-filter.anti-spam.duplicate-window-seconds", 30);
-        getConfig().addDefault("chat-filter.anti-spam.max-messages-per-window", 5);
-        getConfig().addDefault("chat-filter.anti-spam.window-seconds", 10);
-        getConfig().addDefault("chat-filter.anti-spam.minimum-message-gap-millis", 1200);
-        getConfig().addDefault("chat-filter.anti-spam.near-duplicate-detection", true);
-        getConfig().addDefault("chat-filter.filters.excessive-caps", true);
-        getConfig().addDefault("chat-filter.filters.character-spam", true);
-        getConfig().addDefault("chat-filter.filters.links-and-ips", true);
-        getConfig().options().copyDefaults(true);
-        chatFilterEnabled = getConfig().getBoolean("chat-filter.enabled", true);
-        antiSpamEnabled = getConfig().getBoolean("chat-filter.anti-spam.enabled", true);
-        duplicateChatEnabled = getConfig().getBoolean("chat-filter.anti-spam.block-duplicate-messages", true);
-        chatCooldownMillis = Math.max(0L,
-            getConfig().getLong("chat-filter.anti-spam.cooldown-seconds", 3L)) * 1000L;
-        duplicateWindowMillis = Math.max(0L,
-            getConfig().getLong("chat-filter.anti-spam.duplicate-window-seconds", 30L)) * 1000L;
-        maxMessagesPerWindow = Math.max(2, getConfig().getInt("chat-filter.anti-spam.max-messages-per-window", 5));
-        messageWindowMillis = Math.max(1000L, getConfig().getLong("chat-filter.anti-spam.window-seconds", 10L)) * 1000L;
-        minimumMessageGapMillis = Math.max(0L, getConfig().getLong("chat-filter.anti-spam.minimum-message-gap-millis", 1200L));
-        nearDuplicateEnabled = getConfig().getBoolean("chat-filter.anti-spam.near-duplicate-detection", true);
-        capsFilterEnabled = getConfig().getBoolean("chat-filter.filters.excessive-caps", true);
-        characterSpamEnabled = getConfig().getBoolean("chat-filter.filters.character-spam", true);
-        linkSpamEnabled = getConfig().getBoolean("chat-filter.filters.links-and-ips", true);
-        chatBypassPermission = getConfig().getString(
-            "chat-filter.bypass-permission", "askyriaessentials.chatfilter.bypass");
-        if (chatBypassPermission == null || chatBypassPermission.isBlank()) {
-            chatBypassPermission = "askyriaessentials.chatfilter.bypass";
-        }
-        blockedChatWords = getConfig().getStringList("chat-filter.blocked-words").stream()
-            .map(word -> word.toLowerCase(java.util.Locale.ROOT)
-                .replaceAll("[^\\p{L}\\p{N}]", ""))
-            .filter(word -> !word.isBlank())
-            .distinct()
-            .toList();
-        saveConfig();
-    }
-
-    private String normalizeForSimilarity(String message) {
-        return message.toLowerCase(java.util.Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]", "").replaceAll("(.)\\1{2,}", "$1$1");
-    }
-
-    private boolean hasCharacterSpam(String message) {
-        return message.matches("(?s).*(.)\\1{5,}.*");
-    }
-
-    private boolean hasExcessiveCaps(String message) {
-        long letters = message.chars().filter(Character::isLetter).count();
-        long upper = message.chars().filter(Character::isUpperCase).count();
-        return letters >= 8 && upper >= 8 && upper >= Math.ceil(letters * 0.75);
-    }
-
-    private boolean containsLinkOrIp(String message) {
-        String lower = message.toLowerCase(java.util.Locale.ROOT);
-        return lower.matches("(?s).*\\b(?:https?://|www\\.)\\S+.*")
-            || lower.matches("(?s).*\\b(?:[a-z0-9-]+\\.)+(?:com|net|org|gg|io|xyz|me|co|info|biz|quest)\\b.*")
-            || lower.matches("(?s).*\\b(?:[0-9]{1,3}\\.){3}[0-9]{1,3}(?::[0-9]{1,5})?\\b.*");
-    }
-
-    private boolean containsBlockedChatWord(String message) {
-        if (blockedChatWords.isEmpty()) return false;
-        for (String token : message.toLowerCase(java.util.Locale.ROOT).split("\\s+")) {
-            String normalizedToken = token.replaceAll("[^\\p{L}\\p{N}]", "");
-            if (blockedChatWords.contains(normalizedToken)) return true;
-        }
-        return false;
-    }
-
-    private void sendChatModerationNotice(Player player, String message) {
-        Bukkit.getScheduler().runTask(this, () -> {
-            if (player.isOnline()) {
-                player.sendMessage(Component.text(message, net.kyori.adventure.text.format.NamedTextColor.RED));
-            }
-        });
-    }
-
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         event.joinMessage(null);
@@ -698,7 +527,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         cooldownOriginalBoards.remove(player.getUniqueId());
         cooldownBoards.remove(player.getUniqueId());
         cooldownSidebarEntries.remove(player.getUniqueId());
-        chatStates.remove(player.getUniqueId());
         Bukkit.getScheduler().runTask(this, this::updateTabLists);
         Long until = combatUntil.remove(player.getUniqueId());
         if (until != null && until > System.currentTimeMillis()) {
@@ -779,7 +607,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             Bukkit.getScheduler().runTask(this, () -> {
                 randomSkinPool = List.copyOf(unique.values());
                 assignRandomSkins();
-                if (shopNpcManager != null) shopNpcManager.refreshSkins();
                 // Re-send profile entries so clients receive the skin textures after loading.
                 sentFakeEntries.clear();
                 updateTabLists();
@@ -801,17 +628,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             getLogger().warning("Only " + skinCount + " unique skins loaded for "
                 + simulatedPlayerNames.size() + " display names; remaining names will use the default skin.");
         }
-    }
-
-    public List<TextureProperty> getShopNpcSkin(String type) {
-        if (randomSkinPool.isEmpty()) return List.of();
-        int index = switch (type) {
-            case "armor" -> 0;
-            case "kits" -> 1;
-            case "mythical" -> 2;
-            default -> 3;
-        };
-        return randomSkinPool.get(index % randomSkinPool.size());
     }
 
     private UUID fakeProfileId(String name) {
@@ -917,41 +733,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         updateTabLists();
     }
 
-
-    @EventHandler
-    public void saveDeathInventory(PlayerDeathEvent event) {
-        // Let Bukkit/Paper handle normal death drops. Do not copy the inventory
-        // into the restore cache or clear the event drops.
-        String path = DEATH_RESTORE_PATH + event.getEntity().getUniqueId();
-        getConfig().set(path, null);
-        saveConfig();
-    }
-
-    private boolean restoreDeathInventory(CommandSender sender, String playerName) {
-        Player target = Bukkit.getPlayerExact(playerName);
-        if (target == null) {
-            sender.sendMessage(Component.text("That player must be online to receive their restored items."));
-            return true;
-        }
-        String path = DEATH_RESTORE_PATH + target.getUniqueId();
-        List<?> saved = getConfig().getList(path);
-        if (saved == null || saved.isEmpty()) {
-            sender.sendMessage(Component.text("No saved death loot found for " + target.getName() + "."));
-            return true;
-        }
-        for (Object value : saved) {
-            if (value instanceof ItemStack item && !item.getType().isAir()) {
-                Map<Integer, ItemStack> overflow = target.getInventory().addItem(item.clone());
-                overflow.values().forEach(leftover ->
-                    target.getWorld().dropItemNaturally(target.getLocation(), leftover));
-            }
-        }
-        getConfig().set(path, null);
-        saveConfig();
-        sender.sendMessage(Component.text("Restored " + target.getName() + "'s most recent death loot."));
-        target.sendMessage(Component.text("Your most recent death loot has been restored."));
-        return true;
-    }
 
     @EventHandler
     public void onInvisibleKillerDeath(PlayerDeathEvent event) {
@@ -1134,51 +915,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 }
                 openKitsMenu(player);
                 return true;
-            }
-            case "shopvillager" -> {
-                if (!requireOp(sender)) return true;
-                if (!(sender instanceof Player player)) {
-                    sender.sendMessage(Component.text("Only players can manage shop villagers."));
-                    return true;
-                }
-                if (args.length == 2 && args[0].equalsIgnoreCase("spawn")) {
-                    shopVillagerManager.spawnShopVillager(player, args[1]);
-                } else if (args.length == 2 && args[0].equalsIgnoreCase("edit")) {
-                    shopVillagerManager.openEditor(player, args[1].toLowerCase(java.util.Locale.ROOT));
-                } else if (args.length == 1 && args[0].equalsIgnoreCase("remove")) {
-                    shopVillagerManager.removeTargeted(player);
-                } else if (args.length == 1 && args[0].equalsIgnoreCase("removeall")) {
-                    shopVillagerManager.removeAll(player);
-                } else {
-                    sender.sendMessage(Component.text("Usage: /shopvillager spawn <armor|kits|mythical|seller>"));
-                }
-                return true;
-            }
-            case "shopnpc" -> {
-                if (!requireOp(sender)) return true;
-                if (!(sender instanceof Player player)) {
-                    sender.sendMessage(Component.text("Only players can manage shop NPCs."));
-                    return true;
-                }
-                if (args.length == 2 && args[0].equalsIgnoreCase("spawn")) {
-                    shopNpcManager.spawnShopNpc(player, args[1]);
-                } else if (args.length == 2 && args[0].equalsIgnoreCase("edit")) {
-                    shopVillagerManager.openEditor(player, args[1].toLowerCase(java.util.Locale.ROOT));
-                } else if (args.length == 2 && args[0].equalsIgnoreCase("remove")) {
-                    shopNpcManager.removeShopNpc(player, args[1].toLowerCase(java.util.Locale.ROOT));
-                } else if (args.length == 1 && args[0].equalsIgnoreCase("removeall")) {
-                    shopNpcManager.removeAll(player);
-                } else {
-                    sender.sendMessage(Component.text("Usage: /shopnpc spawn <armor|mythical|seller>"));
-                    sender.sendMessage(Component.text("/shopnpc edit <armor|mythical|seller>"));
-                    sender.sendMessage(Component.text("/shopnpc remove <type> OR /shopnpc removeall"));
-                }
-                return true;
-            }
-            case "deathrestore" -> {
-                if (!requireOp(sender)) return true;
-                if (args.length != 1) { sender.sendMessage(Component.text("Usage: /deathrestore <player>")); return true; }
-                return restoreDeathInventory(sender, args[0]);
             }
             case "addplayers" -> {
                 if (!requireOp(sender)) return true;
@@ -1381,31 +1117,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             }
             return suggestions;
         }
-        if (command.getName().equalsIgnoreCase("deathrestore") && sender.isOp() && args.length == 1) {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                if (player.getName().toLowerCase().startsWith(args[0].toLowerCase())) suggestions.add(player.getName());
-            }
-        } else if (command.getName().equalsIgnoreCase("shopvillager") && sender.isOp()) {
-            if (args.length == 1) {
-                for (String option : List.of("spawn", "remove", "removeall")) {
-                    if (option.startsWith(args[0].toLowerCase())) suggestions.add(option);
-                }
-            } else if (args.length == 2 && args[0].equalsIgnoreCase("spawn")) {
-                for (String type : List.of("armor", "mythical", "seller")) {
-                    if (type.startsWith(args[1].toLowerCase())) suggestions.add(type);
-                }
-            }
-        } else if (command.getName().equalsIgnoreCase("shopnpc") && sender.isOp()) {
-            if (args.length == 1) {
-                for (String option : List.of("spawn", "edit", "remove", "removeall")) {
-                    if (option.startsWith(args[0].toLowerCase())) suggestions.add(option);
-                }
-            } else if (args.length == 2 && List.of("spawn", "edit", "remove").contains(args[0].toLowerCase())) {
-                for (String type : List.of("armor", "mythical", "seller")) {
-                    if (type.startsWith(args[1].toLowerCase())) suggestions.add(type);
-                }
-            }
-        } else if (command.getName().equalsIgnoreCase("playertag")) {
+        if (command.getName().equalsIgnoreCase("playertag")) {
             if (!sender.isOp()) return suggestions;
             if (args.length == 1) {
                 for (Player player : Bukkit.getOnlinePlayers()) {
