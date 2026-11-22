@@ -79,6 +79,8 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private final Map<UUID, String> rawTags = new HashMap<>();
     private final Map<UUID, String> rawIgnColors = new HashMap<>();
     private final Map<UUID, Long> combatUntil = new HashMap<>();
+    private final Map<UUID, Set<UUID>> combatFriends = new HashMap<>();
+    private final Map<UUID, Set<UUID>> pendingCombatFriendRequests = new HashMap<>();
     private final Map<UUID, BukkitTask> spawnTeleportTasks = new HashMap<>();
     private final Map<UUID, Long> spawnCooldowns = new HashMap<>();
     private final Map<UUID, Scoreboard> cooldownOriginalBoards = new HashMap<>();
@@ -142,6 +144,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 if (raw != null) { try { rawIgnColors.put(UUID.fromString(key), raw); } catch (IllegalArgumentException ignored) { } }
             }
         }
+        loadCombatFriendData();
         Bukkit.getPluginManager().registerEvents(this, this);
         Bukkit.getScheduler().runTask(this, this::cleanupRetiredFeatureData);
         fakePlayerPacketListener = new PacketListenerAbstract(PacketListenerPriority.NORMAL) {
@@ -217,6 +220,49 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             PacketEvents.getAPI().getEventManager().unregisterListener(fakePlayerPacketListener);
         }
         saveProtectionData();
+        saveCombatFriendData();
+    }
+
+    private void loadCombatFriendData() {
+        loadUuidRelations("combat-friends", combatFriends);
+        loadUuidRelations("combat-friend-requests", pendingCombatFriendRequests);
+    }
+
+    private void loadUuidRelations(String path, Map<UUID, Set<UUID>> destination) {
+        var section = getConfig().getConfigurationSection(path);
+        if (section == null) return;
+        for (String ownerKey : section.getKeys(false)) {
+            try {
+                UUID owner = UUID.fromString(ownerKey);
+                Set<UUID> related = new HashSet<>();
+                for (String relatedKey : getConfig().getStringList(path + "." + ownerKey)) {
+                    try { related.add(UUID.fromString(relatedKey)); }
+                    catch (IllegalArgumentException ignored) { }
+                }
+                if (!related.isEmpty()) destination.put(owner, related);
+            } catch (IllegalArgumentException ignored) { }
+        }
+    }
+
+    private void saveCombatFriendData() {
+        getConfig().set("combat-friends", null);
+        for (Map.Entry<UUID, Set<UUID>> entry : combatFriends.entrySet()) {
+            List<String> ids = entry.getValue().stream().map(UUID::toString).toList();
+            getConfig().set("combat-friends." + entry.getKey(), ids);
+        }
+        getConfig().set("combat-friend-requests", null);
+        for (Map.Entry<UUID, Set<UUID>> entry : pendingCombatFriendRequests.entrySet()) {
+            List<String> ids = entry.getValue().stream().map(UUID::toString).toList();
+            getConfig().set("combat-friend-requests." + entry.getKey(), ids);
+        }
+        saveConfig();
+    }
+
+    private boolean areCombatFriends(Player first, Player second) {
+        UUID a = first.getUniqueId();
+        UUID b = second.getUniqueId();
+        return combatFriends.getOrDefault(a, Set.of()).contains(b)
+            && combatFriends.getOrDefault(b, Set.of()).contains(a);
     }
 
     private void cleanupRetiredFeatureData() {
@@ -880,7 +926,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 attacker.sendMessage(Component.text("You cannot attack players while your protection is active."));
                 return;
             }
-            if (!isProtected(victim)) {
+            if (!isProtected(victim) && !areCombatFriends(attacker, victim)) {
                 tagCombat(attacker);
                 tagCombat(victim);
             }
@@ -1058,6 +1104,110 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 sender.sendMessage(Component.text("Updated "+target.getName()+" username gradient."));
                 return true;
             }
+            case "combatfriend" -> {
+                if (!(sender instanceof Player player)) {
+                    sender.sendMessage(Component.text("Only players can use combat friend commands."));
+                    return true;
+                }
+                if (args.length < 1 || args.length > 2) {
+                    player.sendMessage(Component.text("Usage: /combatfriend <add|accept|deny|remove|list> [player]"));
+                    return true;
+                }
+                String action = args[0].toLowerCase(java.util.Locale.ROOT);
+                if (action.equals("list")) {
+                    if (args.length != 1) {
+                        player.sendMessage(Component.text("Usage: /combatfriend list"));
+                        return true;
+                    }
+                    Set<UUID> friends = combatFriends.getOrDefault(player.getUniqueId(), Set.of());
+                    if (friends.isEmpty()) {
+                        player.sendMessage(Component.text("You have no combat friends."));
+                    } else {
+                        List<String> names = new ArrayList<>();
+                        for (UUID id : friends) {
+                            String name = Bukkit.getOfflinePlayer(id).getName();
+                            names.add(name == null ? id.toString() : name);
+                        }
+                        player.sendMessage(Component.text("Combat friends: " + String.join(", ", names)));
+                    }
+                    return true;
+                }
+                if (args.length != 2) {
+                    player.sendMessage(Component.text("Usage: /combatfriend " + action + " <player>"));
+                    return true;
+                }
+                if (action.equals("add")) {
+                    Player target = Bukkit.getPlayerExact(args[1]);
+                    if (target == null) {
+                        player.sendMessage(Component.text("That player must be online to receive a request."));
+                        return true;
+                    }
+                    if (target.equals(player)) {
+                        player.sendMessage(Component.text("You cannot add yourself as a combat friend."));
+                        return true;
+                    }
+                    UUID requesterId = player.getUniqueId();
+                    UUID targetId = target.getUniqueId();
+                    if (areCombatFriends(player, target)) {
+                        player.sendMessage(Component.text("You are already combat friends with " + target.getName() + "."));
+                        return true;
+                    }
+                    if (pendingCombatFriendRequests.getOrDefault(requesterId, Set.of()).contains(targetId)) {
+                        player.sendMessage(Component.text(target.getName() + " has already sent you a request. Use /combatfriend accept " + target.getName() + "."));
+                        return true;
+                    }
+                    pendingCombatFriendRequests.computeIfAbsent(targetId, ignored -> new HashSet<>()).add(requesterId);
+                    saveCombatFriendData();
+                    player.sendMessage(Component.text("Combat friend request sent to " + target.getName() + "."));
+                    target.sendMessage(Component.text(player.getName() + " wants to be your combat friend. Use /combatfriend accept " + player.getName() + " or /combatfriend deny " + player.getName() + "."));
+                    return true;
+                }
+                if (action.equals("accept") || action.equals("deny")) {
+                    org.bukkit.OfflinePlayer requester = Bukkit.getOfflinePlayer(args[1]);
+                    UUID requesterId = requester.getUniqueId();
+                    Set<UUID> requests = pendingCombatFriendRequests.get(player.getUniqueId());
+                    if (requests == null || !requests.remove(requesterId)) {
+                        player.sendMessage(Component.text("You do not have a pending request from " + args[1] + "."));
+                        return true;
+                    }
+                    if (requests.isEmpty()) pendingCombatFriendRequests.remove(player.getUniqueId());
+                    if (action.equals("accept")) {
+                        combatFriends.computeIfAbsent(player.getUniqueId(), ignored -> new HashSet<>()).add(requesterId);
+                        combatFriends.computeIfAbsent(requesterId, ignored -> new HashSet<>()).add(player.getUniqueId());
+                        player.sendMessage(Component.text("You are now combat friends with " + args[1] + "."));
+                        Player onlineRequester = Bukkit.getPlayer(requesterId);
+                        if (onlineRequester != null) onlineRequester.sendMessage(Component.text(player.getName() + " accepted your combat friend request."));
+                    } else {
+                        player.sendMessage(Component.text("Denied " + args[1] + "'s combat friend request."));
+                        Player onlineRequester = Bukkit.getPlayer(requesterId);
+                        if (onlineRequester != null) onlineRequester.sendMessage(Component.text(player.getName() + " denied your combat friend request."));
+                    }
+                    saveCombatFriendData();
+                    return true;
+                }
+                if (action.equals("remove")) {
+                    org.bukkit.OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
+                    UUID targetId = target.getUniqueId();
+                    Set<UUID> ownFriends = combatFriends.get(player.getUniqueId());
+                    if (ownFriends == null || !ownFriends.remove(targetId)) {
+                        player.sendMessage(Component.text(args[1] + " is not on your combat friend list."));
+                        return true;
+                    }
+                    if (ownFriends.isEmpty()) combatFriends.remove(player.getUniqueId());
+                    Set<UUID> theirFriends = combatFriends.get(targetId);
+                    if (theirFriends != null) {
+                        theirFriends.remove(player.getUniqueId());
+                        if (theirFriends.isEmpty()) combatFriends.remove(targetId);
+                    }
+                    saveCombatFriendData();
+                    player.sendMessage(Component.text("Removed " + args[1] + " from your combat friends."));
+                    Player onlineTarget = Bukkit.getPlayer(targetId);
+                    if (onlineTarget != null) onlineTarget.sendMessage(Component.text(player.getName() + " removed you as a combat friend."));
+                    return true;
+                }
+                player.sendMessage(Component.text("Usage: /combatfriend <add|accept|deny|remove|list> [player]"));
+                return true;
+            }
             case "cheatban" -> {
                 if (!requireOp(sender)) return true;
                 if (args.length != 2) { sender.sendMessage(Component.text("Usage: /cheatban <player> <duration> (30m, 2h, 7d, perm)")); return true; }
@@ -1151,6 +1301,31 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         if (command.getName().equalsIgnoreCase("announcement")) {
             if (sender.isOp() && args.length == 1 && "send".startsWith(args[0].toLowerCase(java.util.Locale.ROOT))) {
                 suggestions.add("send");
+            }
+            return suggestions;
+        }
+        if (command.getName().equalsIgnoreCase("combatfriend")) {
+            if (args.length == 1) {
+                for (String action : List.of("add", "accept", "deny", "remove", "list")) {
+                    if (action.startsWith(args[0].toLowerCase(java.util.Locale.ROOT))) suggestions.add(action);
+                }
+            } else if (args.length == 2) {
+                String action = args[0].toLowerCase(java.util.Locale.ROOT);
+                if (action.equals("add")) {
+                    for (Player online : Bukkit.getOnlinePlayers()) {
+                        if (online != sender && online.getName().toLowerCase().startsWith(args[1].toLowerCase())) suggestions.add(online.getName());
+                    }
+                } else if (action.equals("accept") || action.equals("deny")) {
+                    for (UUID id : pendingCombatFriendRequests.getOrDefault(((Player) sender).getUniqueId(), Set.of())) {
+                        String name = Bukkit.getOfflinePlayer(id).getName();
+                        if (name != null && name.toLowerCase().startsWith(args[1].toLowerCase())) suggestions.add(name);
+                    }
+                } else if (action.equals("remove") && sender instanceof Player player) {
+                    for (UUID id : combatFriends.getOrDefault(player.getUniqueId(), Set.of())) {
+                        String name = Bukkit.getOfflinePlayer(id).getName();
+                        if (name != null && name.toLowerCase().startsWith(args[1].toLowerCase())) suggestions.add(name);
+                    }
+                }
             }
             return suggestions;
         }
