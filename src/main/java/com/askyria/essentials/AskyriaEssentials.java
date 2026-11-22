@@ -41,6 +41,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.world.ChunkLoadEvent;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.potion.PotionType;
 import org.bukkit.inventory.meta.PotionMeta;
@@ -93,7 +95,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private PacketListenerAbstract fakePlayerPacketListener;
     private volatile List<String> statusPlayerNames = List.of();
     private volatile int statusOnlineCount = 0;
-    // Distinct creator skins give the four shop NPCs visibly different looks.
+    // Skins used by simulated TAB player entries.
     private static final List<String> SKIN_SOURCE_ACCOUNTS = List.of(
         "Dream", "Technoblade", "Grian", "MumboJumbo", "GoodTimesWithScar",
         "CaptainSparklez", "DanTDM", "Stampy", "Aphmau", "LDShadowLady",
@@ -141,6 +143,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             }
         }
         Bukkit.getPluginManager().registerEvents(this, this);
+        Bukkit.getScheduler().runTask(this, this::cleanupRetiredFeatureData);
         fakePlayerPacketListener = new PacketListenerAbstract(PacketListenerPriority.NORMAL) {
             @Override
             public void onPacketSend(com.github.retrooper.packetevents.event.PacketSendEvent event) {
@@ -214,6 +217,40 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             PacketEvents.getAPI().getEventManager().unregisterListener(fakePlayerPacketListener);
         }
         saveProtectionData();
+    }
+
+    private void cleanupRetiredFeatureData() {
+        // Remove persisted data belonging only to the retired features.
+        getConfig().set("chat-filter", null);
+        getConfig().set("death-restores", null);
+        getConfig().set("shop-layout", null);
+        getConfig().set("shop-npcs", null);
+        saveConfig();
+
+        // Clean already-loaded worlds now. The chunk-load listener below catches
+        // retired shop entities in chunks that are loaded later.
+        for (World world : Bukkit.getWorlds()) {
+            removeRetiredShopEntities(world.getEntities());
+        }
+    }
+
+    private void removeRetiredShopEntities(Entity[] entities) {
+        org.bukkit.NamespacedKey shopVillagerKey =
+            new org.bukkit.NamespacedKey(this, "core_shop_villager");
+        org.bukkit.NamespacedKey shopNpcHologramKey =
+            new org.bukkit.NamespacedKey(this, "core_shop_npc_hologram");
+        for (Entity entity : entities) {
+            var data = entity.getPersistentDataContainer();
+            if (data.has(shopVillagerKey, PersistentDataType.BYTE)
+                    || data.has(shopNpcHologramKey, PersistentDataType.BYTE)) {
+                entity.remove();
+            }
+        }
+    }
+
+    @EventHandler
+    public void onChunkLoadCleanupRetiredShopEntities(ChunkLoadEvent event) {
+        removeRetiredShopEntities(event.getChunk().getEntities());
     }
 
     private void saveProtectionData() {
