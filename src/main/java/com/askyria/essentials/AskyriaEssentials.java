@@ -80,6 +80,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
     private final Map<UUID, Set<String>> ownedRanks = new HashMap<>();
     private final Map<UUID, String> selectedRanks = new HashMap<>();
     private static final List<String> PLAYER_RANKS = List.of("BOOSTER", "VIP", "BOOSTER+", "VIP+", "CORE");
+    private static final List<String> STAFF_RANKS = List.of("OWNER", "CO OWNER", "HEAD MANAGEMENT", "MANAGEMENT", "DEVELOPER", "SR ADMIN", "ADMIN", "MODERATOR", "JR MOD");
     private static final List<String> KIT_ORDER = List.of("STARTER", "BOOSTER", "VIP", "BOOSTER+", "VIP+", "CORE");
     private static final long KIT_COOLDOWN_MS = 86_400_000L;
     private final Map<UUID, Component> tags = new HashMap<>();
@@ -277,12 +278,12 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
 
     private boolean hasStaffRank(Player player) {
         if (player.isOp() || player.hasPermission("askyria.timeout")) return true;
-        String raw = rawTags.get(player.getUniqueId());
-        if (raw == null) return false;
-        String plain = raw.replaceAll("<[^>]*>", "").replace("[", "").replace("]", "")
-            .replaceAll("[^A-Za-z ]", "").trim().toLowerCase(java.util.Locale.ROOT);
-        return Set.of("owner", "co owner", "head management", "management", "developer",
-            "sr admin", "admin", "moderator", "jr mod").contains(plain);
+        Set<String> ranks = ownedRanks.getOrDefault(player.getUniqueId(), Set.of());
+        return STAFF_RANKS.stream().anyMatch(ranks::contains);
+    }
+
+    private boolean hasStaffRank(UUID id) {
+        return ownedRanks.getOrDefault(id, Set.of()).stream().anyMatch(STAFF_RANKS::contains);
     }
 
     @EventHandler
@@ -412,11 +413,15 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
     private String normalizeRank(String value) {
         String rank = value.toUpperCase(java.util.Locale.ROOT).replace("_", "").replace("-", "").replace(" ", "");
         return switch (rank) {
-            case "BOOSTER" -> "BOOSTER";
-            case "VIP" -> "VIP";
-            case "BOOSTER+" -> "BOOSTER+";
-            case "VIP+" -> "VIP+";
-            case "CORE" -> "CORE";
+            case "BOOSTER", "VIP", "BOOSTER+", "VIP+", "CORE" -> rank;
+            case "OWNER", "COOWNER" -> "CO OWNER";
+            case "HEADMANAGEMENT" -> "HEAD MANAGEMENT";
+            case "MANAGEMENT" -> "MANAGEMENT";
+            case "DEVELOPER" -> "DEVELOPER";
+            case "SRADMIN" -> "SR ADMIN";
+            case "ADMIN" -> "ADMIN";
+            case "MODERATOR" -> "MODERATOR";
+            case "JRMOD" -> "JR MOD";
             default -> null;
         };
     }
@@ -428,6 +433,15 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
             case "BOOSTER+" -> "<bold><gradient:#4B0082:#A855F7>[BOOSTER+]</gradient></bold>";
             case "VIP+" -> "<bold><gradient:#FFD700:#FF8C00>[VIP+]</gradient></bold>";
             case "CORE" -> "<bold><gradient:#00D4FF:#8A2BE2:#FFB000>[CORE]</gradient></bold>";
+            case "OWNER" -> "<bold><gradient:#FF3030:#FFD700>[OWNER]</gradient></bold>";
+            case "CO OWNER" -> "<bold><gradient:#FF5A36:#FFD700>[CO OWNER]</gradient></bold>";
+            case "HEAD MANAGEMENT" -> "<bold><gradient:#E040FB:#7C4DFF>[HEAD MANAGEMENT]</gradient></bold>";
+            case "MANAGEMENT" -> "<bold><gradient:#9C27B0:#E1BEE7>[MANAGEMENT]</gradient></bold>";
+            case "DEVELOPER" -> "<bold><gradient:#00BCD4:#80DEEA>[DEVELOPER]</gradient></bold>";
+            case "SR ADMIN" -> "<bold><gradient:#F44336:#FF9800>[SR ADMIN]</gradient></bold>";
+            case "ADMIN" -> "<bold><gradient:#EF5350:#FFCDD2>[ADMIN]</gradient></bold>";
+            case "MODERATOR" -> "<bold><gradient:#43A047:#C8E6C9>[MODERATOR]</gradient></bold>";
+            case "JR MOD" -> "<bold><gradient:#26A69A:#B2DFDB>[JR MOD]</gradient></bold>";
             default -> null;
         };
     }
