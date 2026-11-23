@@ -536,9 +536,14 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
         header.setItemMeta(headerMeta);
         menu.setItem(4, header);
 
+        // Give every rank kit its own recognizable icon.
         Material[] icons = {
-            Material.IRON_SWORD, Material.DIAMOND_SWORD, Material.DIAMOND_CHESTPLATE,
-            Material.DIAMOND_AXE, Material.DIAMOND_HELMET, Material.NETHERITE_SWORD
+            Material.CHEST,                 // STARTER
+            Material.FIREWORK_ROCKET,       // BOOSTER
+            Material.DIAMOND,               // VIP
+            Material.BLAZE_POWDER,          // BOOSTER+
+            Material.ENCHANTED_GOLDEN_APPLE,// VIP+
+            Material.NETHER_STAR            // CORE
         };
         int[] slots = {11, 13, 15, 29, 31, 33};
         for (int i = 0; i < KIT_ORDER.size(); i++) {
