@@ -1715,7 +1715,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
     private void applyIgnColor(Player player) {
         String raw = rawIgnColors.get(player.getUniqueId());
         Component ign = raw == null
-            ? Component.text(player.getName()).decorate(net.kyori.adventure.text.format.TextDecoration.BOLD)
+            ? Component.text(player.getName())
             : mini.deserialize("<bold>" + raw + "</bold>");
         player.displayName(ign);
         Component tag = tags.get(player.getUniqueId());
