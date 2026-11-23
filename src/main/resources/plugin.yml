@@ -1,5 +1,5 @@
 name: AskyriaEssentials
-version: 1.0.9
+version: 1.1.0
 main: com.askyria.essentials.AskyriaEssentials
 api-version: '1.21'
 depend: [packetevents]
@@ -13,6 +13,9 @@ commands:
   kits:
     description: Open the rank kit selection menu
     usage: /kits
+  rank:
+    description: Give and select player ranks
+    usage: /rank give <player> <rank> OR /rank choose [rank]
   timeout:
     description: Temporarily mute a player (staff only)
     usage: /timeout <player> <duration> [reason]
