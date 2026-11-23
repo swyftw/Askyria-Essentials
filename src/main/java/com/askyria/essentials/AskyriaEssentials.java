@@ -73,6 +73,7 @@ import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class AskyriaEssentials extends JavaPlugin implements Listener, CommandExecutor, TabCompleter {
     private final Map<UUID, Long> protectedUntil = new HashMap<>();
@@ -80,6 +81,8 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
     private final Map<UUID, String> rawTags = new HashMap<>();
     private final Map<UUID, String> rawIgnColors = new HashMap<>();
     private final Map<UUID, Long> combatUntil = new HashMap<>();
+    private final Map<UUID, Long> timedOutUntil = new ConcurrentHashMap<>();
+    private final Map<UUID, String> timeoutReasons = new ConcurrentHashMap<>();
     private final Map<UUID, Set<UUID>> combatFriends = new HashMap<>();
     private final Map<UUID, Set<UUID>> pendingCombatFriendRequests = new HashMap<>();
     private final Map<UUID, BukkitTask> spawnTeleportTasks = new HashMap<>();
@@ -143,6 +146,18 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
             for (String key : getConfig().getConfigurationSection("ign-colors").getKeys(false)) {
                 String raw = getConfig().getString("ign-colors." + key);
                 if (raw != null) { try { rawIgnColors.put(UUID.fromString(key), raw); } catch (IllegalArgumentException ignored) { } }
+            }
+        }
+        if (getConfig().isConfigurationSection("timeouts")) {
+            for (String key : getConfig().getConfigurationSection("timeouts").getKeys(false)) {
+                try {
+                    UUID id = UUID.fromString(key);
+                    long expiry = getConfig().getLong("timeouts." + key + ".until");
+                    if (expiry > now) {
+                        timedOutUntil.put(id, expiry);
+                        timeoutReasons.put(id, getConfig().getString("timeouts." + key + ".reason", "No reason provided"));
+                    }
+                } catch (IllegalArgumentException ignored) { }
             }
         }
         loadCombatFriendData();
@@ -232,6 +247,49 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
         }
         saveProtectionData();
         saveCombatFriendData();
+        saveTimeoutData();
+    }
+
+    private void saveTimeoutData() {
+        getConfig().set("timeouts", null);
+        for (Map.Entry<UUID, Long> entry : timedOutUntil.entrySet()) {
+            String base = "timeouts." + entry.getKey();
+            getConfig().set(base + ".until", entry.getValue());
+            getConfig().set(base + ".reason", timeoutReasons.getOrDefault(entry.getKey(), "No reason provided"));
+        }
+        saveConfig();
+    }
+
+    private boolean hasStaffRank(Player player) {
+        if (player.isOp() || player.hasPermission("askyria.timeout")) return true;
+        String raw = rawTags.get(player.getUniqueId());
+        if (raw == null) return false;
+        String plain = raw.replaceAll("<[^>]*>", "").replace("[", "").replace("]", "")
+            .replaceAll("[^A-Za-z ]", "").trim().toLowerCase(java.util.Locale.ROOT);
+        return Set.of("owner", "co owner", "head management", "management", "developer",
+            "sr admin", "admin", "moderator", "jr mod").contains(plain);
+    }
+
+    @EventHandler
+    public void onTimedOutChat(AsyncChatEvent event) {
+        UUID id = event.getPlayer().getUniqueId();
+        Long expiry = timedOutUntil.get(id);
+        if (expiry == null) return;
+        if (expiry <= System.currentTimeMillis()) {
+            timedOutUntil.remove(id);
+            timeoutReasons.remove(id);
+            Bukkit.getScheduler().runTask(this, this::saveTimeoutData);
+            return;
+        }
+        event.setCancelled(true);
+        long seconds = Math.max(1L, (expiry - System.currentTimeMillis() + 999L) / 1000L);
+        Bukkit.getScheduler().runTask(this, () -> {
+            Player player = Bukkit.getPlayer(id);
+            if (player != null) player.sendMessage(Component.text(
+                "You are timed out for " + seconds + "s. Reason: " +
+                timeoutReasons.getOrDefault(id, "No reason provided"),
+                net.kyori.adventure.text.format.NamedTextColor.RED));
+        });
     }
 
     private void loadCombatFriendData() {
@@ -1001,6 +1059,87 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
                 sender.sendMessage(Component.text("Announcement displayed to " + Bukkit.getOnlinePlayers().size() + " player(s)."));
                 return true;
             }
+            case "timeout" -> {
+                if (!(sender instanceof Player staff) || !hasStaffRank(staff)) {
+                    sender.sendMessage(Component.text("Only staff ranks can use /timeout."));
+                    return true;
+                }
+                if (args.length < 2) {
+                    sender.sendMessage(Component.text("Usage: /timeout <player> <duration> [reason]"));
+                    return true;
+                }
+                Player target = Bukkit.getPlayerExact(args[0]);
+                if (target == null) {
+                    sender.sendMessage(Component.text("That player must be online."));
+                    return true;
+                }
+                if (target.equals(staff) || hasStaffRank(target)) {
+                    sender.sendMessage(Component.text("You cannot timeout yourself or another staff member."));
+                    return true;
+                }
+                java.time.Duration duration = parseBanDuration(args[1]);
+                if (duration == null || duration.isZero() || duration.compareTo(java.time.Duration.ofDays(30)) > 0) {
+                    sender.sendMessage(Component.text("Use a duration from 1s to 30d (for example 10m, 2h, 1d)."));
+                    return true;
+                }
+                long expiry = System.currentTimeMillis() + duration.toMillis();
+                String reason = args.length > 2
+                    ? String.join(" ", java.util.Arrays.copyOfRange(args, 2, args.length))
+                    : "No reason provided";
+                timedOutUntil.put(target.getUniqueId(), expiry);
+                timeoutReasons.put(target.getUniqueId(), reason);
+                saveTimeoutData();
+                target.sendMessage(Component.text("You have been timed out for " + args[1] + ". Reason: " + reason,
+                    net.kyori.adventure.text.format.NamedTextColor.RED));
+                staff.sendMessage(Component.text("Timed out " + target.getName() + " for " + args[1] + "."));
+                return true;
+            }
+            case "untimeout" -> {
+                if (!(sender instanceof Player staff) || !hasStaffRank(staff)) {
+                    sender.sendMessage(Component.text("Only staff ranks can use /untimeout."));
+                    return true;
+                }
+                if (args.length != 1) {
+                    sender.sendMessage(Component.text("Usage: /untimeout <player>"));
+                    return true;
+                }
+                Player target = Bukkit.getPlayerExact(args[0]);
+                if (target == null) {
+                    sender.sendMessage(Component.text("That player must be online."));
+                    return true;
+                }
+                if (timedOutUntil.remove(target.getUniqueId()) == null) {
+                    sender.sendMessage(Component.text(target.getName() + " is not timed out."));
+                    return true;
+                }
+                timeoutReasons.remove(target.getUniqueId());
+                saveTimeoutData();
+                target.sendMessage(Component.text("Your timeout has been removed.", net.kyori.adventure.text.format.NamedTextColor.GREEN));
+                staff.sendMessage(Component.text("Removed " + target.getName() + "'s timeout."));
+                return true;
+            }
+            case "timeoutlist" -> {
+                if (!(sender instanceof Player staff) || !hasStaffRank(staff)) {
+                    sender.sendMessage(Component.text("Only staff ranks can use /timeoutlist."));
+                    return true;
+                }
+                long now = System.currentTimeMillis();
+                timedOutUntil.entrySet().removeIf(entry -> entry.getValue() <= now);
+                timeoutReasons.keySet().retainAll(timedOutUntil.keySet());
+                if (timedOutUntil.isEmpty()) {
+                    sender.sendMessage(Component.text("There are no active timeouts."));
+                } else {
+                    sender.sendMessage(Component.text("Active timeouts:"));
+                    for (Map.Entry<UUID, Long> entry : timedOutUntil.entrySet()) {
+                        String name = Bukkit.getOfflinePlayer(entry.getKey()).getName();
+                        long seconds = Math.max(1L, (entry.getValue() - now + 999L) / 1000L);
+                        sender.sendMessage(Component.text((name == null ? entry.getKey().toString() : name)
+                            + " — " + seconds + "s — " + timeoutReasons.getOrDefault(entry.getKey(), "No reason provided")));
+                    }
+                    saveTimeoutData();
+                }
+                return true;
+            }
             case "kits" -> {
                 if (!requireOp(sender)) return true;
                 if (!(sender instanceof Player player)) {
@@ -1309,6 +1448,15 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> suggestions = new ArrayList<>();
+        if (Set.of("timeout", "untimeout").contains(command.getName().toLowerCase(java.util.Locale.ROOT))
+                && sender instanceof Player staff && hasStaffRank(staff) && args.length == 1) {
+            for (Player online : Bukkit.getOnlinePlayers()) {
+                if (!hasStaffRank(online) && online.getName().toLowerCase(java.util.Locale.ROOT)
+                        .startsWith(args[0].toLowerCase(java.util.Locale.ROOT))) suggestions.add(online.getName());
+            }
+            return suggestions;
+        }
+
         if (command.getName().equalsIgnoreCase("announcement")) {
             if (sender.isOp() && args.length == 1 && "send".startsWith(args[0].toLowerCase(java.util.Locale.ROOT))) {
                 suggestions.add("send");
