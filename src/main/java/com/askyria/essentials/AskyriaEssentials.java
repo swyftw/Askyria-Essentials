@@ -276,6 +276,12 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
         saveConfig();
     }
 
+    private int staffLevel(UUID id) {
+        Set<String> ranks = ownedRanks.getOrDefault(id, Set.of());
+        for (int i = 0; i < STAFF_RANKS.size(); i++) if (ranks.contains(STAFF_RANKS.get(i))) return i;
+        return -1;
+    }
+
     private boolean hasStaffRank(Player player) {
         if (player.isOp() || player.hasPermission("askyria.timeout")) return true;
         Set<String> ranks = ownedRanks.getOrDefault(player.getUniqueId(), Set.of());
@@ -1183,140 +1189,154 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
                 return true;
             }
             case "timeout" -> {
-                if (!(sender instanceof Player staff) || !hasStaffRank(staff)) {
-                    sender.sendMessage(Component.text("Only staff ranks can use /timeout."));
+                if (sender instanceof Player actor && !hasStaffRank(actor)) {
+                    sender.sendMessage(Component.text("You need a staff rank to use this command."));
                     return true;
                 }
                 if (args.length < 2) {
                     sender.sendMessage(Component.text("Usage: /timeout <player> <duration> [reason]"));
+                    sender.sendMessage(Component.text("Durations: 30s, 10m, 2h, 1d (maximum 30d)."));
                     return true;
                 }
                 Player target = Bukkit.getPlayerExact(args[0]);
                 if (target == null) {
-                    sender.sendMessage(Component.text("That player must be online."));
+                    sender.sendMessage(Component.text("Player must be online to start a timeout."));
                     return true;
                 }
-                if (target.equals(staff) || hasStaffRank(target)) {
-                    sender.sendMessage(Component.text("You cannot timeout yourself or another staff member."));
-                    return true;
+                if (sender instanceof Player actor) {
+                    if (actor.equals(target)) {
+                        sender.sendMessage(Component.text("You cannot timeout yourself."));
+                        return true;
+                    }
+                    int actorLevel = staffLevel(actor.getUniqueId());
+                    int targetLevel = staffLevel(target.getUniqueId());
+                    if (targetLevel >= 0 && (actorLevel < 0 || actorLevel >= targetLevel)) {
+                        sender.sendMessage(Component.text("You cannot timeout a staff member with an equal or higher rank."));
+                        return true;
+                    }
                 }
                 java.time.Duration duration = parseBanDuration(args[1]);
                 if (duration == null || duration.isZero() || duration.compareTo(java.time.Duration.ofDays(30)) > 0) {
-                    sender.sendMessage(Component.text("Use a duration from 1s to 30d (for example 10m, 2h, 1d)."));
+                    sender.sendMessage(Component.text("Invalid duration. Use 30s, 10m, 2h or 1d (maximum 30d)."));
                     return true;
                 }
+                String reason = args.length > 2 ? String.join(" ", java.util.Arrays.copyOfRange(args, 2, args.length)) : "No reason provided";
                 long expiry = System.currentTimeMillis() + duration.toMillis();
-                String reason = args.length > 2
-                    ? String.join(" ", java.util.Arrays.copyOfRange(args, 2, args.length))
-                    : "No reason provided";
                 timedOutUntil.put(target.getUniqueId(), expiry);
                 timeoutReasons.put(target.getUniqueId(), reason);
                 saveTimeoutData();
-                target.sendMessage(Component.text("You have been timed out for " + args[1] + ". Reason: " + reason,
-                    net.kyori.adventure.text.format.NamedTextColor.RED));
-                staff.sendMessage(Component.text("Timed out " + target.getName() + " for " + args[1] + "."));
+                target.sendMessage(Component.text("CHAT TIMEOUT • " + args[1] + " • " + reason, net.kyori.adventure.text.format.NamedTextColor.RED));
+                sender.sendMessage(Component.text("TIMEOUT APPLIED", net.kyori.adventure.text.format.NamedTextColor.GREEN)
+                    .append(Component.text(" • " + target.getName() + " • " + args[1] + " • " + reason)));
                 return true;
             }
             case "untimeout" -> {
-                if (!(sender instanceof Player staff) || !hasStaffRank(staff)) {
-                    sender.sendMessage(Component.text("Only staff ranks can use /untimeout."));
+                if (sender instanceof Player actor && !hasStaffRank(actor)) {
+                    sender.sendMessage(Component.text("You need a staff rank to use this command."));
                     return true;
                 }
                 if (args.length != 1) {
                     sender.sendMessage(Component.text("Usage: /untimeout <player>"));
                     return true;
                 }
-                Player target = Bukkit.getPlayerExact(args[0]);
-                if (target == null) {
-                    sender.sendMessage(Component.text("That player must be online."));
+                org.bukkit.OfflinePlayer target = Bukkit.getOfflinePlayer(args[0]);
+                UUID targetId = target.getUniqueId();
+                if (timedOutUntil.remove(targetId) == null) {
+                    sender.sendMessage(Component.text(args[0] + " does not have an active timeout."));
                     return true;
                 }
-                if (timedOutUntil.remove(target.getUniqueId()) == null) {
-                    sender.sendMessage(Component.text(target.getName() + " is not timed out."));
-                    return true;
-                }
-                timeoutReasons.remove(target.getUniqueId());
+                timeoutReasons.remove(targetId);
                 saveTimeoutData();
-                target.sendMessage(Component.text("Your timeout has been removed.", net.kyori.adventure.text.format.NamedTextColor.GREEN));
-                staff.sendMessage(Component.text("Removed " + target.getName() + "'s timeout."));
+                if (target.isOnline()) target.getPlayer().sendMessage(Component.text("Your chat timeout has been removed.", net.kyori.adventure.text.format.NamedTextColor.GREEN));
+                sender.sendMessage(Component.text("TIMEOUT REMOVED • " + args[0], net.kyori.adventure.text.format.NamedTextColor.GREEN));
                 return true;
             }
             case "timeoutlist" -> {
-                if (!(sender instanceof Player staff) || !hasStaffRank(staff)) {
-                    sender.sendMessage(Component.text("Only staff ranks can use /timeoutlist."));
+                if (sender instanceof Player actor && !hasStaffRank(actor)) {
+                    sender.sendMessage(Component.text("You need a staff rank to use this command."));
                     return true;
                 }
                 long now = System.currentTimeMillis();
                 timedOutUntil.entrySet().removeIf(entry -> entry.getValue() <= now);
                 timeoutReasons.keySet().retainAll(timedOutUntil.keySet());
-                if (timedOutUntil.isEmpty()) {
-                    sender.sendMessage(Component.text("There are no active timeouts."));
-                } else {
-                    sender.sendMessage(Component.text("Active timeouts:"));
-                    for (Map.Entry<UUID, Long> entry : timedOutUntil.entrySet()) {
-                        String name = Bukkit.getOfflinePlayer(entry.getKey()).getName();
-                        long seconds = Math.max(1L, (entry.getValue() - now + 999L) / 1000L);
-                        sender.sendMessage(Component.text((name == null ? entry.getKey().toString() : name)
-                            + " — " + seconds + "s — " + timeoutReasons.getOrDefault(entry.getKey(), "No reason provided")));
-                    }
-                    saveTimeoutData();
+                saveTimeoutData();
+                sender.sendMessage(Component.text("ACTIVE CHAT TIMEOUTS (" + timedOutUntil.size() + ")", net.kyori.adventure.text.format.NamedTextColor.GOLD));
+                if (timedOutUntil.isEmpty()) sender.sendMessage(Component.text("No players are currently timed out."));
+                for (Map.Entry<UUID, Long> entry : timedOutUntil.entrySet()) {
+                    String name = Bukkit.getOfflinePlayer(entry.getKey()).getName();
+                    long seconds = Math.max(1L, (entry.getValue() - now + 999L) / 1000L);
+                    sender.sendMessage(Component.text((name == null ? entry.getKey().toString() : name)
+                        + " • " + formatRemaining(entry.getValue() - now) + " • "
+                        + timeoutReasons.getOrDefault(entry.getKey(), "No reason provided")));
                 }
                 return true;
             }
             case "rank" -> {
                 if (args.length == 0 || args[0].equalsIgnoreCase("choose")) {
                     if (!(sender instanceof Player player)) {
-                        sender.sendMessage(Component.text("Only players can choose a rank."));
+                        sender.sendMessage(Component.text("Only players can choose their rank."));
                         return true;
                     }
-                    if (args.length == 1) {
-                        if (args.length > 1) return true;
-                        openRankMenu(player);
-                        return true;
-                    }
+                    if (args.length == 1) { openRankMenu(player); return true; }
                     if (args.length == 2) {
                         String rank = normalizeRank(args[1]);
-                        if (rank == null || !ownedRanks.getOrDefault(player.getUniqueId(), Set.of()).contains(rank)) {
-                            player.sendMessage(Component.text("You do not own that rank."));
+                        if (rank == null || !PLAYER_RANKS.contains(rank)
+                                || !ownedRanks.getOrDefault(player.getUniqueId(), Set.of()).contains(rank)) {
+                            player.sendMessage(Component.text("You do not own that player rank."));
                             return true;
                         }
                         selectedRanks.put(player.getUniqueId(), rank);
                         applySelectedRank(player);
                         saveRanks(player.getUniqueId());
-                        player.sendMessage(Component.text("Your active rank is now " + rank + "."));
+                        player.sendMessage(Component.text("Selected rank: " + rank));
                         return true;
                     }
-                    player.sendMessage(Component.text("Usage: /rank choose [rank]"));
+                    sender.sendMessage(Component.text("Usage: /rank choose [player-rank]"));
                     return true;
                 }
-                if (args[0].equalsIgnoreCase("give")) {
-                    if (!(sender instanceof Player staff) || !hasStaffRank(staff)) {
-                        sender.sendMessage(Component.text("Only staff ranks can use /rank give."));
+                if (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("remove")) {
+                    if (sender instanceof Player actor && !hasStaffRank(actor)) {
+                        sender.sendMessage(Component.text("You need a staff rank to manage ranks."));
                         return true;
                     }
                     if (args.length != 3) {
-                        sender.sendMessage(Component.text("Usage: /rank give <player> <rank>"));
+                        sender.sendMessage(Component.text("Usage: /rank give <player> <rank> OR /rank remove <player> <rank>"));
                         return true;
                     }
                     String rank = normalizeRank(args[2]);
                     if (rank == null) {
-                        sender.sendMessage(Component.text("Ranks: BOOSTER, VIP, BOOSTER+, VIP+, CORE."));
+                        sender.sendMessage(Component.text("Player ranks: BOOSTER, VIP, BOOSTER+, VIP+, CORE."));
+                        sender.sendMessage(Component.text("Staff ranks: OWNER, CO OWNER, HEAD MANAGEMENT, MANAGEMENT, DEVELOPER, SR ADMIN, ADMIN, MODERATOR, JR MOD."));
                         return true;
                     }
                     org.bukkit.OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
                     UUID id = target.getUniqueId();
-                    ownedRanks.computeIfAbsent(id, ignored -> new HashSet<>()).add(rank);
-                    if (target.isOnline()) {
-                        Player online = target.getPlayer();
-                        if (selectedRanks.get(id) == null) selectedRanks.put(id, rank);
-                        applySelectedRank(online);
+                    Set<String> ranks = ownedRanks.computeIfAbsent(id, ignored -> new HashSet<>());
+                    boolean giving = args[0].equalsIgnoreCase("give");
+                    if (giving && !ranks.add(rank)) {
+                        sender.sendMessage(Component.text(args[1] + " already has " + rank + "."));
+                        return true;
+                    }
+                    if (!giving && !ranks.remove(rank)) {
+                        sender.sendMessage(Component.text(args[1] + " does not have " + rank + "."));
+                        return true;
+                    }
+                    if (!giving && rank.equals(selectedRanks.get(id))) {
+                        String fallback = STAFF_RANKS.stream().filter(ranks::contains).findFirst()
+                            .orElseGet(() -> PLAYER_RANKS.stream().filter(ranks::contains).findFirst().orElse(null));
+                        if (fallback == null) selectedRanks.remove(id); else selectedRanks.put(id, fallback);
+                    } else if (giving && selectedRanks.get(id) == null) {
+                        selectedRanks.put(id, rank);
                     }
                     saveRanks(id);
-                    sender.sendMessage(Component.text("Gave " + rank + " to " + args[1] + "."));
-                    if (target.isOnline()) target.getPlayer().sendMessage(Component.text("You have received the " + rank + " rank. Use /rank choose to select it."));
+                    if (target.isOnline()) applySelectedRank(target.getPlayer());
+                    String action = giving ? "GAVE" : "REMOVED";
+                    sender.sendMessage(Component.text(action + " RANK • " + args[1] + " • " + rank, net.kyori.adventure.text.format.NamedTextColor.GREEN));
+                    if (target.isOnline()) target.getPlayer().sendMessage(Component.text(giving
+                        ? "You received the " + rank + " rank." : "Your " + rank + " rank was removed."));
                     return true;
                 }
-                sender.sendMessage(Component.text("Usage: /rank give <player> <rank> OR /rank choose [rank]"));
+                sender.sendMessage(Component.text("Usage: /rank give <player> <rank> | /rank remove <player> <rank> | /rank choose"));
                 return true;
             }
             case "kits" -> {
