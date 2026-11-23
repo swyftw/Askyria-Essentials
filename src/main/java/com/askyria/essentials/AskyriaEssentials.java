@@ -402,6 +402,88 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
         return true;
     }
 
+    private void saveRanks(UUID id) {
+        getConfig().set("player-ranks." + id, new ArrayList<>(ownedRanks.getOrDefault(id, Set.of())));
+        String selected = selectedRanks.get(id);
+        getConfig().set("selected-ranks." + id, selected);
+        saveConfig();
+    }
+
+    private String normalizeRank(String value) {
+        String rank = value.toUpperCase(java.util.Locale.ROOT).replace("_", "").replace("-", "").replace(" ", "");
+        return switch (rank) {
+            case "BOOSTER" -> "BOOSTER";
+            case "VIP" -> "VIP";
+            case "BOOSTER+" -> "BOOSTER+";
+            case "VIP+" -> "VIP+";
+            case "CORE" -> "CORE";
+            default -> null;
+        };
+    }
+
+    private String rankTag(String rank) {
+        return switch (rank) {
+            case "BOOSTER" -> "<bold><gradient:#8A2BE2:#D8B4FE>[BOOSTER]</gradient></bold>";
+            case "VIP" -> "<bold><gradient:#FFD700:#FFF176>[VIP]</gradient></bold>";
+            case "BOOSTER+" -> "<bold><gradient:#4B0082:#A855F7>[BOOSTER+]</gradient></bold>";
+            case "VIP+" -> "<bold><gradient:#FFD700:#FF8C00>[VIP+]</gradient></bold>";
+            case "CORE" -> "<bold><gradient:#00D4FF:#8A2BE2:#FFB000>[CORE]</gradient></bold>";
+            default -> null;
+        };
+    }
+
+    private void applySelectedRank(Player player) {
+        String rank = selectedRanks.get(player.getUniqueId());
+        if (rank == null) {
+            rawTags.remove(player.getUniqueId());
+            getConfig().set("player-tags." + player.getUniqueId(), null);
+            tags.remove(player.getUniqueId());
+            applyIgnColor(player);
+            return;
+        }
+        String raw = rankTag(rank);
+        rawTags.put(player.getUniqueId(), raw);
+        getConfig().set("player-tags." + player.getUniqueId(), raw);
+        applyTagToOnlinePlayer(player.getUniqueId(), raw);
+        saveConfig();
+    }
+
+    private void openRankMenu(Player player) {
+        Inventory menu = Bukkit.createInventory(null, 27, Component.text("CORE Rank Selection"));
+        int slot = 10;
+        for (String rank : PLAYER_RANKS) {
+            if (!ownedRanks.getOrDefault(player.getUniqueId(), Set.of()).contains(rank)) continue;
+            ItemStack item = new ItemStack(rank.equals("CORE") ? Material.NETHERITE_INGOT : Material.DIAMOND);
+            org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
+            meta.displayName(mini.deserialize(rankTag(rank)));
+            meta.lore(List.of(Component.text(rank.equals(selectedRanks.get(player.getUniqueId()))
+                ? "Currently selected" : "Click to select")));
+            item.setItemMeta(meta);
+            menu.setItem(slot++, item);
+        }
+        if (slot == 10) player.sendMessage(Component.text("You have no player ranks to choose yet."));
+        else player.openInventory(menu);
+    }
+
+    @EventHandler
+    public void onRankMenuClick(InventoryClickEvent event) {
+        if (!event.getView().title().equals(Component.text("CORE Rank Selection"))) return;
+        event.setCancelled(true);
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (event.getClickedInventory() == null || event.getClickedInventory() != event.getView().getTopInventory()) return;
+        ItemStack item = event.getCurrentItem();
+        if (item == null || !item.hasItemMeta() || item.getItemMeta().displayName() == null) return;
+        String chosen = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+            .serialize(item.getItemMeta().displayName()).replace("[", "").replace("]", "").trim().toUpperCase(java.util.Locale.ROOT);
+        String rank = normalizeRank(chosen);
+        if (rank == null || !ownedRanks.getOrDefault(player.getUniqueId(), Set.of()).contains(rank)) return;
+        selectedRanks.put(player.getUniqueId(), rank);
+        applySelectedRank(player);
+        saveRanks(player.getUniqueId());
+        player.closeInventory();
+        player.sendMessage(Component.text("Your active rank is now " + rank + "."));
+    }
+
     private void openKitsMenu(Player player) {
         Inventory menu = Bukkit.createInventory(null, 54, Component.text("CORE SMP Kits"));
         Material[] icons = {Material.STONE_SWORD, Material.DIAMOND_SWORD, Material.DIAMOND_CHESTPLATE,
@@ -598,179 +680,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
         player.closeInventory();
         player.sendMessage(Component.text(rank + " kit claimed. Cooldown: 24 hours."));
     }
-
-    private ItemStack kitIcon(Material material, String name, String description) {
-        ItemStack item = new ItemStack(material);
-        org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text(name));
-        meta.lore(List.of(Component.text(description), Component.text("Click to receive")));
-        item.setItemMeta(meta);
-        return item;
-    }
-
-    private ItemStack potion(PotionType type) {
-        ItemStack item = new ItemStack(Material.SPLASH_POTION);
-        PotionMeta meta = (PotionMeta) item.getItemMeta();
-        meta.setBasePotionType(type);
-        item.setItemMeta(meta);
-        return item;
-    }
-
-    private void addCommonPvPSupplies(List<ItemStack> items) {
-        // Every kit gets standard golden apples, food, pearls, and core PvP potions.
-        items.add(new ItemStack(Material.GOLDEN_APPLE, 16));
-        items.add(new ItemStack(Material.COOKED_BEEF, 32));
-        items.add(new ItemStack(Material.ENDER_PEARL, 16));
-        items.add(potion(PotionType.STRENGTH));
-        items.add(potion(PotionType.STRENGTH));
-        items.add(potion(PotionType.SWIFTNESS));
-        items.add(potion(PotionType.SWIFTNESS));
-        items.add(potion(PotionType.FIRE_RESISTANCE));
-        items.add(potion(PotionType.FIRE_RESISTANCE));
-        items.add(potion(PotionType.STRONG_HEALING));
-        items.add(potion(PotionType.STRONG_HEALING));
-    }
-
-    private ItemStack enchanted(Material material, Enchantment enchantment, int level) {
-        ItemStack item = new ItemStack(material);
-        item.addUnsafeEnchantment(enchantment, level);
-        return item;
-    }
-
-    private ItemStack armor(Material material) {
-        ItemStack item = new ItemStack(material);
-        item.addUnsafeEnchantment(Enchantment.PROTECTION, 4);
-        item.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-        return item;
-    }
-
-    private void addNetheriteArmor(List<ItemStack> items) {
-        items.add(armor(Material.NETHERITE_HELMET));
-        items.add(armor(Material.NETHERITE_CHESTPLATE));
-        items.add(armor(Material.NETHERITE_LEGGINGS));
-        items.add(armor(Material.NETHERITE_BOOTS));
-    }
-
-    private void addNetheriteSword(List<ItemStack> items) {
-        ItemStack sword = enchanted(Material.NETHERITE_SWORD, Enchantment.SHARPNESS, 5);
-        sword.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-        sword.addUnsafeEnchantment(Enchantment.MENDING, 1);
-        items.add(sword);
-    }
-
-    @EventHandler
-    public void onKitsMenuClick(InventoryClickEvent event) {
-        if (!event.getView().title().equals(Component.text("Askyria OP Kits"))) return;
-        event.setCancelled(true);
-        if (!(event.getWhoClicked() instanceof Player player)) return;
-        if (!player.isOp()) {
-            player.closeInventory();
-            player.sendMessage(Component.text("Only operators can use /kits."));
-            return;
-        }
-        if (event.getClickedInventory() == null || event.getClickedInventory() != event.getView().getTopInventory()) return;
-        ItemStack clicked = event.getCurrentItem();
-        if (clicked == null || clicked.getType().isAir()) return;
-        List<ItemStack> items = new ArrayList<>();
-        switch (clicked.getType()) {
-            case NETHERITE_SWORD -> {
-                addNetheriteArmor(items);
-                ItemStack sword = enchanted(Material.NETHERITE_SWORD, Enchantment.SHARPNESS, 5);
-                sword.addUnsafeEnchantment(Enchantment.KNOCKBACK, 1);
-                sword.addUnsafeEnchantment(Enchantment.FIRE_ASPECT, 2);
-                sword.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-                sword.addUnsafeEnchantment(Enchantment.MENDING, 1);
-                items.add(sword);
-                items.add(enchanted(Material.NETHERITE_AXE, Enchantment.SHARPNESS, 5));
-                items.add(new ItemStack(Material.TOTEM_OF_UNDYING, 2));
-                items.add(new ItemStack(Material.GOLDEN_CARROT, 64));
-                items.add(new ItemStack(Material.ENDER_PEARL, 16));
-            }
-            case NETHERITE_CHESTPLATE -> {
-                addNetheriteArmor(items);
-                addNetheriteSword(items);
-                items.add(new ItemStack(Material.TOTEM_OF_UNDYING, 4));
-            }
-            case BOW -> {
-                addNetheriteArmor(items);
-                addNetheriteSword(items);
-                ItemStack bow = enchanted(Material.BOW, Enchantment.POWER, 5);
-                bow.addUnsafeEnchantment(Enchantment.FLAME, 1);
-                bow.addUnsafeEnchantment(Enchantment.PUNCH, 2);
-                bow.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-                items.add(bow);
-                items.add(enchanted(Material.CROSSBOW, Enchantment.QUICK_CHARGE, 3));
-                items.add(enchanted(Material.CROSSBOW, Enchantment.MULTISHOT, 1));
-                items.add(new ItemStack(Material.ARROW, 64));
-                items.add(new ItemStack(Material.TOTEM_OF_UNDYING, 2));
-                items.add(new ItemStack(Material.ENDER_PEARL, 16));
-            }
-            case END_CRYSTAL -> {
-                addNetheriteArmor(items);
-                addNetheriteSword(items);
-                items.add(new ItemStack(Material.OBSIDIAN, 64));
-                items.add(new ItemStack(Material.END_CRYSTAL, 64));
-                items.add(new ItemStack(Material.TOTEM_OF_UNDYING, 4));
-                items.add(new ItemStack(Material.ENCHANTED_GOLDEN_APPLE, 8));
-                items.add(new ItemStack(Material.ENDER_PEARL, 16));
-            }
-            case MACE -> {
-                addNetheriteArmor(items);
-                addNetheriteSword(items);
-                ItemStack mace = enchanted(Material.MACE, Enchantment.DENSITY, 5);
-                mace.addUnsafeEnchantment(Enchantment.WIND_BURST, 2);
-                mace.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-                mace.addUnsafeEnchantment(Enchantment.MENDING, 1);
-                items.add(mace);
-                items.add(enchanted(Material.NETHERITE_SWORD, Enchantment.SHARPNESS, 5));
-                items.add(new ItemStack(Material.WIND_CHARGE, 32));
-                items.add(new ItemStack(Material.TOTEM_OF_UNDYING, 4));
-                items.add(new ItemStack(Material.ENCHANTED_GOLDEN_APPLE, 8));
-                items.add(new ItemStack(Material.ENDER_PEARL, 16));
-            }
-            case TRIDENT -> {
-                addNetheriteArmor(items);
-                addNetheriteSword(items);
-                ItemStack trident = enchanted(Material.TRIDENT, Enchantment.IMPALING, 5);
-                trident.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-                trident.addUnsafeEnchantment(Enchantment.MENDING, 1);
-                items.add(trident);
-                items.add(enchanted(Material.TRIDENT, Enchantment.LOYALTY, 3));
-                items.add(new ItemStack(Material.TOTEM_OF_UNDYING, 2));
-                items.add(new ItemStack(Material.GOLDEN_APPLE, 32));
-                items.add(new ItemStack(Material.ENDER_PEARL, 16));
-            }
-            case GOLDEN_APPLE -> {
-                items.add(armor(Material.DIAMOND_HELMET));
-                items.add(armor(Material.DIAMOND_CHESTPLATE));
-                items.add(armor(Material.DIAMOND_LEGGINGS));
-                items.add(armor(Material.DIAMOND_BOOTS));
-                items.add(enchanted(Material.DIAMOND_SWORD, Enchantment.SHARPNESS, 3));
-                items.add(enchanted(Material.BOW, Enchantment.POWER, 3));
-                items.add(new ItemStack(Material.ARROW, 32));
-                items.add(new ItemStack(Material.COOKED_BEEF, 32));
-                items.add(new ItemStack(Material.WATER_BUCKET));
-                items.add(new ItemStack(Material.LAVA_BUCKET));
-                items.add(new ItemStack(Material.OAK_PLANKS, 32));
-                items.add(new ItemStack(Material.COBBLESTONE, 64));
-            }
-            default -> { return; }
-        }
-        addCommonPvPSupplies(items);
-        int gapCount = switch (clicked.getType()) {
-            case NETHERITE_CHESTPLATE, END_CRYSTAL -> 96;
-            case GOLDEN_APPLE -> 30;
-            default -> 64;
-        };
-        items.add(new ItemStack(Material.GOLDEN_APPLE, gapCount));
-        for (ItemStack item : items) {
-            Map<Integer, ItemStack> leftovers = player.getInventory().addItem(item);
-            leftovers.values().forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
-        }
-        player.closeInventory();
-        player.sendMessage(Component.text("OP kit received."));
-    }
-
 
     private void cancelSpawnTeleport(Player player, String reason) {
         BukkitTask task = spawnTeleportTasks.remove(player.getUniqueId());
@@ -1340,8 +1249,63 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
                 }
                 return true;
             }
+            case "rank" -> {
+                if (args.length == 0 || args[0].equalsIgnoreCase("choose")) {
+                    if (!(sender instanceof Player player)) {
+                        sender.sendMessage(Component.text("Only players can choose a rank."));
+                        return true;
+                    }
+                    if (args.length == 1) {
+                        if (args.length > 1) return true;
+                        openRankMenu(player);
+                        return true;
+                    }
+                    if (args.length == 2) {
+                        String rank = normalizeRank(args[1]);
+                        if (rank == null || !ownedRanks.getOrDefault(player.getUniqueId(), Set.of()).contains(rank)) {
+                            player.sendMessage(Component.text("You do not own that rank."));
+                            return true;
+                        }
+                        selectedRanks.put(player.getUniqueId(), rank);
+                        applySelectedRank(player);
+                        saveRanks(player.getUniqueId());
+                        player.sendMessage(Component.text("Your active rank is now " + rank + "."));
+                        return true;
+                    }
+                    player.sendMessage(Component.text("Usage: /rank choose [rank]"));
+                    return true;
+                }
+                if (args[0].equalsIgnoreCase("give")) {
+                    if (!(sender instanceof Player staff) || !hasStaffRank(staff)) {
+                        sender.sendMessage(Component.text("Only staff ranks can use /rank give."));
+                        return true;
+                    }
+                    if (args.length != 3) {
+                        sender.sendMessage(Component.text("Usage: /rank give <player> <rank>"));
+                        return true;
+                    }
+                    String rank = normalizeRank(args[2]);
+                    if (rank == null) {
+                        sender.sendMessage(Component.text("Ranks: BOOSTER, VIP, BOOSTER+, VIP+, CORE."));
+                        return true;
+                    }
+                    org.bukkit.OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
+                    UUID id = target.getUniqueId();
+                    ownedRanks.computeIfAbsent(id, ignored -> new HashSet<>()).add(rank);
+                    if (target.isOnline()) {
+                        Player online = target.getPlayer();
+                        if (selectedRanks.get(id) == null) selectedRanks.put(id, rank);
+                        applySelectedRank(online);
+                    }
+                    saveRanks(id);
+                    sender.sendMessage(Component.text("Gave " + rank + " to " + args[1] + "."));
+                    if (target.isOnline()) target.getPlayer().sendMessage(Component.text("You have received the " + rank + " rank. Use /rank choose to select it."));
+                    return true;
+                }
+                sender.sendMessage(Component.text("Usage: /rank give <player> <rank> OR /rank choose [rank]"));
+                return true;
+            }
             case "kits" -> {
-                if (!requireOp(sender)) return true;
                 if (!(sender instanceof Player player)) {
                     sender.sendMessage(Component.text("Only players can open the kits menu."));
                     return true;
@@ -1657,6 +1621,16 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
             return suggestions;
         }
 
+        if (command.getName().equalsIgnoreCase("rank")) {
+            if (args.length == 1) {
+                for (String action : List.of("give", "choose")) if (action.startsWith(args[0].toLowerCase())) suggestions.add(action);
+            } else if (args.length == 2 && args[0].equalsIgnoreCase("give") && sender instanceof Player p && hasStaffRank(p)) {
+                for (Player online : Bukkit.getOnlinePlayers()) if (online.getName().toLowerCase().startsWith(args[1].toLowerCase())) suggestions.add(online.getName());
+            } else if ((args.length == 2 && args[0].equalsIgnoreCase("choose")) || (args.length == 3 && args[0].equalsIgnoreCase("give"))) {
+                for (String rank : PLAYER_RANKS) if (rank.toLowerCase().startsWith(args[args.length-1].toLowerCase())) suggestions.add(rank);
+            }
+            return suggestions;
+        }
         if (command.getName().equalsIgnoreCase("announcement")) {
             if (sender.isOp() && args.length == 1 && "send".startsWith(args[0].toLowerCase(java.util.Locale.ROOT))) {
                 suggestions.add("send");
