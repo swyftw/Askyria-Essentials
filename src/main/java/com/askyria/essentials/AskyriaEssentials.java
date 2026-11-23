@@ -505,24 +505,44 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
     }
 
     private void openKitsMenu(Player player) {
-        Inventory menu = Bukkit.createInventory(null, 54, Component.text("CORE SMP Kits"));
-        Material[] icons = {Material.STONE_SWORD, Material.DIAMOND_SWORD, Material.DIAMOND_CHESTPLATE,
+        Inventory menu = Bukkit.createInventory(null, 45, Component.text("CORE SMP • RANK KITS"));
+        ItemStack border = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
+        var borderMeta = border.getItemMeta();
+        borderMeta.displayName(Component.text(" "));
+        border.setItemMeta(borderMeta);
+        for (int slot = 0; slot < menu.getSize(); slot++) {
+            if (slot < 9 || slot >= 36 || slot % 9 == 0 || slot % 9 == 8) menu.setItem(slot, border);
+        }
+        Material[] icons = {Material.IRON_SWORD, Material.DIAMOND_SWORD, Material.DIAMOND_CHESTPLATE,
             Material.DIAMOND_AXE, Material.DIAMOND_HELMET, Material.NETHERITE_SWORD};
-        int[] slots = {10, 12, 14, 16, 28, 30};
+        int[] slots = {10, 12, 14, 16, 20, 22};
         for (int i = 0; i < KIT_ORDER.size(); i++) {
             String rank = KIT_ORDER.get(i);
             boolean allowed = rank.equals("STARTER") || ownedRanks.getOrDefault(player.getUniqueId(), Set.of()).contains(rank);
-            ItemStack icon = new ItemStack(icons[i]);
-            org.bukkit.inventory.meta.ItemMeta meta = icon.getItemMeta();
-            meta.displayName(Component.text(rank + " KIT"));
             long readyAt = getConfig().getLong("kit-cooldowns." + player.getUniqueId() + "." + rank, 0L);
-            String status = !allowed ? "LOCKED — rank required"
-                : readyAt > System.currentTimeMillis() ? "Cooldown: " + formatRemaining(readyAt - System.currentTimeMillis())
-                : "Click to claim";
-            meta.lore(List.of(Component.text(status)));
+            boolean cooling = readyAt > System.currentTimeMillis();
+            ItemStack icon = new ItemStack(!allowed ? Material.BARRIER : icons[i]);
+            var meta = icon.getItemMeta();
+            meta.displayName(mini.deserialize(rankTag(rank) == null ? "<bold><white>[STARTER KIT]</white></bold>" : rankTag(rank) + " <gray> KIT</gray>"));
+            List<Component> lore = new ArrayList<>();
+            lore.add(Component.text(rank.equals("STARTER") ? "Available to every player" : "Unlocked with the " + rank + " rank"));
+            lore.add(Component.text(" "));
+            if (!allowed) lore.add(Component.text("LOCKED • Rank required", net.kyori.adventure.text.format.NamedTextColor.RED));
+            else if (cooling) lore.add(Component.text("READY IN • " + formatRemaining(readyAt - System.currentTimeMillis()), net.kyori.adventure.text.format.NamedTextColor.YELLOW));
+            else lore.add(Component.text("CLICK TO CLAIM", net.kyori.adventure.text.format.NamedTextColor.GREEN));
+            lore.add(Component.text("24-hour cooldown", net.kyori.adventure.text.format.NamedTextColor.GRAY));
+            meta.lore(lore);
             icon.setItemMeta(meta);
             menu.setItem(slots[i], icon);
         }
+        ItemStack info = new ItemStack(Material.BOOK);
+        var infoMeta = info.getItemMeta();
+        infoMeta.displayName(Component.text("KIT INFORMATION", net.kyori.adventure.text.format.NamedTextColor.AQUA));
+        infoMeta.lore(List.of(Component.text("Select your unlocked rank kit to claim it."),
+            Component.text("Staff ranks do not receive rank kits."),
+            Component.text("Your cooldowns are saved across restarts.")));
+        info.setItemMeta(infoMeta);
+        menu.setItem(40, info);
         player.openInventory(menu);
     }
 
@@ -792,9 +812,13 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
         } else if (isProtected(player)) {
             player.sendActionBar(Component.text("NEW PLAYER PROTECTION IS ACTIVE"));
         }
-        String raw = rawTags.get(id);
-        if (raw != null) applyTagToOnlinePlayer(id, raw);
-        applyIgnColor(player);
+        if (selectedRanks.containsKey(id)) {
+            applySelectedRank(player);
+        } else {
+            String raw = rawTags.get(id);
+            if (raw != null) applyTagToOnlinePlayer(id, raw);
+            applyIgnColor(player);
+        }
         sentFakeEntries.put(id, Set.of());
         updateTabLists();
     }
