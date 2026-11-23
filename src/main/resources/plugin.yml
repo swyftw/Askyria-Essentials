@@ -1,5 +1,5 @@
 name: AskyriaEssentials
-version: 1.1.1
+version: 1.1.2
 main: com.askyria.essentials.AskyriaEssentials
 api-version: '1.21'
 depend: [packetevents]
@@ -15,12 +15,12 @@ commands:
     usage: /kits
   rank:
     description: Give and select player ranks
-    usage: /rank give <player> <rank> OR /rank choose [rank]
+    usage: /rank give <player> <rank> OR /rank remove <player> <rank> OR /rank choose [rank]
   timeout:
-    description: Temporarily mute a player (staff only)
+    description: Temporarily mute a player (staff only; supports 30s to 30d)
     usage: /timeout <player> <duration> [reason]
   untimeout:
-    description: Remove a player's timeout (staff only)
+    description: Remove a player's active timeout (staff only)
     usage: /untimeout <player>
   timeoutlist:
     description: List active timeouts (staff only)
