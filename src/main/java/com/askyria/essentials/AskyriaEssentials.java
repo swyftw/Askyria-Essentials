@@ -77,6 +77,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class AskyriaEssentials extends JavaPlugin implements Listener, CommandExecutor, TabCompleter {
     private final Map<UUID, Long> protectedUntil = new HashMap<>();
+    private final Map<UUID, Set<String>> ownedRanks = new HashMap<>();
+    private final Map<UUID, String> selectedRanks = new HashMap<>();
+    private static final List<String> PLAYER_RANKS = List.of("BOOSTER", "VIP", "BOOSTER+", "VIP+", "CORE");
+    private static final List<String> KIT_ORDER = List.of("STARTER", "BOOSTER", "VIP", "BOOSTER+", "VIP+", "CORE");
+    private static final long KIT_COOLDOWN_MS = 86_400_000L;
     private final Map<UUID, Component> tags = new HashMap<>();
     private final Map<UUID, String> rawTags = new HashMap<>();
     private final Map<UUID, String> rawIgnColors = new HashMap<>();
@@ -157,6 +162,16 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
                         timedOutUntil.put(id, expiry);
                         timeoutReasons.put(id, getConfig().getString("timeouts." + key + ".reason", "No reason provided"));
                     }
+                } catch (IllegalArgumentException ignored) { }
+            }
+        }
+        if (getConfig().isConfigurationSection("player-ranks")) {
+            for (String key : getConfig().getConfigurationSection("player-ranks").getKeys(false)) {
+                try {
+                    UUID id = UUID.fromString(key);
+                    ownedRanks.put(id, new HashSet<>(getConfig().getStringList("player-ranks." + key)));
+                    String selected = getConfig().getString("selected-ranks." + key);
+                    if (selected != null && ownedRanks.get(id).contains(selected)) selectedRanks.put(id, selected);
                 } catch (IllegalArgumentException ignored) { }
             }
         }
@@ -388,15 +403,200 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
     }
 
     private void openKitsMenu(Player player) {
-        Inventory menu = Bukkit.createInventory(null, 54, Component.text("Askyria OP Kits"));
-        menu.setItem(10, kitIcon(Material.NETHERITE_SWORD, "OP Sword Kit", "Sharpness V • Knockback I"));
-        menu.setItem(12, kitIcon(Material.NETHERITE_CHESTPLATE, "Tank Kit", "Full Protection IV + Unbreaking III"));
-        menu.setItem(14, kitIcon(Material.BOW, "OP Archer Kit", "Power V • Flame • Punch II"));
-        menu.setItem(16, kitIcon(Material.END_CRYSTAL, "Crystal PvP Kit", "Obsidian • Crystals • Totems"));
-        menu.setItem(29, kitIcon(Material.MACE, "Mace Kit", "Density V • Wind Burst II"));
-        menu.setItem(31, kitIcon(Material.TRIDENT, "Spear Kit", "Trident combat loadout"));
-        menu.setItem(33, kitIcon(Material.GOLDEN_APPLE, "UHC Kit", "UHC healing • Bow • Diamond gear"));
+        Inventory menu = Bukkit.createInventory(null, 54, Component.text("CORE SMP Kits"));
+        Material[] icons = {Material.STONE_SWORD, Material.DIAMOND_SWORD, Material.DIAMOND_CHESTPLATE,
+            Material.DIAMOND_AXE, Material.DIAMOND_HELMET, Material.NETHERITE_SWORD};
+        int[] slots = {10, 12, 14, 16, 28, 30};
+        for (int i = 0; i < KIT_ORDER.size(); i++) {
+            String rank = KIT_ORDER.get(i);
+            boolean allowed = rank.equals("STARTER") || ownedRanks.getOrDefault(player.getUniqueId(), Set.of()).contains(rank);
+            ItemStack icon = new ItemStack(icons[i]);
+            org.bukkit.inventory.meta.ItemMeta meta = icon.getItemMeta();
+            meta.displayName(Component.text(rank + " KIT"));
+            long readyAt = getConfig().getLong("kit-cooldowns." + player.getUniqueId() + "." + rank, 0L);
+            String status = !allowed ? "LOCKED — rank required"
+                : readyAt > System.currentTimeMillis() ? "Cooldown: " + formatRemaining(readyAt - System.currentTimeMillis())
+                : "Click to claim";
+            meta.lore(List.of(Component.text(status)));
+            icon.setItemMeta(meta);
+            menu.setItem(slots[i], icon);
+        }
         player.openInventory(menu);
+    }
+
+    private String formatRemaining(long millis) {
+        long seconds = Math.max(0L, (millis + 999L) / 1000L);
+        return (seconds / 3600) + "h " + ((seconds % 3600) / 60) + "m";
+    }
+
+    private ItemStack kitIcon(Material material, String name, String description) {
+        ItemStack item = new ItemStack(material);
+        org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
+        meta.displayName(Component.text(name));
+        meta.lore(List.of(Component.text(description), Component.text("Click to receive")));
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack potion(PotionType type) {
+        ItemStack item = new ItemStack(Material.SPLASH_POTION);
+        PotionMeta meta = (PotionMeta) item.getItemMeta();
+        meta.setBasePotionType(type);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack enchanted(Material material, Enchantment enchantment, int level) {
+        ItemStack item = new ItemStack(material);
+        item.addUnsafeEnchantment(enchantment, level);
+        return item;
+    }
+
+    private ItemStack gear(Material material, Enchantment main, int mainLevel, boolean mending) {
+        ItemStack item = new ItemStack(material);
+        if (main != null) item.addUnsafeEnchantment(main, mainLevel);
+        item.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+        if (mending) item.addUnsafeEnchantment(Enchantment.MENDING, 1);
+        return item;
+    }
+
+    private ItemStack rankArmor(Material material, int protection, boolean mending) {
+        ItemStack item = new ItemStack(material);
+        item.addUnsafeEnchantment(Enchantment.PROTECTION, protection);
+        item.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+        if (mending) item.addUnsafeEnchantment(Enchantment.MENDING, 1);
+        return item;
+    }
+
+    private void addDiamondArmor(List<ItemStack> items, int protection, boolean mending) {
+        items.add(rankArmor(Material.DIAMOND_HELMET, protection, mending));
+        items.add(rankArmor(Material.DIAMOND_CHESTPLATE, protection, mending));
+        items.add(rankArmor(Material.DIAMOND_LEGGINGS, protection, mending));
+        items.add(rankArmor(Material.DIAMOND_BOOTS, protection, mending));
+    }
+
+    private List<ItemStack> buildRankKit(String rank) {
+        List<ItemStack> items = new ArrayList<>();
+        switch (rank) {
+            case "STARTER" -> {
+                items.add(new ItemStack(Material.STONE_SWORD));
+                items.add(new ItemStack(Material.STONE_PICKAXE));
+                items.add(new ItemStack(Material.STONE_AXE));
+                items.add(new ItemStack(Material.STONE_SHOVEL));
+                items.add(new ItemStack(Material.IRON_HELMET));
+                items.add(new ItemStack(Material.IRON_CHESTPLATE));
+                items.add(new ItemStack(Material.IRON_LEGGINGS));
+                items.add(new ItemStack(Material.IRON_BOOTS));
+                items.add(new ItemStack(Material.SHIELD));
+                items.add(new ItemStack(Material.WATER_BUCKET));
+                items.add(new ItemStack(Material.COOKED_BEEF, 32));
+                items.add(new ItemStack(Material.BREAD, 16));
+                items.add(new ItemStack(Material.TORCH, 32));
+            }
+            case "VIP" -> {
+                addDiamondArmor(items, 3, false);
+                items.add(gear(Material.DIAMOND_SWORD, Enchantment.SHARPNESS, 4, false));
+                items.add(gear(Material.DIAMOND_PICKAXE, Enchantment.EFFICIENCY, 3, false));
+                items.add(gear(Material.DIAMOND_AXE, Enchantment.EFFICIENCY, 3, false));
+                items.add(gear(Material.DIAMOND_SHOVEL, Enchantment.EFFICIENCY, 3, false));
+                items.add(new ItemStack(Material.GOLDEN_CARROT, 32));
+                items.add(new ItemStack(Material.GOLDEN_APPLE, 2));
+                items.add(new ItemStack(Material.ENDER_PEARL, 8));
+                items.add(new ItemStack(Material.WIND_CHARGE, 8));
+                items.add(potion(PotionType.STRENGTH)); items.add(potion(PotionType.SWIFTNESS));
+                items.add(potion(PotionType.FIRE_RESISTANCE));
+            }
+            case "BOOSTER" -> {
+                addDiamondArmor(items, 3, false);
+                items.add(gear(Material.DIAMOND_SWORD, Enchantment.SHARPNESS, 4, false));
+                items.add(gear(Material.DIAMOND_PICKAXE, Enchantment.EFFICIENCY, 4, false));
+                items.add(gear(Material.DIAMOND_AXE, Enchantment.EFFICIENCY, 4, false));
+                items.add(gear(Material.DIAMOND_SHOVEL, Enchantment.EFFICIENCY, 4, false));
+                items.add(new ItemStack(Material.GOLDEN_CARROT, 48));
+                items.add(new ItemStack(Material.GOLDEN_APPLE, 4));
+                items.add(new ItemStack(Material.ENDER_PEARL, 12));
+                items.add(new ItemStack(Material.WIND_CHARGE, 12));
+                items.add(potion(PotionType.STRENGTH)); items.add(potion(PotionType.STRENGTH));
+                items.add(potion(PotionType.SWIFTNESS)); items.add(potion(PotionType.FIRE_RESISTANCE));
+            }
+            case "BOOSTER+" -> {
+                addDiamondArmor(items, 3, true);
+                items.add(gear(Material.DIAMOND_SWORD, Enchantment.SHARPNESS, 5, true));
+                items.add(gear(Material.DIAMOND_PICKAXE, Enchantment.EFFICIENCY, 4, true));
+                items.add(gear(Material.DIAMOND_AXE, Enchantment.EFFICIENCY, 4, true));
+                items.add(gear(Material.DIAMOND_SHOVEL, Enchantment.EFFICIENCY, 4, true));
+                items.add(new ItemStack(Material.GOLDEN_CARROT, 64));
+                items.add(new ItemStack(Material.GOLDEN_APPLE, 6));
+                items.add(new ItemStack(Material.ENDER_PEARL, 16));
+                items.add(new ItemStack(Material.WIND_CHARGE, 16));
+                items.add(potion(PotionType.STRENGTH)); items.add(potion(PotionType.SWIFTNESS));
+                items.add(potion(PotionType.FIRE_RESISTANCE)); items.add(potion(PotionType.STRONG_HEALING));
+            }
+            case "VIP+" -> {
+                addDiamondArmor(items, 4, true);
+                items.add(gear(Material.DIAMOND_SWORD, Enchantment.SHARPNESS, 5, true));
+                items.add(gear(Material.DIAMOND_PICKAXE, Enchantment.EFFICIENCY, 5, true));
+                items.add(gear(Material.DIAMOND_AXE, Enchantment.EFFICIENCY, 5, true));
+                items.add(gear(Material.DIAMOND_SHOVEL, Enchantment.EFFICIENCY, 5, true));
+                items.add(new ItemStack(Material.GOLDEN_CARROT, 64));
+                items.add(new ItemStack(Material.GOLDEN_APPLE, 8));
+                items.add(new ItemStack(Material.ENDER_PEARL, 24));
+                items.add(new ItemStack(Material.WIND_CHARGE, 24));
+                items.add(potion(PotionType.STRENGTH)); items.add(potion(PotionType.SWIFTNESS));
+                items.add(potion(PotionType.FIRE_RESISTANCE)); items.add(potion(PotionType.STRONG_HEALING));
+                items.add(potion(PotionType.STRONG_HEALING));
+            }
+            case "CORE" -> {
+                addDiamondArmor(items, 4, true);
+                items.add(gear(Material.NETHERITE_SWORD, Enchantment.SHARPNESS, 5, true));
+                items.get(items.size()-1).addUnsafeEnchantment(Enchantment.LOOTING, 3);
+                items.add(gear(Material.NETHERITE_PICKAXE, Enchantment.EFFICIENCY, 5, true));
+                items.get(items.size()-1).addUnsafeEnchantment(Enchantment.FORTUNE, 3);
+                items.add(gear(Material.NETHERITE_AXE, Enchantment.EFFICIENCY, 5, true));
+                items.add(gear(Material.NETHERITE_SHOVEL, Enchantment.EFFICIENCY, 5, true));
+                items.add(new ItemStack(Material.GOLDEN_CARROT, 128));
+                items.add(new ItemStack(Material.GOLDEN_APPLE, 20));
+                items.add(new ItemStack(Material.ENDER_PEARL, 64));
+                items.add(new ItemStack(Material.BREEZE_ROD, 16));
+                for (int i=0;i<4;i++) items.add(potion(PotionType.STRENGTH));
+                for (int i=0;i<4;i++) items.add(potion(PotionType.SWIFTNESS));
+                for (int i=0;i<4;i++) items.add(potion(PotionType.FIRE_RESISTANCE));
+                for (int i=0;i<4;i++) items.add(potion(PotionType.STRONG_HEALING));
+            }
+        }
+        return items;
+    }
+
+    @EventHandler
+    public void onKitsMenuClick(InventoryClickEvent event) {
+        if (!event.getView().title().equals(Component.text("CORE SMP Kits"))) return;
+        event.setCancelled(true);
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (event.getClickedInventory() == null || event.getClickedInventory() != event.getView().getTopInventory()) return;
+        int[] slots = {10, 12, 14, 16, 28, 30};
+        int index = -1;
+        for (int i=0;i<slots.length;i++) if (slots[i] == event.getSlot()) index=i;
+        if (index < 0) return;
+        String rank = KIT_ORDER.get(index);
+        if (!rank.equals("STARTER") && !ownedRanks.getOrDefault(player.getUniqueId(), Set.of()).contains(rank)) {
+            player.sendMessage(Component.text("You need the " + rank + " rank to claim this kit."));
+            return;
+        }
+        String path = "kit-cooldowns." + player.getUniqueId() + "." + rank;
+        long readyAt = getConfig().getLong(path, 0L);
+        if (readyAt > System.currentTimeMillis()) {
+            player.sendMessage(Component.text("That kit is on cooldown for " + formatRemaining(readyAt - System.currentTimeMillis()) + "."));
+            return;
+        }
+        List<ItemStack> items = buildRankKit(rank);
+        for (ItemStack item : items) {
+            Map<Integer, ItemStack> leftovers = player.getInventory().addItem(item);
+            leftovers.values().forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
+        }
+        getConfig().set(path, System.currentTimeMillis() + KIT_COOLDOWN_MS);
+        saveConfig();
+        player.closeInventory();
+        player.sendMessage(Component.text(rank + " kit claimed. Cooldown: 24 hours."));
     }
 
     private ItemStack kitIcon(Material material, String name, String description) {
