@@ -695,7 +695,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
         event.setCancelled(true);
         if (!(event.getWhoClicked() instanceof Player player)) return;
         if (event.getClickedInventory() == null || event.getClickedInventory() != event.getView().getTopInventory()) return;
-        int[] slots = {10, 12, 14, 16, 28, 30};
+        int[] slots = {10, 12, 14, 16, 20, 22};
         int index = -1;
         for (int i=0;i<slots.length;i++) if (slots[i] == event.getSlot()) index=i;
         if (index < 0) return;
@@ -1672,20 +1672,34 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
         List<String> suggestions = new ArrayList<>();
         if (Set.of("timeout", "untimeout").contains(command.getName().toLowerCase(java.util.Locale.ROOT))
                 && sender instanceof Player staff && hasStaffRank(staff) && args.length == 1) {
+            int actorLevel = staffLevel(staff.getUniqueId());
             for (Player online : Bukkit.getOnlinePlayers()) {
-                if (!hasStaffRank(online) && online.getName().toLowerCase(java.util.Locale.ROOT)
+                int targetLevel = staffLevel(online.getUniqueId());
+                boolean canTarget = targetLevel < 0 || (actorLevel >= 0 && actorLevel < targetLevel);
+                if (canTarget && online.getName().toLowerCase(java.util.Locale.ROOT)
                         .startsWith(args[0].toLowerCase(java.util.Locale.ROOT))) suggestions.add(online.getName());
             }
+            return suggestions;
+        }
+        if (command.getName().equalsIgnoreCase("timeout") && args.length == 2) {
+            for (String duration : List.of("30s", "5m", "10m", "30m", "1h", "2h", "6h", "1d", "3d", "7d", "30d"))
+                if (duration.startsWith(args[1].toLowerCase(java.util.Locale.ROOT))) suggestions.add(duration);
             return suggestions;
         }
 
         if (command.getName().equalsIgnoreCase("rank")) {
             if (args.length == 1) {
-                for (String action : List.of("give", "choose")) if (action.startsWith(args[0].toLowerCase())) suggestions.add(action);
-            } else if (args.length == 2 && args[0].equalsIgnoreCase("give") && sender instanceof Player p && hasStaffRank(p)) {
+                List<String> actions = sender instanceof Player p && hasStaffRank(p)
+                    ? List.of("give", "remove", "choose") : List.of("choose");
+                for (String action : actions) if (action.startsWith(args[0].toLowerCase())) suggestions.add(action);
+            } else if (args.length == 2 && (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("remove"))
+                    && sender instanceof Player p && hasStaffRank(p)) {
                 for (Player online : Bukkit.getOnlinePlayers()) if (online.getName().toLowerCase().startsWith(args[1].toLowerCase())) suggestions.add(online.getName());
-            } else if ((args.length == 2 && args[0].equalsIgnoreCase("choose")) || (args.length == 3 && args[0].equalsIgnoreCase("give"))) {
-                for (String rank : PLAYER_RANKS) if (rank.toLowerCase().startsWith(args[args.length-1].toLowerCase())) suggestions.add(rank);
+            } else if ((args.length == 2 && args[0].equalsIgnoreCase("choose"))
+                    || (args.length == 3 && (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("remove")))) {
+                List<String> ranks = args[0].equalsIgnoreCase("choose") ? PLAYER_RANKS
+                    : java.util.stream.Stream.concat(PLAYER_RANKS.stream(), STAFF_RANKS.stream()).toList();
+                for (String rank : ranks) if (rank.toLowerCase().startsWith(args[args.length-1].toLowerCase())) suggestions.add(rank);
             }
             return suggestions;
         }
