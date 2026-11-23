@@ -438,7 +438,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
             case "VIP" -> "<bold><gradient:#FFD700:#FFF176>[VIP]</gradient></bold>";
             case "BOOSTER+" -> "<bold><gradient:#4B0082:#A855F7>[BOOSTER+]</gradient></bold>";
             case "VIP+" -> "<bold><gradient:#FFD700:#FF8C00>[VIP+]</gradient></bold>";
-            case "CORE" -> "<bold><gradient:#00D4FF:#8A2BE2:#FFB000>[CORE]</gradient></bold>";
+            case "CORE" -> "<bold><gradient:#25282D:#555B64:#858B94>[CORE]</gradient></bold>";
             case "OWNER" -> "<bold><gradient:#FF3030:#FFD700>[OWNER]</gradient></bold>";
             case "CO OWNER" -> "<bold><gradient:#FF5A36:#FFD700>[CO OWNER]</gradient></bold>";
             case "HEAD MANAGEMENT" -> "<bold><gradient:#E040FB:#7C4DFF>[HEAD MANAGEMENT]</gradient></bold>";
