@@ -32,6 +32,7 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -73,7 +74,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-public final class AskyriaEssentials extends JavaPlugin implements Listener, TabCompleter {
+public final class AskyriaEssentials extends JavaPlugin implements Listener, CommandExecutor, TabCompleter {
     private final Map<UUID, Long> protectedUntil = new HashMap<>();
     private final Map<UUID, Component> tags = new HashMap<>();
     private final Map<UUID, String> rawTags = new HashMap<>();
@@ -146,6 +147,16 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         }
         loadCombatFriendData();
         Bukkit.getPluginManager().registerEvents(this, this);
+        // JavaPlugin does not automatically route declared commands to onCommand
+        // unless this class implements CommandExecutor. Register every declared
+        // command explicitly so all CORE commands are executable and tab-completable.
+        for (String commandName : getDescription().getCommands().keySet()) {
+            org.bukkit.command.PluginCommand registeredCommand = getCommand(commandName);
+            if (registeredCommand != null) {
+                registeredCommand.setExecutor(this);
+                registeredCommand.setTabCompleter(this);
+            }
+        }
         Bukkit.getScheduler().runTask(this, this::cleanupRetiredFeatureData);
         fakePlayerPacketListener = new PacketListenerAbstract(PacketListenerPriority.NORMAL) {
             @Override
