@@ -504,45 +504,95 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
         player.sendMessage(Component.text("Your active rank is now " + rank + "."));
     }
 
+    private static final String KIT_MENU_TITLE = "CORE SMP | RANK KITS";
+
     private void openKitsMenu(Player player) {
-        Inventory menu = Bukkit.createInventory(null, 45, Component.text("CORE SMP • RANK KITS"));
-        ItemStack border = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
-        var borderMeta = border.getItemMeta();
-        borderMeta.displayName(Component.text(" "));
-        border.setItemMeta(borderMeta);
+        Inventory menu = Bukkit.createInventory(null, 54, Component.text(KIT_MENU_TITLE));
+
+        ItemStack background = new ItemStack(Material.PURPLE_STAINED_GLASS_PANE);
+        var backgroundMeta = background.getItemMeta();
+        backgroundMeta.displayName(Component.text(" "));
+        background.setItemMeta(backgroundMeta);
+
+        ItemStack frame = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
+        var frameMeta = frame.getItemMeta();
+        frameMeta.displayName(Component.text(" "));
+        frame.setItemMeta(frameMeta);
+
         for (int slot = 0; slot < menu.getSize(); slot++) {
-            if (slot < 9 || slot >= 36 || slot % 9 == 0 || slot % 9 == 8) menu.setItem(slot, border);
+            menu.setItem(slot, background);
+            int row = slot / 9;
+            int col = slot % 9;
+            if (row == 0 || row == 5 || col == 0 || col == 8) menu.setItem(slot, frame);
         }
-        Material[] icons = {Material.IRON_SWORD, Material.DIAMOND_SWORD, Material.DIAMOND_CHESTPLATE,
-            Material.DIAMOND_AXE, Material.DIAMOND_HELMET, Material.NETHERITE_SWORD};
-        int[] slots = {10, 12, 14, 16, 20, 22};
+
+        ItemStack header = new ItemStack(Material.NETHER_STAR);
+        var headerMeta = header.getItemMeta();
+        headerMeta.displayName(mini.deserialize("<bold><gradient:#a855f7:#60a5fa>CORE SMP RANK KITS</gradient></bold>"));
+        headerMeta.lore(List.of(
+            Component.text("Choose a kit unlocked by your rank.", net.kyori.adventure.text.format.NamedTextColor.GRAY),
+            Component.text("Starter is available to everyone.", net.kyori.adventure.text.format.NamedTextColor.GRAY)
+        ));
+        header.setItemMeta(headerMeta);
+        menu.setItem(4, header);
+
+        Material[] icons = {
+            Material.IRON_SWORD, Material.DIAMOND_SWORD, Material.DIAMOND_CHESTPLATE,
+            Material.DIAMOND_AXE, Material.DIAMOND_HELMET, Material.NETHERITE_SWORD
+        };
+        int[] slots = {11, 13, 15, 29, 31, 33};
         for (int i = 0; i < KIT_ORDER.size(); i++) {
             String rank = KIT_ORDER.get(i);
-            boolean allowed = rank.equals("STARTER") || ownedRanks.getOrDefault(player.getUniqueId(), Set.of()).contains(rank);
+            boolean allowed = rank.equals("STARTER")
+                || ownedRanks.getOrDefault(player.getUniqueId(), Set.of()).contains(rank);
             long readyAt = getConfig().getLong("kit-cooldowns." + player.getUniqueId() + "." + rank, 0L);
             boolean cooling = readyAt > System.currentTimeMillis();
+
             ItemStack icon = new ItemStack(!allowed ? Material.BARRIER : icons[i]);
             var meta = icon.getItemMeta();
-            meta.displayName(mini.deserialize(rankTag(rank) == null ? "<bold><white>[STARTER KIT]</white></bold>" : rankTag(rank) + " <gray> KIT</gray>"));
+            String title = rank.equals("STARTER")
+                ? "<bold><white>STARTER KIT</white></bold>"
+                : (rankTag(rank) == null ? "<bold><white>" + rank + "</white></bold>" : rankTag(rank))
+                    + " <dark_gray>•</dark_gray> <bold><white>KIT</white></bold>";
+            meta.displayName(mini.deserialize(title));
+
             List<Component> lore = new ArrayList<>();
-            lore.add(Component.text(rank.equals("STARTER") ? "Available to every player" : "Unlocked with the " + rank + " rank"));
+            lore.add(Component.text(rank.equals("STARTER")
+                ? "A basic kit for every player"
+                : "Exclusive kit for " + rank, net.kyori.adventure.text.format.NamedTextColor.GRAY));
             lore.add(Component.text(" "));
-            if (!allowed) lore.add(Component.text("LOCKED • Rank required", net.kyori.adventure.text.format.NamedTextColor.RED));
-            else if (cooling) lore.add(Component.text("READY IN • " + formatRemaining(readyAt - System.currentTimeMillis()), net.kyori.adventure.text.format.NamedTextColor.YELLOW));
-            else lore.add(Component.text("CLICK TO CLAIM", net.kyori.adventure.text.format.NamedTextColor.GREEN));
-            lore.add(Component.text("24-hour cooldown", net.kyori.adventure.text.format.NamedTextColor.GRAY));
+            if (!allowed) {
+                lore.add(Component.text("LOCKED", net.kyori.adventure.text.format.NamedTextColor.RED));
+                lore.add(Component.text("You need the " + rank + " rank.", net.kyori.adventure.text.format.NamedTextColor.GRAY));
+            } else if (cooling) {
+                lore.add(Component.text("ON COOLDOWN", net.kyori.adventure.text.format.NamedTextColor.YELLOW));
+                lore.add(Component.text("Available in " + formatRemaining(readyAt - System.currentTimeMillis()),
+                    net.kyori.adventure.text.format.NamedTextColor.GRAY));
+            } else {
+                lore.add(Component.text("READY TO CLAIM", net.kyori.adventure.text.format.NamedTextColor.GREEN));
+                lore.add(Component.text("Click to claim this kit.", net.kyori.adventure.text.format.NamedTextColor.GRAY));
+            }
+            lore.add(Component.text(" "));
+            lore.add(Component.text("Cooldown: 24 hours", net.kyori.adventure.text.format.NamedTextColor.DARK_GRAY));
             meta.lore(lore);
+            meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ATTRIBUTES);
             icon.setItemMeta(meta);
             menu.setItem(slots[i], icon);
         }
-        ItemStack info = new ItemStack(Material.BOOK);
+
+        ItemStack info = new ItemStack(Material.WRITABLE_BOOK);
         var infoMeta = info.getItemMeta();
-        infoMeta.displayName(Component.text("KIT INFORMATION", net.kyori.adventure.text.format.NamedTextColor.AQUA));
-        infoMeta.lore(List.of(Component.text("Select your unlocked rank kit to claim it."),
-            Component.text("Staff ranks do not receive rank kits."),
-            Component.text("Your cooldowns are saved across restarts.")));
+        infoMeta.displayName(mini.deserialize("<bold><aqua>HOW TO USE</aqua></bold>"));
+        infoMeta.lore(List.of(
+            Component.text("Click an unlocked kit to claim it.", net.kyori.adventure.text.format.NamedTextColor.GRAY),
+            Component.text("Locked kits require their matching rank.", net.kyori.adventure.text.format.NamedTextColor.GRAY),
+            Component.text("Each kit has its own 24-hour cooldown.", net.kyori.adventure.text.format.NamedTextColor.GRAY),
+            Component.text("Cooldowns remain saved after restarts.", net.kyori.adventure.text.format.NamedTextColor.GRAY),
+            Component.text("Staff ranks do not have rank kits.", net.kyori.adventure.text.format.NamedTextColor.DARK_GRAY)
+        ));
         info.setItemMeta(infoMeta);
-        menu.setItem(40, info);
+        menu.setItem(49, info);
+
         player.openInventory(menu);
     }
 
@@ -691,34 +741,52 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
 
     @EventHandler
     public void onKitsMenuClick(InventoryClickEvent event) {
-        if (!event.getView().title().equals(Component.text("CORE SMP Kits"))) return;
+        if (!event.getView().title().equals(Component.text(KIT_MENU_TITLE))) return;
         event.setCancelled(true);
         if (!(event.getWhoClicked() instanceof Player player)) return;
         if (event.getClickedInventory() == null || event.getClickedInventory() != event.getView().getTopInventory()) return;
-        int[] slots = {10, 12, 14, 16, 20, 22};
+
+        int[] slots = {11, 13, 15, 29, 31, 33};
         int index = -1;
-        for (int i=0;i<slots.length;i++) if (slots[i] == event.getSlot()) index=i;
+        for (int i = 0; i < slots.length; i++) {
+            if (slots[i] == event.getSlot()) {
+                index = i;
+                break;
+            }
+        }
         if (index < 0) return;
+
         String rank = KIT_ORDER.get(index);
         if (!rank.equals("STARTER") && !ownedRanks.getOrDefault(player.getUniqueId(), Set.of()).contains(rank)) {
             player.sendMessage(Component.text("You need the " + rank + " rank to claim this kit."));
             return;
         }
+
         String path = "kit-cooldowns." + player.getUniqueId() + "." + rank;
         long readyAt = getConfig().getLong(path, 0L);
         if (readyAt > System.currentTimeMillis()) {
-            player.sendMessage(Component.text("That kit is on cooldown for " + formatRemaining(readyAt - System.currentTimeMillis()) + "."));
+            player.sendMessage(Component.text("That kit is on cooldown for "
+                + formatRemaining(readyAt - System.currentTimeMillis()) + "."));
             return;
         }
+
         List<ItemStack> items = buildRankKit(rank);
         for (ItemStack item : items) {
             Map<Integer, ItemStack> leftovers = player.getInventory().addItem(item);
-            leftovers.values().forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
+            leftovers.values().forEach(leftover ->
+                player.getWorld().dropItemNaturally(player.getLocation(), leftover));
         }
         getConfig().set(path, System.currentTimeMillis() + KIT_COOLDOWN_MS);
         saveConfig();
         player.closeInventory();
         player.sendMessage(Component.text(rank + " kit claimed. Cooldown: 24 hours."));
+    }
+
+    @EventHandler
+    public void onKitsMenuDrag(org.bukkit.event.inventory.InventoryDragEvent event) {
+        if (event.getView().title().equals(Component.text(KIT_MENU_TITLE))) {
+            event.setCancelled(true);
+        }
     }
 
     private void cancelSpawnTeleport(Player player, String reason) {
