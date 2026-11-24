@@ -1728,12 +1728,51 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
             }
             case "invsee", "endersee" -> {
                 if (!requireOp(sender)) return true;
-                if (!(sender instanceof Player viewer)) { sender.sendMessage("Only players can use this command."); return true; }
-                if (args.length != 1) { sender.sendMessage(Component.text("Usage: /" + label + " <player>")); return true; }
+                if (!(sender instanceof Player viewer)) {
+                    sender.sendMessage(Component.text("Only players can use this command."));
+                    return true;
+                }
+                if (args.length != 1) {
+                    viewer.sendMessage(Component.text("Usage: /" + label + " <player>"));
+                    return true;
+                }
+
                 Player target = Bukkit.getPlayerExact(args[0]);
-                if (target == null) { sender.sendMessage(Component.text("That player must be online.")); return true; }
-                if (command.getName().equalsIgnoreCase("invsee")) viewer.openInventory(target.getInventory());
-                else viewer.openInventory(target.getEnderChest());
+                if (target == null) {
+                    target = Bukkit.getOnlinePlayers().stream()
+                        .filter(p -> p.getName().equalsIgnoreCase(args[0]))
+                        .findFirst().orElse(null);
+                }
+                if (target == null || !target.isOnline()) {
+                    viewer.sendMessage(Component.text("That player must be online."));
+                    return true;
+                }
+                if (target.equals(viewer)) {
+                    viewer.sendMessage(Component.text("You cannot use this command on yourself."));
+                    return true;
+                }
+
+                final Player inventoryTarget = target;
+                final boolean enderChest = command.getName().equalsIgnoreCase("endersee");
+                // Open on the next server tick and report the real exception to console
+                // instead of leaving players with only Bukkit's generic error message.
+                Bukkit.getScheduler().runTask(this, () -> {
+                    if (!viewer.isOnline() || !inventoryTarget.isOnline()) {
+                        if (viewer.isOnline()) viewer.sendMessage(Component.text("The target is no longer online."));
+                        return;
+                    }
+                    try {
+                        Inventory inventory = enderChest
+                            ? inventoryTarget.getEnderChest()
+                            : inventoryTarget.getInventory();
+                        viewer.openInventory(inventory);
+                    } catch (Exception ex) {
+                        getLogger().severe("Failed to open " + (enderChest ? "Ender Chest" : "player inventory")
+                            + " for " + viewer.getName() + " viewing " + inventoryTarget.getName());
+                        getLogger().log(java.util.logging.Level.SEVERE, "Inventory viewer error", ex);
+                        viewer.sendMessage(Component.text("Could not open that inventory. Check the server console."));
+                    }
+                });
                 return true;
             }
             default -> { return false; }
