@@ -664,93 +664,131 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
         items.add(rankArmor(Material.DIAMOND_BOOTS, protection, mending));
     }
 
+    private void addMaxDiamondArmor(List<ItemStack> items) {
+        ItemStack helmet = rankArmor(Material.DIAMOND_HELMET, 4, true);
+        helmet.addUnsafeEnchantment(Enchantment.RESPIRATION, 3);
+        helmet.addUnsafeEnchantment(Enchantment.AQUA_AFFINITY, 1);
+        items.add(helmet);
+
+        items.add(rankArmor(Material.DIAMOND_CHESTPLATE, 4, true));
+
+        ItemStack leggings = rankArmor(Material.DIAMOND_LEGGINGS, 4, true);
+        leggings.addUnsafeEnchantment(Enchantment.SWIFT_SNEAK, 3);
+        items.add(leggings);
+
+        ItemStack boots = rankArmor(Material.DIAMOND_BOOTS, 4, true);
+        boots.addUnsafeEnchantment(Enchantment.FEATHER_FALLING, 4);
+        boots.addUnsafeEnchantment(Enchantment.DEPTH_STRIDER, 3);
+        boots.addUnsafeEnchantment(Enchantment.SOUL_SPEED, 3);
+        items.add(boots);
+    }
+
+    private ItemStack maxSword(Material material) {
+        ItemStack sword = gear(material, Enchantment.SHARPNESS, 5, true);
+        sword.addUnsafeEnchantment(Enchantment.LOOTING, 3);
+        sword.addUnsafeEnchantment(Enchantment.FIRE_ASPECT, 2);
+        sword.addUnsafeEnchantment(Enchantment.SWEEPING_EDGE, 3);
+        return sword;
+    }
+
+    private ItemStack maxPickaxe(Material material) {
+        ItemStack pickaxe = gear(material, Enchantment.EFFICIENCY, 5, true);
+        pickaxe.addUnsafeEnchantment(Enchantment.FORTUNE, 3);
+        return pickaxe;
+    }
+
+    private ItemStack maxTool(Material material) {
+        return gear(material, Enchantment.EFFICIENCY, 5, true);
+    }
+
+    private ItemStack rankBow(int power) {
+        ItemStack bow = new ItemStack(Material.BOW);
+        bow.addUnsafeEnchantment(Enchantment.POWER, power);
+        bow.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+        if (power >= 5) {
+            bow.addUnsafeEnchantment(Enchantment.MENDING, 1);
+            bow.addUnsafeEnchantment(Enchantment.FLAME, 1);
+            bow.addUnsafeEnchantment(Enchantment.PUNCH, 2);
+        }
+        return bow;
+    }
+
+    private void addTopTierSupplies(List<ItemStack> items) {
+        items.add(new ItemStack(Material.COBWEB, 64));
+        items.add(new ItemStack(Material.ENDER_PEARL, 64));
+        items.add(new ItemStack(Material.BREEZE_ROD, 64));
+        items.add(new ItemStack(Material.WATER_BUCKET));
+        items.add(new ItemStack(Material.COOKED_BEEF, 64));
+        items.add(new ItemStack(Material.GOLDEN_CARROT, 64));
+        items.add(new ItemStack(Material.GOLDEN_APPLE, 64));
+        items.add(new ItemStack(Material.EXPERIENCE_BOTTLE, 64));
+        items.add(new ItemStack(Material.ARROW, 64));
+        items.add(potion(PotionType.STRONG_STRENGTH));
+        items.add(potion(PotionType.STRONG_SWIFTNESS));
+        items.add(potion(PotionType.LONG_FIRE_RESISTANCE));
+    }
+
     private List<ItemStack> buildRankKit(String rank) {
         List<ItemStack> items = new ArrayList<>();
         switch (rank) {
             case "STARTER" -> {
-                items.add(new ItemStack(Material.STONE_SWORD));
-                items.add(new ItemStack(Material.STONE_PICKAXE));
-                items.add(new ItemStack(Material.STONE_AXE));
-                items.add(new ItemStack(Material.STONE_SHOVEL));
-                items.add(new ItemStack(Material.IRON_HELMET));
-                items.add(new ItemStack(Material.IRON_CHESTPLATE));
-                items.add(new ItemStack(Material.IRON_LEGGINGS));
-                items.add(new ItemStack(Material.IRON_BOOTS));
-                items.add(new ItemStack(Material.SHIELD));
-                items.add(new ItemStack(Material.WATER_BUCKET));
+                // The Starter rank kit is food only.
                 items.add(new ItemStack(Material.COOKED_BEEF, 32));
-                items.add(new ItemStack(Material.BREAD, 16));
-                items.add(new ItemStack(Material.TORCH, 32));
-            }
-            case "VIP" -> {
-                addDiamondArmor(items, 3, false);
-                items.add(gear(Material.DIAMOND_SWORD, Enchantment.SHARPNESS, 4, false));
-                items.add(gear(Material.DIAMOND_PICKAXE, Enchantment.EFFICIENCY, 3, false));
-                items.add(gear(Material.DIAMOND_AXE, Enchantment.EFFICIENCY, 3, false));
-                items.add(gear(Material.DIAMOND_SHOVEL, Enchantment.EFFICIENCY, 3, false));
-                items.add(new ItemStack(Material.GOLDEN_CARROT, 32));
-                items.add(new ItemStack(Material.GOLDEN_APPLE, 2));
-                items.add(new ItemStack(Material.ENDER_PEARL, 8));
-                items.add(new ItemStack(Material.WIND_CHARGE, 8));
-                items.add(potion(PotionType.STRENGTH)); items.add(potion(PotionType.SWIFTNESS));
-                items.add(potion(PotionType.FIRE_RESISTANCE));
+                items.add(new ItemStack(Material.GOLDEN_CARROT, 16));
             }
             case "BOOSTER" -> {
                 addDiamondArmor(items, 3, false);
+                items.add(gear(Material.DIAMOND_SWORD, Enchantment.SHARPNESS, 3, false));
+                items.add(gear(Material.DIAMOND_PICKAXE, Enchantment.EFFICIENCY, 3, false));
+                items.add(gear(Material.DIAMOND_AXE, Enchantment.EFFICIENCY, 2, false));
+                items.add(gear(Material.DIAMOND_SHOVEL, Enchantment.EFFICIENCY, 2, false));
+                items.add(rankBow(2));
+                items.add(new ItemStack(Material.ARROW, 32));
+                items.add(new ItemStack(Material.ENDER_PEARL, 32));
+                items.add(new ItemStack(Material.BREEZE_ROD, 16));
+                items.add(new ItemStack(Material.WATER_BUCKET));
+                items.add(new ItemStack(Material.COOKED_BEEF, 32));
+                items.add(new ItemStack(Material.GOLDEN_CARROT, 16));
+                items.add(new ItemStack(Material.GOLDEN_APPLE, 8));
+                items.add(potion(PotionType.STRENGTH));
+                items.add(potion(PotionType.SWIFTNESS));
+                items.add(potion(PotionType.FIRE_RESISTANCE));
+            }
+            case "VIP" -> {
+                addDiamondArmor(items, 4, false);
                 items.add(gear(Material.DIAMOND_SWORD, Enchantment.SHARPNESS, 4, false));
                 items.add(gear(Material.DIAMOND_PICKAXE, Enchantment.EFFICIENCY, 4, false));
-                items.add(gear(Material.DIAMOND_AXE, Enchantment.EFFICIENCY, 4, false));
-                items.add(gear(Material.DIAMOND_SHOVEL, Enchantment.EFFICIENCY, 4, false));
-                items.add(new ItemStack(Material.GOLDEN_CARROT, 48));
-                items.add(new ItemStack(Material.GOLDEN_APPLE, 4));
-                items.add(new ItemStack(Material.ENDER_PEARL, 12));
-                items.add(new ItemStack(Material.WIND_CHARGE, 12));
-                items.add(potion(PotionType.STRENGTH)); items.add(potion(PotionType.STRENGTH));
-                items.add(potion(PotionType.SWIFTNESS)); items.add(potion(PotionType.FIRE_RESISTANCE));
+                items.add(gear(Material.DIAMOND_AXE, Enchantment.EFFICIENCY, 3, false));
+                items.add(gear(Material.DIAMOND_SHOVEL, Enchantment.EFFICIENCY, 3, false));
+                items.add(rankBow(3));
+                items.add(new ItemStack(Material.ARROW, 64));
+                items.add(new ItemStack(Material.ENDER_PEARL, 48));
+                items.add(new ItemStack(Material.BREEZE_ROD, 24));
+                items.add(new ItemStack(Material.WATER_BUCKET, 2));
+                items.add(new ItemStack(Material.COOKED_BEEF, 64));
+                items.add(new ItemStack(Material.GOLDEN_CARROT, 32));
+                items.add(new ItemStack(Material.GOLDEN_APPLE, 16));
+                items.add(potion(PotionType.STRENGTH));
+                items.add(potion(PotionType.SWIFTNESS));
+                items.add(potion(PotionType.FIRE_RESISTANCE));
             }
-            case "BOOSTER+" -> {
-                addDiamondArmor(items, 3, true);
-                items.add(gear(Material.DIAMOND_SWORD, Enchantment.SHARPNESS, 5, true));
-                items.add(gear(Material.DIAMOND_PICKAXE, Enchantment.EFFICIENCY, 4, true));
-                items.add(gear(Material.DIAMOND_AXE, Enchantment.EFFICIENCY, 4, true));
-                items.add(gear(Material.DIAMOND_SHOVEL, Enchantment.EFFICIENCY, 4, true));
-                items.add(new ItemStack(Material.GOLDEN_CARROT, 64));
-                items.add(new ItemStack(Material.GOLDEN_APPLE, 6));
-                items.add(new ItemStack(Material.ENDER_PEARL, 16));
-                items.add(new ItemStack(Material.WIND_CHARGE, 16));
-                items.add(potion(PotionType.STRENGTH)); items.add(potion(PotionType.SWIFTNESS));
-                items.add(potion(PotionType.FIRE_RESISTANCE)); items.add(potion(PotionType.STRONG_HEALING));
-            }
-            case "VIP+" -> {
-                addDiamondArmor(items, 4, true);
-                items.add(gear(Material.DIAMOND_SWORD, Enchantment.SHARPNESS, 5, true));
-                items.add(gear(Material.DIAMOND_PICKAXE, Enchantment.EFFICIENCY, 5, true));
-                items.add(gear(Material.DIAMOND_AXE, Enchantment.EFFICIENCY, 5, true));
-                items.add(gear(Material.DIAMOND_SHOVEL, Enchantment.EFFICIENCY, 5, true));
-                items.add(new ItemStack(Material.GOLDEN_CARROT, 64));
-                items.add(new ItemStack(Material.GOLDEN_APPLE, 8));
-                items.add(new ItemStack(Material.ENDER_PEARL, 24));
-                items.add(new ItemStack(Material.WIND_CHARGE, 24));
-                items.add(potion(PotionType.STRENGTH)); items.add(potion(PotionType.SWIFTNESS));
-                items.add(potion(PotionType.FIRE_RESISTANCE)); items.add(potion(PotionType.STRONG_HEALING));
-                items.add(potion(PotionType.STRONG_HEALING));
+            case "BOOSTER+", "VIP+" -> {
+                addMaxDiamondArmor(items);
+                items.add(maxSword(Material.DIAMOND_SWORD));
+                items.add(maxPickaxe(Material.DIAMOND_PICKAXE));
+                items.add(maxTool(Material.DIAMOND_AXE));
+                items.add(maxTool(Material.DIAMOND_SHOVEL));
+                items.add(rankBow(5));
+                addTopTierSupplies(items);
             }
             case "CORE" -> {
-                addDiamondArmor(items, 4, true);
-                items.add(gear(Material.NETHERITE_SWORD, Enchantment.SHARPNESS, 5, true));
-                items.get(items.size()-1).addUnsafeEnchantment(Enchantment.LOOTING, 3);
-                items.add(gear(Material.NETHERITE_PICKAXE, Enchantment.EFFICIENCY, 5, true));
-                items.get(items.size()-1).addUnsafeEnchantment(Enchantment.FORTUNE, 3);
-                items.add(gear(Material.NETHERITE_AXE, Enchantment.EFFICIENCY, 5, true));
-                items.add(gear(Material.NETHERITE_SHOVEL, Enchantment.EFFICIENCY, 5, true));
-                items.add(new ItemStack(Material.GOLDEN_CARROT, 128));
-                items.add(new ItemStack(Material.GOLDEN_APPLE, 20));
-                items.add(new ItemStack(Material.ENDER_PEARL, 64));
-                items.add(new ItemStack(Material.BREEZE_ROD, 16));
-                for (int i=0;i<4;i++) items.add(potion(PotionType.STRENGTH));
-                for (int i=0;i<4;i++) items.add(potion(PotionType.SWIFTNESS));
-                for (int i=0;i<4;i++) items.add(potion(PotionType.FIRE_RESISTANCE));
-                for (int i=0;i<4;i++) items.add(potion(PotionType.STRONG_HEALING));
+                addMaxDiamondArmor(items);
+                items.add(maxSword(Material.NETHERITE_SWORD));
+                items.add(maxPickaxe(Material.NETHERITE_PICKAXE));
+                items.add(maxTool(Material.NETHERITE_AXE));
+                items.add(maxTool(Material.NETHERITE_SHOVEL));
+                items.add(rankBow(5));
+                addTopTierSupplies(items);
             }
         }
         return items;
@@ -1338,11 +1376,11 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
                 if (args.length == 1 && args[0].equalsIgnoreCase("list")) {
                     var banList = Bukkit.getBanList(org.bukkit.BanList.Type.NAME);
                     long now = System.currentTimeMillis();
-                    List<org.bukkit.BanEntry<String>> entries = new ArrayList<>(banList.getBanEntries());
+                    List<org.bukkit.BanEntry> entries = new ArrayList<>(banList.getBanEntries());
                     entries.removeIf(entry -> entry.getExpiration() != null && entry.getExpiration().getTime() <= now);
                     sender.sendMessage(Component.text("ACTIVE TEMPBANS (" + entries.size() + ")", net.kyori.adventure.text.format.NamedTextColor.GOLD));
                     if (entries.isEmpty()) sender.sendMessage(Component.text("No active bans."));
-                    for (org.bukkit.BanEntry<String> entry : entries) {
+                    for (org.bukkit.BanEntry entry : entries) {
                         String expiry = entry.getExpiration() == null ? "Permanent" : formatRemaining(entry.getExpiration().getTime() - now);
                         sender.sendMessage(Component.text(entry.getTarget() + " • " + expiry + " • "
                             + (entry.getReason() == null ? "No reason provided" : entry.getReason())));
