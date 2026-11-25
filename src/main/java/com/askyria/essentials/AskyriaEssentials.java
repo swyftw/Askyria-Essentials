@@ -1139,9 +1139,8 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
         if (!location.getWorld().equals(spawn.getWorld())) return false;
         double dx = location.getX() - spawn.getX();
         double dz = location.getZ() - spawn.getZ();
-        // Spawn protection covers the 100-block radius only at absolute Y=180 and above.
-        return dx * dx + dz * dz <= (double) radius * radius
-            && location.getY() >= 180.0;
+        // Spawn protection covers the full vertical column at every Y level.
+        return dx * dx + dz * dz <= (double) radius * radius;
     }
 
     private void denySpawnAction(Player player) {
