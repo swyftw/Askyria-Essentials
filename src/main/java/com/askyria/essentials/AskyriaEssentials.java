@@ -292,6 +292,11 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
         return ownedRanks.getOrDefault(id, Set.of()).stream().anyMatch(STAFF_RANKS::contains);
     }
 
+    private boolean canTempBan(Player player) {
+        int level = staffLevel(player.getUniqueId());
+        return level >= 0 && level <= STAFF_RANKS.indexOf("ADMIN");
+    }
+
     @EventHandler
     public void onTimedOutChat(AsyncChatEvent event) {
         UUID id = event.getPlayer().getUniqueId();
@@ -1285,6 +1290,75 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
                 sender.sendMessage(Component.text("Announcement displayed to " + Bukkit.getOnlinePlayers().size() + " player(s)."));
                 return true;
             }
+            case "tempban" -> {
+                if (sender instanceof Player actor && !canTempBan(actor)) {
+                    sender.sendMessage(Component.text("You need ADMIN or a higher staff rank to use this command."));
+                    return true;
+                }
+                if (args.length == 1 && args[0].equalsIgnoreCase("list")) {
+                    var banList = Bukkit.getBanList(org.bukkit.BanList.Type.NAME);
+                    long now = System.currentTimeMillis();
+                    List<org.bukkit.BanEntry<String>> entries = new ArrayList<>(banList.getBanEntries());
+                    entries.removeIf(entry -> entry.getExpiration() != null && entry.getExpiration().getTime() <= now);
+                    sender.sendMessage(Component.text("ACTIVE TEMPBANS (" + entries.size() + ")", net.kyori.adventure.text.format.NamedTextColor.GOLD));
+                    if (entries.isEmpty()) sender.sendMessage(Component.text("No active bans."));
+                    for (org.bukkit.BanEntry<String> entry : entries) {
+                        String expiry = entry.getExpiration() == null ? "Permanent" : formatRemaining(entry.getExpiration().getTime() - now);
+                        sender.sendMessage(Component.text(entry.getTarget() + " • " + expiry + " • "
+                            + (entry.getReason() == null ? "No reason provided" : entry.getReason())));
+                    }
+                    return true;
+                }
+                if (args.length == 2 && args[0].equalsIgnoreCase("remove")) {
+                    String targetName = args[1];
+                    var banList = Bukkit.getBanList(org.bukkit.BanList.Type.NAME);
+                    if (banList.getBanEntry(targetName) == null) {
+                        sender.sendMessage(Component.text(targetName + " is not currently banned."));
+                        return true;
+                    }
+                    banList.pardon(targetName);
+                    sender.sendMessage(Component.text("TEMPBAN REMOVED • " + targetName, net.kyori.adventure.text.format.NamedTextColor.GREEN));
+                    return true;
+                }
+                if (args.length < 3) {
+                    sender.sendMessage(Component.text("Usage: /tempban <player> <time> <reason>"));
+                    sender.sendMessage(Component.text("Also: /tempban list OR /tempban remove <player>"));
+                    sender.sendMessage(Component.text("Time examples: 30m, 2h, 7d, 1w, perm."));
+                    return true;
+                }
+                String targetName = args[0];
+                if (sender instanceof Player actor) {
+                    if (actor.getName().equalsIgnoreCase(targetName)) {
+                        sender.sendMessage(Component.text("You cannot tempban yourself."));
+                        return true;
+                    }
+                    Player onlineTarget = Bukkit.getPlayerExact(targetName);
+                    UUID targetId = onlineTarget != null ? onlineTarget.getUniqueId() : Bukkit.getOfflinePlayer(targetName).getUniqueId();
+                    int actorLevel = staffLevel(actor.getUniqueId());
+                    int targetLevel = staffLevel(targetId);
+                    if (targetLevel >= 0 && (actorLevel < 0 || actorLevel >= targetLevel)) {
+                        sender.sendMessage(Component.text("You cannot ban a staff member with an equal or higher rank."));
+                        return true;
+                    }
+                }
+                java.time.Duration duration = parseBanDuration(args[1]);
+                if (duration == null) {
+                    sender.sendMessage(Component.text("Invalid time. Use 30m, 2h, 7d, 1w, or perm."));
+                    return true;
+                }
+                String reason = String.join(" ", java.util.Arrays.copyOfRange(args, 2, args.length)).trim();
+                if (reason.isEmpty()) {
+                    sender.sendMessage(Component.text("A ban reason is required."));
+                    return true;
+                }
+                java.util.Date expires = duration.isZero() ? null : java.util.Date.from(java.time.Instant.now().plus(duration));
+                Bukkit.getBanList(org.bukkit.BanList.Type.NAME).addBan(targetName, reason, expires, sender.getName());
+                Player onlineTarget = Bukkit.getPlayerExact(targetName);
+                if (onlineTarget != null) onlineTarget.kick(Component.text("You are banned from CORE SMP. Reason: " + reason));
+                sender.sendMessage(Component.text("TEMPBAN APPLIED • " + targetName + " • "
+                    + (duration.isZero() ? "Permanent" : args[1]) + " • " + reason, net.kyori.adventure.text.format.NamedTextColor.GREEN));
+                return true;
+            }
             case "timeout" -> {
                 if (sender instanceof Player actor && !hasStaffRank(actor)) {
                     sender.sendMessage(Component.text("You need a staff rank to use this command."));
@@ -1782,6 +1856,30 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> suggestions = new ArrayList<>();
+        if (command.getName().equalsIgnoreCase("tempban") && (!(sender instanceof Player p) || canTempBan(p))) {
+            if (args.length == 1) {
+                for (String action : List.of("list", "remove")) {
+                    if (action.startsWith(args[0].toLowerCase(java.util.Locale.ROOT))) suggestions.add(action);
+                }
+                for (Player online : Bukkit.getOnlinePlayers()) {
+                    if (online.getName().toLowerCase(java.util.Locale.ROOT).startsWith(args[0].toLowerCase(java.util.Locale.ROOT))
+                            && (!(sender instanceof Player actor) || (staffLevel(online.getUniqueId()) < 0
+                            || staffLevel(actor.getUniqueId()) < staffLevel(online.getUniqueId())))) {
+                        suggestions.add(online.getName());
+                    }
+                }
+            } else if (args.length == 2 && !args[0].equalsIgnoreCase("list") && !args[0].equalsIgnoreCase("remove")) {
+                for (String duration : List.of("30m", "1h", "2h", "6h", "1d", "3d", "7d", "30d", "1w", "perm")) {
+                    if (duration.startsWith(args[1].toLowerCase(java.util.Locale.ROOT))) suggestions.add(duration);
+                }
+            } else if (args.length == 2 && args[0].equalsIgnoreCase("remove")) {
+                for (org.bukkit.BanEntry<String> entry : Bukkit.getBanList(org.bukkit.BanList.Type.NAME).getBanEntries()) {
+                    if (entry.getTarget().toLowerCase(java.util.Locale.ROOT).startsWith(args[1].toLowerCase(java.util.Locale.ROOT)))
+                        suggestions.add(entry.getTarget());
+                }
+            }
+            return suggestions;
+        }
         if (Set.of("timeout", "untimeout").contains(command.getName().toLowerCase(java.util.Locale.ROOT))
                 && sender instanceof Player staff && hasStaffRank(staff) && args.length == 1) {
             int actorLevel = staffLevel(staff.getUniqueId());
