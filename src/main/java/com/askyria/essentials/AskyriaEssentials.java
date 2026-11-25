@@ -297,6 +297,11 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
         return level >= 0 && level <= STAFF_RANKS.indexOf("ADMIN");
     }
 
+    private boolean canKick(Player player) {
+        int level = staffLevel(player.getUniqueId());
+        return level >= 0 && level <= STAFF_RANKS.indexOf("MODERATOR");
+    }
+
     @EventHandler
     public void onTimedOutChat(AsyncChatEvent event) {
         UUID id = event.getPlayer().getUniqueId();
@@ -1290,6 +1295,40 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
                 sender.sendMessage(Component.text("Announcement displayed to " + Bukkit.getOnlinePlayers().size() + " player(s)."));
                 return true;
             }
+            case "kick" -> {
+                if (sender instanceof Player actor && !canKick(actor)) {
+                    sender.sendMessage(Component.text("You need MODERATOR or a higher staff rank to use this command."));
+                    return true;
+                }
+                if (args.length < 1) {
+                    sender.sendMessage(Component.text("Usage: /kick <player> [reason]"));
+                    return true;
+                }
+                Player target = Bukkit.getPlayerExact(args[0]);
+                if (target == null) {
+                    sender.sendMessage(Component.text("That player is not online."));
+                    return true;
+                }
+                if (sender instanceof Player actor) {
+                    if (actor.equals(target)) {
+                        sender.sendMessage(Component.text("You cannot kick yourself."));
+                        return true;
+                    }
+                    int actorLevel = staffLevel(actor.getUniqueId());
+                    int targetLevel = staffLevel(target.getUniqueId());
+                    if (targetLevel >= 0 && (actorLevel < 0 || actorLevel >= targetLevel)) {
+                        sender.sendMessage(Component.text("You cannot kick a staff member with an equal or higher rank."));
+                        return true;
+                    }
+                }
+                String reason = args.length > 1
+                    ? String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length))
+                    : "Kicked by a staff member";
+                target.kick(Component.text("You have been kicked from CORE SMP.\nReason: " + reason));
+                sender.sendMessage(Component.text("KICKED • " + target.getName() + " • " + reason,
+                    net.kyori.adventure.text.format.NamedTextColor.GREEN));
+                return true;
+            }
             case "tempban" -> {
                 if (sender instanceof Player actor && !canTempBan(actor)) {
                     sender.sendMessage(Component.text("You need ADMIN or a higher staff rank to use this command."));
@@ -1856,6 +1895,16 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> suggestions = new ArrayList<>();
+        if (command.getName().equalsIgnoreCase("kick") && (!(sender instanceof Player p) || canKick(p)) && args.length == 1) {
+            for (Player online : Bukkit.getOnlinePlayers()) {
+                if (online.getName().toLowerCase(java.util.Locale.ROOT).startsWith(args[0].toLowerCase(java.util.Locale.ROOT))
+                        && (!(sender instanceof Player actor) || (staffLevel(online.getUniqueId()) < 0
+                        || staffLevel(actor.getUniqueId()) < staffLevel(online.getUniqueId())))) {
+                    suggestions.add(online.getName());
+                }
+            }
+            return suggestions;
+        }
         if (command.getName().equalsIgnoreCase("tempban") && (!(sender instanceof Player p) || canTempBan(p))) {
             if (args.length == 1) {
                 for (String action : List.of("list", "remove")) {
