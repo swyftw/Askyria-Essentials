@@ -16,6 +16,9 @@ commands:
   rank:
     description: Give and select player ranks
     usage: /rank give <player> <rank> OR /rank remove <player> <rank> OR /rank choose [rank]
+  tempban:
+    description: Temporarily ban a player (ADMIN and higher)
+    usage: /tempban <player> <time> <reason> OR /tempban list OR /tempban remove <player>
   timeout:
     description: Temporarily mute a player (staff only; supports 30s to 30d)
     usage: /timeout <player> <duration> [reason]
