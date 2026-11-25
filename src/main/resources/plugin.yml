@@ -16,6 +16,9 @@ commands:
   rank:
     description: Give and select player ranks
     usage: /rank give <player> <rank> OR /rank remove <player> <rank> OR /rank choose [rank]
+  kick:
+    description: Kick a player (MODERATOR and higher)
+    usage: /kick <player> [reason]
   tempban:
     description: Temporarily ban a player (ADMIN and higher)
     usage: /tempban <player> <time> <reason> OR /tempban list OR /tempban remove <player>
