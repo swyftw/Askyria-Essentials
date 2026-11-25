@@ -79,7 +79,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
     private final Map<UUID, Long> protectedUntil = new HashMap<>();
     private final Map<UUID, Set<String>> ownedRanks = new HashMap<>();
     private final Map<UUID, String> selectedRanks = new HashMap<>();
-    private static final List<String> PLAYER_RANKS = List.of("BOOSTER", "VIP", "BOOSTER+", "VIP+", "CORE");
+    private static final List<String> PLAYER_RANKS = List.of("BOOSTER", "VIP", "BOOSTER+", "VIP+", "CORE", "MEDIA", "CREATOR");
     private static final List<String> STAFF_RANKS = List.of("OWNER", "CO OWNER", "HEAD MANAGEMENT", "MANAGEMENT", "DEVELOPER", "SR ADMIN", "ADMIN", "MODERATOR", "JR MOD");
     private static final List<String> KIT_ORDER = List.of("STARTER", "BOOSTER", "VIP", "BOOSTER+", "VIP+", "CORE");
     private static final long KIT_COOLDOWN_MS = 86_400_000L;
@@ -429,7 +429,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
     private String normalizeRank(String value) {
         String rank = value.toUpperCase(java.util.Locale.ROOT).replace("_", "").replace("-", "").replace(" ", "");
         return switch (rank) {
-            case "BOOSTER", "VIP", "BOOSTER+", "VIP+", "CORE" -> rank;
+            case "BOOSTER", "VIP", "BOOSTER+", "VIP+", "CORE", "MEDIA", "CREATOR" -> rank;
             case "OWNER", "COOWNER" -> "CO OWNER";
             case "HEADMANAGEMENT" -> "HEAD MANAGEMENT";
             case "MANAGEMENT" -> "MANAGEMENT";
@@ -449,6 +449,8 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
             case "BOOSTER+" -> "<bold><gradient:#4B0082:#A855F7>[BOOSTER+]</gradient></bold>";
             case "VIP+" -> "<bold><gradient:#FFD700:#FF8C00>[VIP+]</gradient></bold>";
             case "CORE" -> "<bold><gradient:#25282D:#555B64:#858B94>[CORE]</gradient></bold>";
+            case "MEDIA" -> "<bold><gradient:#1E88E5:#64B5F6:#BBDEFB>[MEDIA]</gradient></bold>";
+            case "CREATOR" -> "<bold><gradient:#C62828:#EF5350:#FFCDD2>[CREATOR]</gradient></bold>";
             case "OWNER" -> "<bold><gradient:#FF3030:#FFD700>[OWNER]</gradient></bold>";
             case "CO OWNER" -> "<bold><gradient:#FF5A36:#FFD700>[CO OWNER]</gradient></bold>";
             case "HEAD MANAGEMENT" -> "<bold><gradient:#E040FB:#7C4DFF>[HEAD MANAGEMENT]</gradient></bold>";
@@ -1514,7 +1516,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
                     }
                     String rank = normalizeRank(args[2]);
                     if (rank == null) {
-                        sender.sendMessage(Component.text("Player ranks: BOOSTER, VIP, BOOSTER+, VIP+, CORE."));
+                        sender.sendMessage(Component.text("Player ranks: BOOSTER, VIP, BOOSTER+, VIP+, CORE, MEDIA, CREATOR."));
                         sender.sendMessage(Component.text("Staff ranks: OWNER, CO OWNER, HEAD MANAGEMENT, MANAGEMENT, DEVELOPER, SR ADMIN, ADMIN, MODERATOR, JR MOD."));
                         return true;
                     }
