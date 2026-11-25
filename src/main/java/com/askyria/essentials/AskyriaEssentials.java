@@ -519,6 +519,10 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
     private static final String KIT_MENU_TITLE = "CORE SMP | RANK KITS";
 
     private void openKitsMenu(Player player) {
+        if (hasStaffRank(player)) {
+            player.sendMessage(Component.text("Staff members cannot claim rank kits."));
+            return;
+        }
         Inventory menu = Bukkit.createInventory(null, 54, Component.text(KIT_MENU_TITLE));
 
         ItemStack background = new ItemStack(Material.PURPLE_STAINED_GLASS_PANE);
@@ -799,6 +803,11 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
         if (!event.getView().title().equals(Component.text(KIT_MENU_TITLE))) return;
         event.setCancelled(true);
         if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (hasStaffRank(player)) {
+            player.closeInventory();
+            player.sendMessage(Component.text("Staff members cannot claim rank kits."));
+            return;
+        }
         if (event.getClickedInventory() == null || event.getClickedInventory() != event.getView().getTopInventory()) return;
 
         int[] slots = {11, 13, 15, 29, 31, 33};
