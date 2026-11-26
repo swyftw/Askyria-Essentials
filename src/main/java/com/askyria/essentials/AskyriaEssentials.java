@@ -560,8 +560,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
         for (int i = 0; i < KIT_ORDER.size(); i++) {
             String rank = KIT_ORDER.get(i);
             Set<String> playerOwnedRanks = ownedRanks.getOrDefault(player.getUniqueId(), Set.of());
-            boolean allowed = !hasStaffRank(player)
-                && (rank.equals("STARTER") || playerOwnedRanks.contains(rank));
+            boolean allowed = rank.equals("STARTER") || playerOwnedRanks.contains(rank);
             long readyAt = getConfig().getLong("kit-cooldowns." + player.getUniqueId() + "." + rank, 0L);
             boolean cooling = readyAt > System.currentTimeMillis();
 
@@ -811,11 +810,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
         event.setCancelled(true);
         if (!(event.getWhoClicked() instanceof Player player)) return;
         if (event.getClickedInventory() == null || event.getClickedInventory() != event.getView().getTopInventory()) return;
-        if (hasStaffRank(player)) {
-            player.sendMessage(Component.text("Staff members can view kits but cannot claim them."));
-            return;
-        }
-
         int[] slots = {11, 13, 15, 29, 31, 33};
         int index = -1;
         for (int i = 0; i < slots.length; i++) {
