@@ -559,8 +559,10 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
         int[] slots = {11, 13, 15, 29, 31, 33};
         for (int i = 0; i < KIT_ORDER.size(); i++) {
             String rank = KIT_ORDER.get(i);
-            boolean allowed = rank.equals("STARTER")
-                || ownedRanks.getOrDefault(player.getUniqueId(), Set.of()).contains(rank);
+            Set<String> playerOwnedRanks = ownedRanks.getOrDefault(player.getUniqueId(), Set.of());
+            boolean allowed = !hasStaffRank(player) && (rank.equals("STARTER")
+                ? PLAYER_RANKS.stream().anyMatch(playerOwnedRanks::contains)
+                : playerOwnedRanks.contains(rank));
             long readyAt = getConfig().getLong("kit-cooldowns." + player.getUniqueId() + "." + rank, 0L);
             boolean cooling = readyAt > System.currentTimeMillis();
 
@@ -821,8 +823,19 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
         }
         if (index < 0) return;
 
+        if (hasStaffRank(player)) {
+            player.sendMessage(Component.text("Staff members can view kits but cannot claim them."));
+            return;
+        }
+
         String rank = KIT_ORDER.get(index);
-        if (!rank.equals("STARTER") && !ownedRanks.getOrDefault(player.getUniqueId(), Set.of()).contains(rank)) {
+        Set<String> playerOwnedRanks = ownedRanks.getOrDefault(player.getUniqueId(), Set.of());
+        if (rank.equals("STARTER")) {
+            if (PLAYER_RANKS.stream().noneMatch(playerOwnedRanks::contains)) {
+                player.sendMessage(Component.text("You need a player rank to claim a kit."));
+                return;
+            }
+        } else if (!playerOwnedRanks.contains(rank)) {
             player.sendMessage(Component.text("You need the " + rank + " rank to claim this kit."));
             return;
         }
