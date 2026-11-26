@@ -82,7 +82,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
     private static final List<String> PLAYER_RANKS = List.of("BOOSTER", "VIP", "BOOSTER+", "VIP+", "CORE", "MEDIA", "CREATOR");
     private static final List<String> STAFF_RANKS = List.of("OWNER", "CO OWNER", "HEAD MANAGEMENT", "MANAGEMENT", "DEVELOPER", "SR ADMIN", "ADMIN", "MODERATOR", "JR MOD");
     private static final List<String> KIT_ORDER = List.of("STARTER", "BOOSTER", "VIP", "BOOSTER+", "VIP+", "CORE");
-    private static final long KIT_COOLDOWN_MS = 86_400_000L;
     private final Map<UUID, Component> tags = new HashMap<>();
     private final Map<UUID, String> rawTags = new HashMap<>();
     private final Map<UUID, String> rawIgnColors = new HashMap<>();
@@ -594,7 +593,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
                 lore.add(Component.text("Click to claim this kit.", net.kyori.adventure.text.format.NamedTextColor.GRAY));
             }
             lore.add(Component.text(" "));
-            lore.add(Component.text("Cooldown: 24 hours", net.kyori.adventure.text.format.NamedTextColor.DARK_GRAY));
+            lore.add(Component.text("Cooldown: " + kitCooldownHours(rank) + " hours", net.kyori.adventure.text.format.NamedTextColor.DARK_GRAY));
             meta.lore(lore);
             meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ATTRIBUTES);
             icon.setItemMeta(meta);
@@ -607,7 +606,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
         infoMeta.lore(List.of(
             Component.text("Click an unlocked kit to claim it.", net.kyori.adventure.text.format.NamedTextColor.GRAY),
             Component.text("Locked kits require their matching rank.", net.kyori.adventure.text.format.NamedTextColor.GRAY),
-            Component.text("Each kit has its own 24-hour cooldown.", net.kyori.adventure.text.format.NamedTextColor.GRAY),
+            Component.text("Cooldowns vary by rank: 24 or 42 hours.", net.kyori.adventure.text.format.NamedTextColor.GRAY),
             Component.text("Cooldowns remain saved after restarts.", net.kyori.adventure.text.format.NamedTextColor.GRAY),
             Component.text("Staff ranks do not have rank kits.", net.kyori.adventure.text.format.NamedTextColor.DARK_GRAY)
         ));
@@ -615,6 +614,17 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
         menu.setItem(49, info);
 
         player.openInventory(menu);
+    }
+
+    private int kitCooldownHours(String rank) {
+        return switch (rank) {
+            case "BOOSTER+", "VIP+", "CORE" -> 42;
+            default -> 24;
+        };
+    }
+
+    private long kitCooldownMillis(String rank) {
+        return java.util.concurrent.TimeUnit.HOURS.toMillis(kitCooldownHours(rank));
     }
 
     private String formatRemaining(long millis) {
@@ -840,10 +850,10 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
             leftovers.values().forEach(leftover ->
                 player.getWorld().dropItemNaturally(player.getLocation(), leftover));
         }
-        getConfig().set(path, System.currentTimeMillis() + KIT_COOLDOWN_MS);
+        getConfig().set(path, System.currentTimeMillis() + kitCooldownMillis(rank));
         saveConfig();
         player.closeInventory();
-        player.sendMessage(Component.text(rank + " kit claimed. Cooldown: 24 hours."));
+        player.sendMessage(Component.text(rank + " kit claimed. Cooldown: " + kitCooldownHours(rank) + " hours."));
     }
 
     @EventHandler
