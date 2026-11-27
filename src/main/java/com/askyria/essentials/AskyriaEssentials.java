@@ -1205,17 +1205,28 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
         }
     }
 
-    private boolean isInSpawnProtection(Location location) {
-        if (location == null || location.getWorld() == null) return false;
-        // CORE spawn protection applies only in the Overworld. Nether and End
-        // must remain fully usable, including their portals and build areas.
-        if (location.getWorld().getEnvironment() != World.Environment.NORMAL) return false;
+    private boolean isWithinSpawnRadius(Location location, World.Environment environment) {
+        if (location == null || location.getWorld() == null
+                || location.getWorld().getEnvironment() != environment) return false;
         int radius = Math.max(0, getConfig().getInt("spawn-protection-radius", 100));
         Location spawn = location.getWorld().getSpawnLocation();
         double dx = location.getX() - spawn.getX();
         double dz = location.getZ() - spawn.getZ();
-        // No Y-level restriction: the 100-block horizontal radius is protected from bedrock to build limit.
         return dx * dx + dz * dz <= (double) radius * radius;
+    }
+
+    private boolean isInSpawnProtection(Location location) {
+        return isWithinSpawnRadius(location, World.Environment.NORMAL);
+    }
+
+    // In the Nether, protect blocks only near that world's spawn. This does
+    // not block portal travel, PvP, or movement.
+    private boolean isInNetherBuildProtection(Location location) {
+        return isWithinSpawnRadius(location, World.Environment.NETHER);
+    }
+
+    private boolean isInBuildProtection(Location location) {
+        return isInSpawnProtection(location) || isInNetherBuildProtection(location);
     }
 
     private void denySpawnAction(Player player) {
@@ -1224,7 +1235,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
 
     @EventHandler
     public void onSpawnBlockBreak(BlockBreakEvent event) {
-        if (!event.getPlayer().isOp() && isInSpawnProtection(event.getBlock().getLocation())) {
+        if (!event.getPlayer().isOp() && isInBuildProtection(event.getBlock().getLocation())) {
             event.setCancelled(true);
             denySpawnAction(event.getPlayer());
         }
@@ -1232,7 +1243,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
 
     @EventHandler
     public void onSpawnBlockPlace(BlockPlaceEvent event) {
-        if (!event.getPlayer().isOp() && isInSpawnProtection(event.getBlock().getLocation())) {
+        if (!event.getPlayer().isOp() && isInBuildProtection(event.getBlock().getLocation())) {
             event.setCancelled(true);
             denySpawnAction(event.getPlayer());
         }
@@ -1240,7 +1251,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
 
     @EventHandler
     public void onSpawnBucketEmpty(PlayerBucketEmptyEvent event) {
-        if (!event.getPlayer().isOp() && isInSpawnProtection(event.getBlock().getRelative(event.getBlockFace()).getLocation())) {
+        if (!event.getPlayer().isOp() && isInBuildProtection(event.getBlock().getRelative(event.getBlockFace()).getLocation())) {
             event.setCancelled(true);
             denySpawnAction(event.getPlayer());
         }
@@ -1248,7 +1259,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
 
     @EventHandler
     public void onSpawnBucketFill(PlayerBucketFillEvent event) {
-        if (!event.getPlayer().isOp() && isInSpawnProtection(event.getBlock().getLocation())) {
+        if (!event.getPlayer().isOp() && isInBuildProtection(event.getBlock().getLocation())) {
             event.setCancelled(true);
             denySpawnAction(event.getPlayer());
         }
@@ -1258,12 +1269,12 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
     public void onSpawnEntityExplosion(EntityExplodeEvent event) {
         // Filter affected blocks individually so TNT cannot damage protected blocks,
         // even when the TNT itself explodes outside the protected radius.
-        event.blockList().removeIf(block -> isInSpawnProtection(block.getLocation()));
+        event.blockList().removeIf(block -> isInBuildProtection(block.getLocation()));
     }
 
     @EventHandler
     public void onSpawnBlockExplosion(BlockExplodeEvent event) {
-        event.blockList().removeIf(block -> isInSpawnProtection(block.getLocation()));
+        event.blockList().removeIf(block -> isInBuildProtection(block.getLocation()));
     }
 
     @EventHandler
