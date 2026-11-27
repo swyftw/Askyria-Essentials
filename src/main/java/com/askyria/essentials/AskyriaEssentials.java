@@ -744,7 +744,11 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
         List<ItemStack> items = new ArrayList<>();
         switch (rank) {
             case "STARTER" -> {
-                // The Starter rank kit is food only.
+                // Basic stone tools plus food for every player.
+                items.add(new ItemStack(Material.STONE_PICKAXE));
+                items.add(new ItemStack(Material.STONE_AXE));
+                items.add(new ItemStack(Material.STONE_SHOVEL));
+                items.add(new ItemStack(Material.STONE_HOE));
                 items.add(new ItemStack(Material.COOKED_BEEF, 32));
                 items.add(new ItemStack(Material.GOLDEN_CARROT, 16));
             }
