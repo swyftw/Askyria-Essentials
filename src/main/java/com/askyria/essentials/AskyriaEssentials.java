@@ -1215,9 +1215,9 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
     private boolean isWithinSpawnRadius(Location location, World.Environment environment) {
         if (location == null || location.getWorld() == null
                 || location.getWorld().getEnvironment() != environment) return false;
-        // A 50x50 square means 25 blocks from the spawn center on each
-        // horizontal axis. The protection is horizontal and applies at every Y.
-        int halfSize = Math.max(0, getConfig().getInt("spawn-protection-half-size", 25));
+        // Protect 40 blocks in each horizontal direction from the spawn center.
+        // The protection is horizontal and applies at every Y.
+        int halfSize = Math.max(0, getConfig().getInt("spawn-protection-half-size", 40));
         Location spawn = location.getWorld().getSpawnLocation();
         return Math.abs(location.getBlockX() - spawn.getBlockX()) <= halfSize
             && Math.abs(location.getBlockZ() - spawn.getBlockZ()) <= halfSize;
