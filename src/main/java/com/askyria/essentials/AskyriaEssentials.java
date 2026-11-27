@@ -604,7 +604,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
             Component.text("Locked kits require their matching rank.", net.kyori.adventure.text.format.NamedTextColor.GRAY),
             Component.text("Cooldowns vary by rank: 24 or 42 hours.", net.kyori.adventure.text.format.NamedTextColor.GRAY),
             Component.text("Cooldowns remain saved after restarts.", net.kyori.adventure.text.format.NamedTextColor.GRAY),
-            Component.text("Staff ranks do not have rank kits.", net.kyori.adventure.text.format.NamedTextColor.DARK_GRAY)
+            Component.text("Staff ranks do not automatically unlock rank kits.", net.kyori.adventure.text.format.NamedTextColor.DARK_GRAY)
         ));
         info.setItemMeta(infoMeta);
         menu.setItem(49, info);
@@ -820,19 +820,9 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
         }
         if (index < 0) return;
 
-        if (hasStaffRank(player)) {
-            player.sendMessage(Component.text("Staff members can view kits but cannot claim them."));
-            return;
-        }
-
         String rank = KIT_ORDER.get(index);
         Set<String> playerOwnedRanks = ownedRanks.getOrDefault(player.getUniqueId(), Set.of());
-        if (rank.equals("STARTER")) {
-            if (PLAYER_RANKS.stream().noneMatch(playerOwnedRanks::contains)) {
-                player.sendMessage(Component.text("You need a player rank to claim a kit."));
-                return;
-            }
-        } else if (!playerOwnedRanks.contains(rank)) {
+        if (!rank.equals("STARTER") && !playerOwnedRanks.contains(rank)) {
             player.sendMessage(Component.text("You need the " + rank + " rank to claim this kit."));
             return;
         }
