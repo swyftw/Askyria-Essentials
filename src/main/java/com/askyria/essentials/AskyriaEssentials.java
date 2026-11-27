@@ -561,7 +561,8 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
         for (int i = 0; i < KIT_ORDER.size(); i++) {
             String rank = KIT_ORDER.get(i);
             Set<String> playerOwnedRanks = ownedRanks.getOrDefault(player.getUniqueId(), Set.of());
-            boolean allowed = rank.equals("STARTER") || playerOwnedRanks.contains(rank);
+            // Operators may claim any rank kit; everyone else needs the matching player rank.
+            boolean allowed = player.isOp() || rank.equals("STARTER") || playerOwnedRanks.contains(rank);
             long readyAt = getConfig().getLong("kit-cooldowns." + player.getUniqueId() + "." + rank, 0L);
             boolean cooling = readyAt > System.currentTimeMillis();
 
@@ -605,7 +606,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
             Component.text("Locked kits require their matching rank.", net.kyori.adventure.text.format.NamedTextColor.GRAY),
             Component.text("Cooldowns vary by rank: 24 or 42 hours.", net.kyori.adventure.text.format.NamedTextColor.GRAY),
             Component.text("Cooldowns remain saved after restarts.", net.kyori.adventure.text.format.NamedTextColor.GRAY),
-            Component.text("Staff ranks do not automatically unlock rank kits.", net.kyori.adventure.text.format.NamedTextColor.DARK_GRAY)
+            Component.text("Only server operators can bypass rank requirements.", net.kyori.adventure.text.format.NamedTextColor.DARK_GRAY)
         ));
         info.setItemMeta(infoMeta);
         menu.setItem(49, info);
@@ -823,7 +824,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
 
         String rank = KIT_ORDER.get(index);
         Set<String> playerOwnedRanks = ownedRanks.getOrDefault(player.getUniqueId(), Set.of());
-        if (!rank.equals("STARTER") && !playerOwnedRanks.contains(rank)) {
+        if (!player.isOp() && !rank.equals("STARTER") && !playerOwnedRanks.contains(rank)) {
             player.sendMessage(Component.text("You need the " + rank + " rank to claim this kit."));
             return;
         }
