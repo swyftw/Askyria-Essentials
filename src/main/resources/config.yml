@@ -1,21 +1,4 @@
 end-closed: false
+spawn-protection-half-size: 40
 protected-players: {}
 player-tags: {}
-
-chat-filter:
-  enabled: true
-  blocked-words: []
-  bypass-permission: askyriaessentials.chatfilter.bypass
-  filters:
-    excessive-caps: true
-    character-spam: true
-    links-and-ips: true
-  anti-spam:
-    enabled: true
-    cooldown-seconds: 3
-    minimum-message-gap-millis: 1200
-    max-messages-per-window: 5
-    window-seconds: 10
-    block-duplicate-messages: true
-    duplicate-window-seconds: 30
-    near-duplicate-detection: true

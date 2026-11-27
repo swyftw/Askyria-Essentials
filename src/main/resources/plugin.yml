@@ -1,5 +1,5 @@
 name: AskyriaEssentials
-version: 1.0.3
+version: 1.1.3
 main: com.askyria.essentials.AskyriaEssentials
 api-version: '1.21'
 depend: [packetevents]
@@ -11,8 +11,26 @@ commands:
     usage: /announcement send <message>
     aliases: [annoucment, announce]
   kits:
-    description: Open the operator-only kit selection menu
+    description: Open the rank kit selection menu
     usage: /kits
+  rank:
+    description: Give and select player ranks
+    usage: /rank give <player> <rank> OR /rank remove <player> <rank> OR /rank choose [rank]
+  kick:
+    description: Kick a player (MODERATOR and higher)
+    usage: /kick <player> [reason]
+  tempban:
+    description: Temporarily ban a player (ADMIN and higher)
+    usage: /tempban <player> <time> <reason> OR /tempban list OR /tempban remove <player>
+  timeout:
+    description: Temporarily mute a player (staff only; supports 30s to 30d)
+    usage: /timeout <player> <duration> [reason]
+  untimeout:
+    description: Remove a player's active timeout (staff only)
+    usage: /untimeout <player>
+  timeoutlist:
+    description: List active timeouts (staff only)
+    usage: /timeoutlist
   addplayers:
     description: Start the labeled simulated activity roster
     usage: /addplayers
@@ -43,28 +61,12 @@ commands:
   orbital:
     description: Give and use Orbital TNT strike items (OP only)
     usage: /orbital [@s] <kit|rain|stab|nuke|lunar|grapple>
-  supertotem:
-    description: Give yourself or another player a Super Totem (OP only)
-    usage: /supertotem [player]
-  deathrestore:
-    description: Restore a player's most recently saved death loot
-    usage: /deathrestore <player>
-
   igncolor:
     description: Set a player's username gradient (OP only)
     usage: /igncolor <player> fade3 <color1> <color2> <color3> OR /igncolor <player> clear
   cheatban:
     description: Ban a player for cheating for a chosen duration (OP only)
     usage: /cheatban <player> <duration>
-
-  shopvillager:
-    description: Manage custom CORE SMP shop villagers (OP only)
-    usage: /shopvillager <spawn|edit> <armor|kits|mythical|seller> OR remove OR removeall
-  shopnpc:
-    description: Manage player-shaped CORE SMP shop NPCs (OP only)
-    usage: /shopnpc <spawn|edit|remove> <armor|kits|mythical|seller> OR removeall
-
-permissions:
-  askyriaessentials.chatfilter.bypass:
-    description: Bypass CORE SMP chat moderation filters
-    default: op
+  combatfriend:
+    description: Send and manage mutual combat friend requests
+    usage: /combatfriend <add|accept|deny|remove|list> [player]

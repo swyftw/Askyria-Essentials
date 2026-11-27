@@ -25,7 +25,6 @@ import java.util.HashSet;
 import java.util.Set;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
@@ -33,6 +32,7 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -42,11 +42,14 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.world.ChunkLoadEvent;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.potion.PotionType;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.block.BlockBreakEvent;
@@ -71,25 +74,31 @@ import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
-public final class AskyriaEssentials extends JavaPlugin implements Listener, TabCompleter {
+public final class AskyriaEssentials extends JavaPlugin implements Listener, CommandExecutor, TabCompleter {
     private final Map<UUID, Long> protectedUntil = new HashMap<>();
+    private final Map<UUID, Set<String>> ownedRanks = new HashMap<>();
+    private final Map<UUID, String> selectedRanks = new HashMap<>();
+    private static final List<String> PLAYER_RANKS = List.of("BOOSTER", "VIP", "BOOSTER+", "VIP+", "CORE", "MEDIA", "CREATOR");
+    private static final List<String> STAFF_RANKS = List.of("OWNER", "CO OWNER", "HEAD MANAGEMENT", "MANAGEMENT", "DEVELOPER", "SR ADMIN", "ADMIN", "MODERATOR", "JR MOD");
+    private static final List<String> KIT_ORDER = List.of("STARTER", "BOOSTER", "VIP", "BOOSTER+", "VIP+", "CORE");
     private final Map<UUID, Component> tags = new HashMap<>();
     private final Map<UUID, String> rawTags = new HashMap<>();
     private final Map<UUID, String> rawIgnColors = new HashMap<>();
     private final Map<UUID, Long> combatUntil = new HashMap<>();
+    private final Map<UUID, Long> timedOutUntil = new ConcurrentHashMap<>();
+    private final Map<UUID, String> timeoutReasons = new ConcurrentHashMap<>();
+    private final Map<UUID, Set<UUID>> combatFriends = new HashMap<>();
+    private final Map<UUID, Set<UUID>> pendingCombatFriendRequests = new HashMap<>();
     private final Map<UUID, BukkitTask> spawnTeleportTasks = new HashMap<>();
     private final Map<UUID, Long> spawnCooldowns = new HashMap<>();
     private final Map<UUID, Scoreboard> cooldownOriginalBoards = new HashMap<>();
     private final Map<UUID, Scoreboard> cooldownBoards = new HashMap<>();
     private final Map<UUID, Set<String>> cooldownSidebarEntries = new HashMap<>();
-    private static final String DEATH_RESTORE_PATH = "death-restores.";
     private BukkitTask combatTicker;
     private BukkitTask tabTicker;
     private BukkitTask simulatedPlayersTicker;
-    private SuperTotemManager superTotemManager;
-    private ShopVillagerManager shopVillagerManager;
-    private ShopNpcManager shopNpcManager;
     private boolean simulatedPlayersEnabled = false;
     private final List<String> simulatedPlayerNames = new ArrayList<>();
     private final Map<UUID, Set<UUID>> sentFakeEntries = new HashMap<>();
@@ -98,7 +107,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private PacketListenerAbstract fakePlayerPacketListener;
     private volatile List<String> statusPlayerNames = List.of();
     private volatile int statusOnlineCount = 0;
-    // Distinct creator skins give the four shop NPCs visibly different looks.
+    // Skins used by simulated TAB player entries.
     private static final List<String> SKIN_SOURCE_ACCOUNTS = List.of(
         "Dream", "Technoblade", "Grian", "MumboJumbo", "GoodTimesWithScar",
         "CaptainSparklez", "DanTDM", "Stampy", "Aphmau", "LDShadowLady",
@@ -112,33 +121,12 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         "FrostByte77", "MangoMiner", "SilentBirch", "KokoBlocks"
     );
     private final MiniMessage mini = MiniMessage.miniMessage();
-    private final java.util.concurrent.ConcurrentMap<UUID, ChatState> chatStates =
-        new java.util.concurrent.ConcurrentHashMap<>();
-    private volatile List<String> blockedChatWords = List.of();
-    private volatile boolean chatFilterEnabled = true;
-    private volatile boolean antiSpamEnabled = true;
-    private volatile boolean duplicateChatEnabled = true;
-    private volatile long chatCooldownMillis = 3000L;
-    private volatile long duplicateWindowMillis = 30000L;
-    private volatile String chatBypassPermission = "askyriaessentials.chatfilter.bypass";
-    private volatile boolean capsFilterEnabled = true, characterSpamEnabled = true, nearDuplicateEnabled = true, linkSpamEnabled = true;
-    private volatile int maxMessagesPerWindow = 5;
-    private volatile long messageWindowMillis = 10000L, minimumMessageGapMillis = 1200L;
-
-    private static final class ChatState {
-        private long lastMessageAt;
-        private String lastMessage;
-        private final java.util.ArrayDeque<Long> recentMessageTimes = new java.util.ArrayDeque<>();
-        private final java.util.ArrayDeque<String> recentMessages = new java.util.ArrayDeque<>();
-    }
-
     @Override
     public void onEnable() {
         // Remove retired Askyria custom weapon recipes from the server recipe registry.
         Bukkit.removeRecipe(new org.bukkit.NamespacedKey(this, "god_mace"));
         Bukkit.removeRecipe(new org.bukkit.NamespacedKey(this, "god_spear_recipe"));
         saveDefaultConfig();
-        loadChatModerationSettings();
         long now = System.currentTimeMillis();
         if (getConfig().isConfigurationSection("protected-players")) {
             for (String key : getConfig().getConfigurationSection("protected-players").getKeys(false)) {
@@ -166,16 +154,41 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 if (raw != null) { try { rawIgnColors.put(UUID.fromString(key), raw); } catch (IllegalArgumentException ignored) { } }
             }
         }
+        if (getConfig().isConfigurationSection("timeouts")) {
+            for (String key : getConfig().getConfigurationSection("timeouts").getKeys(false)) {
+                try {
+                    UUID id = UUID.fromString(key);
+                    long expiry = getConfig().getLong("timeouts." + key + ".until");
+                    if (expiry > now) {
+                        timedOutUntil.put(id, expiry);
+                        timeoutReasons.put(id, getConfig().getString("timeouts." + key + ".reason", "No reason provided"));
+                    }
+                } catch (IllegalArgumentException ignored) { }
+            }
+        }
+        if (getConfig().isConfigurationSection("player-ranks")) {
+            for (String key : getConfig().getConfigurationSection("player-ranks").getKeys(false)) {
+                try {
+                    UUID id = UUID.fromString(key);
+                    ownedRanks.put(id, new HashSet<>(getConfig().getStringList("player-ranks." + key)));
+                    String selected = getConfig().getString("selected-ranks." + key);
+                    if (selected != null && ownedRanks.get(id).contains(selected)) selectedRanks.put(id, selected);
+                } catch (IllegalArgumentException ignored) { }
+            }
+        }
+        loadCombatFriendData();
         Bukkit.getPluginManager().registerEvents(this, this);
-        shopVillagerManager = new ShopVillagerManager(this);
-        Bukkit.getPluginManager().registerEvents(shopVillagerManager, this);
-        getCommand("shopvillager").setExecutor(this);
-        getCommand("shopnpc").setExecutor(this);
-        shopNpcManager = new ShopNpcManager(this, shopVillagerManager);
-        PacketEvents.getAPI().getEventManager().registerListener(shopNpcManager);
-        Bukkit.getPluginManager().registerEvents(shopNpcManager, this);
-        shopNpcManager.load();
-        Bukkit.getPluginManager().registerEvents(new LegacyEnderChestMigration(this), this);
+        // JavaPlugin does not automatically route declared commands to onCommand
+        // unless this class implements CommandExecutor. Register every declared
+        // command explicitly so all CORE commands are executable and tab-completable.
+        for (String commandName : getDescription().getCommands().keySet()) {
+            org.bukkit.command.PluginCommand registeredCommand = getCommand(commandName);
+            if (registeredCommand != null) {
+                registeredCommand.setExecutor(this);
+                registeredCommand.setTabCompleter(this);
+            }
+        }
+        Bukkit.getScheduler().runTask(this, this::cleanupRetiredFeatureData);
         fakePlayerPacketListener = new PacketListenerAbstract(PacketListenerPriority.NORMAL) {
             @Override
             public void onPacketSend(com.github.retrooper.packetevents.event.PacketSendEvent event) {
@@ -207,11 +220,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         OrbitalManager orbitalManager = new OrbitalManager(this);
         Bukkit.getPluginManager().registerEvents(orbitalManager, this);
         getCommand("orbital").setExecutor(orbitalManager);
-        superTotemManager = new SuperTotemManager(this);
-        Bukkit.getPluginManager().registerEvents(superTotemManager, this);
-        getCommand("supertotem").setExecutor(superTotemManager);
-        getCommand("deathrestore").setExecutor(this);
-        getCommand("deathrestore").setTabCompleter(this);
         combatTicker = Bukkit.getScheduler().runTaskTimer(this, () -> {
             long nowTick = System.currentTimeMillis();
             for (Player player : Bukkit.getOnlinePlayers()) {
@@ -250,11 +258,146 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         spawnTeleportTasks.clear();
         if (tabTicker != null) tabTicker.cancel();
         if (simulatedPlayersTicker != null) simulatedPlayersTicker.cancel();
-        if (shopNpcManager != null) PacketEvents.getAPI().getEventManager().unregisterListener(shopNpcManager);
         if (fakePlayerPacketListener != null) {
             PacketEvents.getAPI().getEventManager().unregisterListener(fakePlayerPacketListener);
         }
         saveProtectionData();
+        saveCombatFriendData();
+        saveTimeoutData();
+    }
+
+    private void saveTimeoutData() {
+        getConfig().set("timeouts", null);
+        for (Map.Entry<UUID, Long> entry : timedOutUntil.entrySet()) {
+            String base = "timeouts." + entry.getKey();
+            getConfig().set(base + ".until", entry.getValue());
+            getConfig().set(base + ".reason", timeoutReasons.getOrDefault(entry.getKey(), "No reason provided"));
+        }
+        saveConfig();
+    }
+
+    private int staffLevel(UUID id) {
+        Set<String> ranks = ownedRanks.getOrDefault(id, Set.of());
+        for (int i = 0; i < STAFF_RANKS.size(); i++) if (ranks.contains(STAFF_RANKS.get(i))) return i;
+        return -1;
+    }
+
+    private boolean hasStaffRank(Player player) {
+        if (player.isOp() || player.hasPermission("askyria.timeout")) return true;
+        Set<String> ranks = ownedRanks.getOrDefault(player.getUniqueId(), Set.of());
+        return STAFF_RANKS.stream().anyMatch(ranks::contains);
+    }
+
+    private boolean hasStaffRank(UUID id) {
+        return ownedRanks.getOrDefault(id, Set.of()).stream().anyMatch(STAFF_RANKS::contains);
+    }
+
+    private boolean canTempBan(Player player) {
+        int level = staffLevel(player.getUniqueId());
+        return level >= 0 && level <= STAFF_RANKS.indexOf("ADMIN");
+    }
+
+    private boolean canKick(Player player) {
+        int level = staffLevel(player.getUniqueId());
+        return level >= 0 && level <= STAFF_RANKS.indexOf("MODERATOR");
+    }
+
+    @EventHandler
+    public void onTimedOutChat(AsyncChatEvent event) {
+        UUID id = event.getPlayer().getUniqueId();
+        Long expiry = timedOutUntil.get(id);
+        if (expiry == null) return;
+        if (expiry <= System.currentTimeMillis()) {
+            timedOutUntil.remove(id);
+            timeoutReasons.remove(id);
+            Bukkit.getScheduler().runTask(this, this::saveTimeoutData);
+            return;
+        }
+        event.setCancelled(true);
+        long seconds = Math.max(1L, (expiry - System.currentTimeMillis() + 999L) / 1000L);
+        Bukkit.getScheduler().runTask(this, () -> {
+            Player player = Bukkit.getPlayer(id);
+            if (player != null) player.sendMessage(Component.text(
+                "You are timed out for " + seconds + "s. Reason: " +
+                timeoutReasons.getOrDefault(id, "No reason provided"),
+                net.kyori.adventure.text.format.NamedTextColor.RED));
+        });
+    }
+
+    private void loadCombatFriendData() {
+        loadUuidRelations("combat-friends", combatFriends);
+        loadUuidRelations("combat-friend-requests", pendingCombatFriendRequests);
+    }
+
+    private void loadUuidRelations(String path, Map<UUID, Set<UUID>> destination) {
+        var section = getConfig().getConfigurationSection(path);
+        if (section == null) return;
+        for (String ownerKey : section.getKeys(false)) {
+            try {
+                UUID owner = UUID.fromString(ownerKey);
+                Set<UUID> related = new HashSet<>();
+                for (String relatedKey : getConfig().getStringList(path + "." + ownerKey)) {
+                    try { related.add(UUID.fromString(relatedKey)); }
+                    catch (IllegalArgumentException ignored) { }
+                }
+                if (!related.isEmpty()) destination.put(owner, related);
+            } catch (IllegalArgumentException ignored) { }
+        }
+    }
+
+    private void saveCombatFriendData() {
+        getConfig().set("combat-friends", null);
+        for (Map.Entry<UUID, Set<UUID>> entry : combatFriends.entrySet()) {
+            List<String> ids = entry.getValue().stream().map(UUID::toString).toList();
+            getConfig().set("combat-friends." + entry.getKey(), ids);
+        }
+        getConfig().set("combat-friend-requests", null);
+        for (Map.Entry<UUID, Set<UUID>> entry : pendingCombatFriendRequests.entrySet()) {
+            List<String> ids = entry.getValue().stream().map(UUID::toString).toList();
+            getConfig().set("combat-friend-requests." + entry.getKey(), ids);
+        }
+        saveConfig();
+    }
+
+    private boolean areCombatFriends(Player first, Player second) {
+        UUID a = first.getUniqueId();
+        UUID b = second.getUniqueId();
+        return combatFriends.getOrDefault(a, Set.of()).contains(b)
+            && combatFriends.getOrDefault(b, Set.of()).contains(a);
+    }
+
+    private void cleanupRetiredFeatureData() {
+        // Remove persisted data belonging only to the retired features.
+        getConfig().set("chat-filter", null);
+        getConfig().set("death-restores", null);
+        getConfig().set("shop-layout", null);
+        getConfig().set("shop-npcs", null);
+        saveConfig();
+
+        // Clean already-loaded worlds now. The chunk-load listener below catches
+        // retired shop entities in chunks that are loaded later.
+        for (World world : Bukkit.getWorlds()) {
+            removeRetiredShopEntities(world.getEntities());
+        }
+    }
+
+    private void removeRetiredShopEntities(Iterable<Entity> entities) {
+        org.bukkit.NamespacedKey shopVillagerKey =
+            new org.bukkit.NamespacedKey(this, "core_shop_villager");
+        org.bukkit.NamespacedKey shopNpcHologramKey =
+            new org.bukkit.NamespacedKey(this, "core_shop_npc_hologram");
+        for (Entity entity : entities) {
+            var data = entity.getPersistentDataContainer();
+            if (data.has(shopVillagerKey, PersistentDataType.BYTE)
+                    || data.has(shopNpcHologramKey, PersistentDataType.BYTE)) {
+                entity.remove();
+            }
+        }
+    }
+
+    @EventHandler
+    public void onChunkLoadCleanupRetiredShopEntities(ChunkLoadEvent event) {
+        removeRetiredShopEntities(java.util.Arrays.asList(event.getChunk().getEntities()));
     }
 
     private void saveProtectionData() {
@@ -276,16 +419,215 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         return true;
     }
 
+    private void saveRanks(UUID id) {
+        getConfig().set("player-ranks." + id, new ArrayList<>(ownedRanks.getOrDefault(id, Set.of())));
+        String selected = selectedRanks.get(id);
+        getConfig().set("selected-ranks." + id, selected);
+        saveConfig();
+    }
+
+    private String normalizeRank(String value) {
+        String rank = value.toUpperCase(java.util.Locale.ROOT).replace("_", "").replace("-", "").replace(" ", "");
+        return switch (rank) {
+            case "BOOSTER", "VIP", "BOOSTER+", "VIP+", "CORE", "MEDIA", "CREATOR" -> rank;
+            case "OWNER", "COOWNER" -> "CO OWNER";
+            case "HEADMANAGEMENT" -> "HEAD MANAGEMENT";
+            case "MANAGEMENT" -> "MANAGEMENT";
+            case "DEVELOPER" -> "DEVELOPER";
+            case "SRADMIN" -> "SR ADMIN";
+            case "ADMIN" -> "ADMIN";
+            case "MODERATOR" -> "MODERATOR";
+            case "JRMOD" -> "JR MOD";
+            default -> null;
+        };
+    }
+
+    private String rankTag(String rank) {
+        return switch (rank) {
+            case "BOOSTER" -> "<bold><gradient:#8A2BE2:#D8B4FE>[BOOSTER]</gradient></bold>";
+            case "VIP" -> "<bold><gradient:#FFD700:#FFF176>[VIP]</gradient></bold>";
+            case "BOOSTER+" -> "<bold><gradient:#4B0082:#A855F7>[BOOSTER+]</gradient></bold>";
+            case "VIP+" -> "<bold><gradient:#FFD700:#FF8C00>[VIP+]</gradient></bold>";
+            case "CORE" -> "<bold><gradient:#25282D:#555B64:#858B94>[CORE]</gradient></bold>";
+            case "MEDIA" -> "<bold><gradient:#1E88E5:#64B5F6:#BBDEFB>[MEDIA]</gradient></bold>";
+            case "CREATOR" -> "<bold><gradient:#C62828:#EF5350:#FFCDD2>[CREATOR]</gradient></bold>";
+            case "OWNER" -> "<bold><gradient:#FF3030:#FFD700>[OWNER]</gradient></bold>";
+            case "CO OWNER" -> "<bold><gradient:#FF5A36:#FFD700>[CO OWNER]</gradient></bold>";
+            case "HEAD MANAGEMENT" -> "<bold><gradient:#E040FB:#7C4DFF>[HEAD MANAGEMENT]</gradient></bold>";
+            case "MANAGEMENT" -> "<bold><gradient:#9C27B0:#E1BEE7>[MANAGEMENT]</gradient></bold>";
+            case "DEVELOPER" -> "<bold><gradient:#00BCD4:#80DEEA>[DEVELOPER]</gradient></bold>";
+            case "SR ADMIN" -> "<bold><gradient:#F44336:#FF9800>[SR ADMIN]</gradient></bold>";
+            case "ADMIN" -> "<bold><gradient:#EF5350:#FFCDD2>[ADMIN]</gradient></bold>";
+            case "MODERATOR" -> "<bold><gradient:#43A047:#C8E6C9>[MODERATOR]</gradient></bold>";
+            case "JR MOD" -> "<bold><gradient:#26A69A:#B2DFDB>[JR MOD]</gradient></bold>";
+            default -> null;
+        };
+    }
+
+    private void applySelectedRank(Player player) {
+        String rank = selectedRanks.get(player.getUniqueId());
+        if (rank == null) {
+            rawTags.remove(player.getUniqueId());
+            getConfig().set("player-tags." + player.getUniqueId(), null);
+            tags.remove(player.getUniqueId());
+            applyIgnColor(player);
+            return;
+        }
+        String raw = rankTag(rank);
+        rawTags.put(player.getUniqueId(), raw);
+        getConfig().set("player-tags." + player.getUniqueId(), raw);
+        applyTagToOnlinePlayer(player.getUniqueId(), raw);
+        saveConfig();
+    }
+
+    private void openRankMenu(Player player) {
+        Inventory menu = Bukkit.createInventory(null, 27, Component.text("CORE Rank Selection"));
+        int slot = 10;
+        for (String rank : PLAYER_RANKS) {
+            if (!ownedRanks.getOrDefault(player.getUniqueId(), Set.of()).contains(rank)) continue;
+            ItemStack item = new ItemStack(rank.equals("CORE") ? Material.NETHERITE_INGOT : Material.DIAMOND);
+            org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
+            meta.displayName(mini.deserialize(rankTag(rank)));
+            meta.lore(List.of(Component.text(rank.equals(selectedRanks.get(player.getUniqueId()))
+                ? "Currently selected" : "Click to select")));
+            item.setItemMeta(meta);
+            menu.setItem(slot++, item);
+        }
+        if (slot == 10) player.sendMessage(Component.text("You have no player ranks to choose yet."));
+        else player.openInventory(menu);
+    }
+
+    @EventHandler
+    public void onRankMenuClick(InventoryClickEvent event) {
+        if (!event.getView().title().equals(Component.text("CORE Rank Selection"))) return;
+        event.setCancelled(true);
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (event.getClickedInventory() == null || event.getClickedInventory() != event.getView().getTopInventory()) return;
+        ItemStack item = event.getCurrentItem();
+        if (item == null || !item.hasItemMeta() || item.getItemMeta().displayName() == null) return;
+        String chosen = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+            .serialize(item.getItemMeta().displayName()).replace("[", "").replace("]", "").trim().toUpperCase(java.util.Locale.ROOT);
+        String rank = normalizeRank(chosen);
+        if (rank == null || !ownedRanks.getOrDefault(player.getUniqueId(), Set.of()).contains(rank)) return;
+        selectedRanks.put(player.getUniqueId(), rank);
+        applySelectedRank(player);
+        saveRanks(player.getUniqueId());
+        player.closeInventory();
+        player.sendMessage(Component.text("Your active rank is now " + rank + "."));
+    }
+
+    private static final String KIT_MENU_TITLE = "CORE SMP | RANK KITS";
+
     private void openKitsMenu(Player player) {
-        Inventory menu = Bukkit.createInventory(null, 54, Component.text("Askyria OP Kits"));
-        menu.setItem(10, kitIcon(Material.NETHERITE_SWORD, "OP Sword Kit", "Sharpness V • Knockback I"));
-        menu.setItem(12, kitIcon(Material.NETHERITE_CHESTPLATE, "Tank Kit", "Full Protection IV + Unbreaking III"));
-        menu.setItem(14, kitIcon(Material.BOW, "OP Archer Kit", "Power V • Flame • Punch II"));
-        menu.setItem(16, kitIcon(Material.END_CRYSTAL, "Crystal PvP Kit", "Obsidian • Crystals • Totems"));
-        menu.setItem(29, kitIcon(Material.MACE, "Mace Kit", "Density V • Wind Burst II"));
-        menu.setItem(31, kitIcon(Material.TRIDENT, "Spear Kit", "Trident combat loadout"));
-        menu.setItem(33, kitIcon(Material.GOLDEN_APPLE, "UHC Kit", "UHC healing • Bow • Diamond gear"));
+        Inventory menu = Bukkit.createInventory(null, 54, Component.text(KIT_MENU_TITLE));
+
+        ItemStack background = new ItemStack(Material.PURPLE_STAINED_GLASS_PANE);
+        var backgroundMeta = background.getItemMeta();
+        backgroundMeta.displayName(Component.text(" "));
+        background.setItemMeta(backgroundMeta);
+
+        ItemStack frame = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
+        var frameMeta = frame.getItemMeta();
+        frameMeta.displayName(Component.text(" "));
+        frame.setItemMeta(frameMeta);
+
+        for (int slot = 0; slot < menu.getSize(); slot++) {
+            menu.setItem(slot, background);
+            int row = slot / 9;
+            int col = slot % 9;
+            if (row == 0 || row == 5 || col == 0 || col == 8) menu.setItem(slot, frame);
+        }
+
+        ItemStack header = new ItemStack(Material.NETHER_STAR);
+        var headerMeta = header.getItemMeta();
+        headerMeta.displayName(mini.deserialize("<bold><gradient:#a855f7:#60a5fa>CORE SMP RANK KITS</gradient></bold>"));
+        headerMeta.lore(List.of(
+            Component.text("Choose a kit unlocked by your rank.", net.kyori.adventure.text.format.NamedTextColor.GRAY),
+            Component.text("Starter is available to everyone.", net.kyori.adventure.text.format.NamedTextColor.GRAY)
+        ));
+        header.setItemMeta(headerMeta);
+        menu.setItem(4, header);
+
+        // Give every rank kit its own recognizable icon.
+        Material[] icons = {
+            Material.CHEST,                 // STARTER
+            Material.FIREWORK_ROCKET,       // BOOSTER
+            Material.DIAMOND,               // VIP
+            Material.BLAZE_POWDER,          // BOOSTER+
+            Material.ENCHANTED_GOLDEN_APPLE,// VIP+
+            Material.NETHER_STAR            // CORE
+        };
+        int[] slots = {11, 13, 15, 29, 31, 33};
+        for (int i = 0; i < KIT_ORDER.size(); i++) {
+            String rank = KIT_ORDER.get(i);
+            Set<String> playerOwnedRanks = ownedRanks.getOrDefault(player.getUniqueId(), Set.of());
+            // Operators may claim any rank kit; everyone else needs the matching player rank.
+            boolean allowed = player.isOp() || rank.equals("STARTER") || playerOwnedRanks.contains(rank);
+            long readyAt = getConfig().getLong("kit-cooldowns." + player.getUniqueId() + "." + rank, 0L);
+            boolean cooling = readyAt > System.currentTimeMillis();
+
+            ItemStack icon = new ItemStack(!allowed ? Material.BARRIER : icons[i]);
+            var meta = icon.getItemMeta();
+            String title = rank.equals("STARTER")
+                ? "<bold><white>STARTER KIT</white></bold>"
+                : (rankTag(rank) == null ? "<bold><white>" + rank + "</white></bold>" : rankTag(rank))
+                    + " <dark_gray>•</dark_gray> <bold><white>KIT</white></bold>";
+            meta.displayName(mini.deserialize(title));
+
+            List<Component> lore = new ArrayList<>();
+            lore.add(Component.text(rank.equals("STARTER")
+                ? "A basic kit for every player"
+                : "Exclusive kit for " + rank, net.kyori.adventure.text.format.NamedTextColor.GRAY));
+            lore.add(Component.text(" "));
+            if (!allowed) {
+                lore.add(Component.text("LOCKED", net.kyori.adventure.text.format.NamedTextColor.RED));
+                lore.add(Component.text("You need the " + rank + " rank.", net.kyori.adventure.text.format.NamedTextColor.GRAY));
+            } else if (cooling) {
+                lore.add(Component.text("ON COOLDOWN", net.kyori.adventure.text.format.NamedTextColor.YELLOW));
+                lore.add(Component.text("Available in " + formatRemaining(readyAt - System.currentTimeMillis()),
+                    net.kyori.adventure.text.format.NamedTextColor.GRAY));
+            } else {
+                lore.add(Component.text("READY TO CLAIM", net.kyori.adventure.text.format.NamedTextColor.GREEN));
+                lore.add(Component.text("Click to claim this kit.", net.kyori.adventure.text.format.NamedTextColor.GRAY));
+            }
+            lore.add(Component.text(" "));
+            lore.add(Component.text("Cooldown: " + kitCooldownHours(rank) + " hours", net.kyori.adventure.text.format.NamedTextColor.DARK_GRAY));
+            meta.lore(lore);
+            meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ATTRIBUTES);
+            icon.setItemMeta(meta);
+            menu.setItem(slots[i], icon);
+        }
+
+        ItemStack info = new ItemStack(Material.WRITABLE_BOOK);
+        var infoMeta = info.getItemMeta();
+        infoMeta.displayName(mini.deserialize("<bold><aqua>HOW TO USE</aqua></bold>"));
+        infoMeta.lore(List.of(
+            Component.text("Click an unlocked kit to claim it.", net.kyori.adventure.text.format.NamedTextColor.GRAY),
+            Component.text("Locked kits require their matching rank.", net.kyori.adventure.text.format.NamedTextColor.GRAY),
+            Component.text("Cooldowns vary by rank: 24 or 42 hours.", net.kyori.adventure.text.format.NamedTextColor.GRAY),
+            Component.text("Cooldowns remain saved after restarts.", net.kyori.adventure.text.format.NamedTextColor.GRAY),
+            Component.text("Only server operators can bypass rank requirements.", net.kyori.adventure.text.format.NamedTextColor.DARK_GRAY)
+        ));
+        info.setItemMeta(infoMeta);
+        menu.setItem(49, info);
+
         player.openInventory(menu);
+    }
+
+    private int kitCooldownHours(String rank) {
+        return switch (rank) {
+            case "BOOSTER+", "VIP+", "CORE" -> 42;
+            default -> 24;
+        };
+    }
+
+    private long kitCooldownMillis(String rank) {
+        return java.util.concurrent.TimeUnit.HOURS.toMillis(kitCooldownHours(rank));
+    }
+
+    private String formatRemaining(long millis) {
+        long seconds = Math.max(0L, (millis + 999L) / 1000L);
+        return (seconds / 3600) + "h " + ((seconds % 3600) / 60) + "m";
     }
 
     private ItemStack kitIcon(Material material, String name, String description) {
@@ -305,161 +647,214 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         return item;
     }
 
-    private void addCommonPvPSupplies(List<ItemStack> items) {
-        // Every kit gets standard golden apples, food, pearls, and core PvP potions.
-        items.add(new ItemStack(Material.GOLDEN_APPLE, 16));
-        items.add(new ItemStack(Material.COOKED_BEEF, 32));
-        items.add(new ItemStack(Material.ENDER_PEARL, 16));
-        items.add(potion(PotionType.STRENGTH));
-        items.add(potion(PotionType.STRENGTH));
-        items.add(potion(PotionType.SWIFTNESS));
-        items.add(potion(PotionType.SWIFTNESS));
-        items.add(potion(PotionType.FIRE_RESISTANCE));
-        items.add(potion(PotionType.FIRE_RESISTANCE));
-        items.add(potion(PotionType.STRONG_HEALING));
-        items.add(potion(PotionType.STRONG_HEALING));
-    }
-
     private ItemStack enchanted(Material material, Enchantment enchantment, int level) {
         ItemStack item = new ItemStack(material);
         item.addUnsafeEnchantment(enchantment, level);
         return item;
     }
 
-    private ItemStack armor(Material material) {
+    private ItemStack gear(Material material, Enchantment main, int mainLevel, boolean mending) {
         ItemStack item = new ItemStack(material);
-        item.addUnsafeEnchantment(Enchantment.PROTECTION, 4);
+        if (main != null) item.addUnsafeEnchantment(main, mainLevel);
         item.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+        if (mending) item.addUnsafeEnchantment(Enchantment.MENDING, 1);
         return item;
     }
 
-    private void addNetheriteArmor(List<ItemStack> items) {
-        items.add(armor(Material.NETHERITE_HELMET));
-        items.add(armor(Material.NETHERITE_CHESTPLATE));
-        items.add(armor(Material.NETHERITE_LEGGINGS));
-        items.add(armor(Material.NETHERITE_BOOTS));
+    private ItemStack rankArmor(Material material, int protection, boolean mending) {
+        ItemStack item = new ItemStack(material);
+        item.addUnsafeEnchantment(Enchantment.PROTECTION, protection);
+        item.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+        if (mending) item.addUnsafeEnchantment(Enchantment.MENDING, 1);
+        return item;
     }
 
-    private void addNetheriteSword(List<ItemStack> items) {
-        ItemStack sword = enchanted(Material.NETHERITE_SWORD, Enchantment.SHARPNESS, 5);
-        sword.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-        sword.addUnsafeEnchantment(Enchantment.MENDING, 1);
-        items.add(sword);
+    private void addDiamondArmor(List<ItemStack> items, int protection, boolean mending) {
+        items.add(rankArmor(Material.DIAMOND_HELMET, protection, mending));
+        items.add(rankArmor(Material.DIAMOND_CHESTPLATE, protection, mending));
+        items.add(rankArmor(Material.DIAMOND_LEGGINGS, protection, mending));
+        items.add(rankArmor(Material.DIAMOND_BOOTS, protection, mending));
+    }
+
+    private void addMaxDiamondArmor(List<ItemStack> items) {
+        ItemStack helmet = rankArmor(Material.DIAMOND_HELMET, 4, true);
+        helmet.addUnsafeEnchantment(Enchantment.RESPIRATION, 3);
+        helmet.addUnsafeEnchantment(Enchantment.AQUA_AFFINITY, 1);
+        items.add(helmet);
+
+        items.add(rankArmor(Material.DIAMOND_CHESTPLATE, 4, true));
+
+        ItemStack leggings = rankArmor(Material.DIAMOND_LEGGINGS, 4, true);
+        leggings.addUnsafeEnchantment(Enchantment.SWIFT_SNEAK, 3);
+        items.add(leggings);
+
+        ItemStack boots = rankArmor(Material.DIAMOND_BOOTS, 4, true);
+        boots.addUnsafeEnchantment(Enchantment.FEATHER_FALLING, 4);
+        boots.addUnsafeEnchantment(Enchantment.DEPTH_STRIDER, 3);
+        boots.addUnsafeEnchantment(Enchantment.SOUL_SPEED, 3);
+        items.add(boots);
+    }
+
+    private ItemStack maxSword(Material material) {
+        ItemStack sword = gear(material, Enchantment.SHARPNESS, 5, true);
+        sword.addUnsafeEnchantment(Enchantment.LOOTING, 3);
+        sword.addUnsafeEnchantment(Enchantment.FIRE_ASPECT, 2);
+        sword.addUnsafeEnchantment(Enchantment.SWEEPING_EDGE, 3);
+        return sword;
+    }
+
+    private ItemStack maxPickaxe(Material material) {
+        ItemStack pickaxe = gear(material, Enchantment.EFFICIENCY, 5, true);
+        pickaxe.addUnsafeEnchantment(Enchantment.FORTUNE, 3);
+        return pickaxe;
+    }
+
+    private ItemStack maxTool(Material material) {
+        return gear(material, Enchantment.EFFICIENCY, 5, true);
+    }
+
+    private ItemStack rankBow(int power) {
+        ItemStack bow = new ItemStack(Material.BOW);
+        bow.addUnsafeEnchantment(Enchantment.POWER, power);
+        bow.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+        if (power >= 5) {
+            bow.addUnsafeEnchantment(Enchantment.MENDING, 1);
+            bow.addUnsafeEnchantment(Enchantment.FLAME, 1);
+            bow.addUnsafeEnchantment(Enchantment.PUNCH, 2);
+        }
+        return bow;
+    }
+
+    private void addTopTierSupplies(List<ItemStack> items) {
+        items.add(new ItemStack(Material.COBWEB, 64));
+        items.add(new ItemStack(Material.ENDER_PEARL, 64));
+        items.add(new ItemStack(Material.BREEZE_ROD, 64));
+        items.add(new ItemStack(Material.WATER_BUCKET));
+        items.add(new ItemStack(Material.COOKED_BEEF, 64));
+        items.add(new ItemStack(Material.GOLDEN_CARROT, 64));
+        items.add(new ItemStack(Material.GOLDEN_APPLE, 64));
+        items.add(new ItemStack(Material.EXPERIENCE_BOTTLE, 64));
+        items.add(new ItemStack(Material.ARROW, 64));
+        items.add(potion(PotionType.STRONG_STRENGTH));
+        items.add(potion(PotionType.STRONG_SWIFTNESS));
+        items.add(potion(PotionType.LONG_FIRE_RESISTANCE));
+    }
+
+    private List<ItemStack> buildRankKit(String rank) {
+        List<ItemStack> items = new ArrayList<>();
+        switch (rank) {
+            case "STARTER" -> {
+                // The Starter rank kit is food only.
+                items.add(new ItemStack(Material.COOKED_BEEF, 32));
+                items.add(new ItemStack(Material.GOLDEN_CARROT, 16));
+            }
+            case "BOOSTER" -> {
+                addDiamondArmor(items, 3, false);
+                items.add(gear(Material.DIAMOND_SWORD, Enchantment.SHARPNESS, 3, false));
+                items.add(gear(Material.DIAMOND_PICKAXE, Enchantment.EFFICIENCY, 3, false));
+                items.add(gear(Material.DIAMOND_AXE, Enchantment.EFFICIENCY, 2, false));
+                items.add(gear(Material.DIAMOND_SHOVEL, Enchantment.EFFICIENCY, 2, false));
+                items.add(rankBow(2));
+                items.add(new ItemStack(Material.ARROW, 32));
+                items.add(new ItemStack(Material.ENDER_PEARL, 32));
+                items.add(new ItemStack(Material.BREEZE_ROD, 16));
+                items.add(new ItemStack(Material.WATER_BUCKET));
+                items.add(new ItemStack(Material.COOKED_BEEF, 32));
+                items.add(new ItemStack(Material.GOLDEN_CARROT, 16));
+                items.add(new ItemStack(Material.GOLDEN_APPLE, 8));
+                items.add(potion(PotionType.STRENGTH));
+                items.add(potion(PotionType.SWIFTNESS));
+                items.add(potion(PotionType.FIRE_RESISTANCE));
+            }
+            case "VIP" -> {
+                addDiamondArmor(items, 4, false);
+                items.add(gear(Material.DIAMOND_SWORD, Enchantment.SHARPNESS, 4, false));
+                items.add(gear(Material.DIAMOND_PICKAXE, Enchantment.EFFICIENCY, 4, false));
+                items.add(gear(Material.DIAMOND_AXE, Enchantment.EFFICIENCY, 3, false));
+                items.add(gear(Material.DIAMOND_SHOVEL, Enchantment.EFFICIENCY, 3, false));
+                items.add(rankBow(3));
+                items.add(new ItemStack(Material.ARROW, 64));
+                items.add(new ItemStack(Material.ENDER_PEARL, 48));
+                items.add(new ItemStack(Material.BREEZE_ROD, 24));
+                items.add(new ItemStack(Material.WATER_BUCKET, 2));
+                items.add(new ItemStack(Material.COOKED_BEEF, 64));
+                items.add(new ItemStack(Material.GOLDEN_CARROT, 32));
+                items.add(new ItemStack(Material.GOLDEN_APPLE, 16));
+                items.add(potion(PotionType.STRENGTH));
+                items.add(potion(PotionType.SWIFTNESS));
+                items.add(potion(PotionType.FIRE_RESISTANCE));
+            }
+            case "BOOSTER+", "VIP+" -> {
+                addMaxDiamondArmor(items);
+                items.add(maxSword(Material.DIAMOND_SWORD));
+                items.add(maxPickaxe(Material.DIAMOND_PICKAXE));
+                items.add(maxTool(Material.DIAMOND_AXE));
+                items.add(maxTool(Material.DIAMOND_SHOVEL));
+                items.add(rankBow(5));
+                addTopTierSupplies(items);
+            }
+            case "CORE" -> {
+                addMaxDiamondArmor(items);
+                items.add(maxSword(Material.NETHERITE_SWORD));
+                items.add(maxPickaxe(Material.NETHERITE_PICKAXE));
+                items.add(maxTool(Material.NETHERITE_AXE));
+                items.add(maxTool(Material.NETHERITE_SHOVEL));
+                items.add(rankBow(5));
+                addTopTierSupplies(items);
+            }
+        }
+        return items;
     }
 
     @EventHandler
     public void onKitsMenuClick(InventoryClickEvent event) {
-        if (!event.getView().title().equals(Component.text("Askyria OP Kits"))) return;
+        if (!event.getView().title().equals(Component.text(KIT_MENU_TITLE))) return;
         event.setCancelled(true);
         if (!(event.getWhoClicked() instanceof Player player)) return;
-        if (!player.isOp()) {
-            player.closeInventory();
-            player.sendMessage(Component.text("Only operators can use /kits."));
+        if (event.getClickedInventory() == null || event.getClickedInventory() != event.getView().getTopInventory()) return;
+        int[] slots = {11, 13, 15, 29, 31, 33};
+        int index = -1;
+        for (int i = 0; i < slots.length; i++) {
+            if (slots[i] == event.getSlot()) {
+                index = i;
+                break;
+            }
+        }
+        if (index < 0) return;
+
+        String rank = KIT_ORDER.get(index);
+        Set<String> playerOwnedRanks = ownedRanks.getOrDefault(player.getUniqueId(), Set.of());
+        if (!player.isOp() && !rank.equals("STARTER") && !playerOwnedRanks.contains(rank)) {
+            player.sendMessage(Component.text("You need the " + rank + " rank to claim this kit."));
             return;
         }
-        if (event.getClickedInventory() == null || event.getClickedInventory() != event.getView().getTopInventory()) return;
-        ItemStack clicked = event.getCurrentItem();
-        if (clicked == null || clicked.getType().isAir()) return;
-        List<ItemStack> items = new ArrayList<>();
-        switch (clicked.getType()) {
-            case NETHERITE_SWORD -> {
-                addNetheriteArmor(items);
-                ItemStack sword = enchanted(Material.NETHERITE_SWORD, Enchantment.SHARPNESS, 5);
-                sword.addUnsafeEnchantment(Enchantment.KNOCKBACK, 1);
-                sword.addUnsafeEnchantment(Enchantment.FIRE_ASPECT, 2);
-                sword.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-                sword.addUnsafeEnchantment(Enchantment.MENDING, 1);
-                items.add(sword);
-                items.add(enchanted(Material.NETHERITE_AXE, Enchantment.SHARPNESS, 5));
-                items.add(new ItemStack(Material.TOTEM_OF_UNDYING, 2));
-                items.add(new ItemStack(Material.GOLDEN_CARROT, 64));
-                items.add(new ItemStack(Material.ENDER_PEARL, 16));
-            }
-            case NETHERITE_CHESTPLATE -> {
-                addNetheriteArmor(items);
-                addNetheriteSword(items);
-                items.add(new ItemStack(Material.TOTEM_OF_UNDYING, 4));
-            }
-            case BOW -> {
-                addNetheriteArmor(items);
-                addNetheriteSword(items);
-                ItemStack bow = enchanted(Material.BOW, Enchantment.POWER, 5);
-                bow.addUnsafeEnchantment(Enchantment.FLAME, 1);
-                bow.addUnsafeEnchantment(Enchantment.PUNCH, 2);
-                bow.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-                items.add(bow);
-                items.add(enchanted(Material.CROSSBOW, Enchantment.QUICK_CHARGE, 3));
-                items.add(enchanted(Material.CROSSBOW, Enchantment.MULTISHOT, 1));
-                items.add(new ItemStack(Material.ARROW, 64));
-                items.add(new ItemStack(Material.TOTEM_OF_UNDYING, 2));
-                items.add(new ItemStack(Material.ENDER_PEARL, 16));
-            }
-            case END_CRYSTAL -> {
-                addNetheriteArmor(items);
-                addNetheriteSword(items);
-                items.add(new ItemStack(Material.OBSIDIAN, 64));
-                items.add(new ItemStack(Material.END_CRYSTAL, 64));
-                items.add(new ItemStack(Material.TOTEM_OF_UNDYING, 4));
-                items.add(new ItemStack(Material.ENCHANTED_GOLDEN_APPLE, 8));
-                items.add(new ItemStack(Material.ENDER_PEARL, 16));
-            }
-            case MACE -> {
-                addNetheriteArmor(items);
-                addNetheriteSword(items);
-                ItemStack mace = enchanted(Material.MACE, Enchantment.DENSITY, 5);
-                mace.addUnsafeEnchantment(Enchantment.WIND_BURST, 2);
-                mace.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-                mace.addUnsafeEnchantment(Enchantment.MENDING, 1);
-                items.add(mace);
-                items.add(enchanted(Material.NETHERITE_SWORD, Enchantment.SHARPNESS, 5));
-                items.add(new ItemStack(Material.WIND_CHARGE, 32));
-                items.add(new ItemStack(Material.TOTEM_OF_UNDYING, 4));
-                items.add(new ItemStack(Material.ENCHANTED_GOLDEN_APPLE, 8));
-                items.add(new ItemStack(Material.ENDER_PEARL, 16));
-            }
-            case TRIDENT -> {
-                addNetheriteArmor(items);
-                addNetheriteSword(items);
-                ItemStack trident = enchanted(Material.TRIDENT, Enchantment.IMPALING, 5);
-                trident.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
-                trident.addUnsafeEnchantment(Enchantment.MENDING, 1);
-                items.add(trident);
-                items.add(enchanted(Material.TRIDENT, Enchantment.LOYALTY, 3));
-                items.add(new ItemStack(Material.TOTEM_OF_UNDYING, 2));
-                items.add(new ItemStack(Material.GOLDEN_APPLE, 32));
-                items.add(new ItemStack(Material.ENDER_PEARL, 16));
-            }
-            case GOLDEN_APPLE -> {
-                items.add(armor(Material.DIAMOND_HELMET));
-                items.add(armor(Material.DIAMOND_CHESTPLATE));
-                items.add(armor(Material.DIAMOND_LEGGINGS));
-                items.add(armor(Material.DIAMOND_BOOTS));
-                items.add(enchanted(Material.DIAMOND_SWORD, Enchantment.SHARPNESS, 3));
-                items.add(enchanted(Material.BOW, Enchantment.POWER, 3));
-                items.add(new ItemStack(Material.ARROW, 32));
-                items.add(new ItemStack(Material.COOKED_BEEF, 32));
-                items.add(new ItemStack(Material.WATER_BUCKET));
-                items.add(new ItemStack(Material.LAVA_BUCKET));
-                items.add(new ItemStack(Material.OAK_PLANKS, 32));
-                items.add(new ItemStack(Material.COBBLESTONE, 64));
-            }
-            default -> { return; }
+
+        String path = "kit-cooldowns." + player.getUniqueId() + "." + rank;
+        long readyAt = getConfig().getLong(path, 0L);
+        if (readyAt > System.currentTimeMillis()) {
+            player.sendMessage(Component.text("That kit is on cooldown for "
+                + formatRemaining(readyAt - System.currentTimeMillis()) + "."));
+            return;
         }
-        addCommonPvPSupplies(items);
-        int gapCount = switch (clicked.getType()) {
-            case NETHERITE_CHESTPLATE, END_CRYSTAL -> 96;
-            case GOLDEN_APPLE -> 30;
-            default -> 64;
-        };
-        items.add(new ItemStack(Material.GOLDEN_APPLE, gapCount));
+
+        List<ItemStack> items = buildRankKit(rank);
         for (ItemStack item : items) {
             Map<Integer, ItemStack> leftovers = player.getInventory().addItem(item);
-            leftovers.values().forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
+            leftovers.values().forEach(leftover ->
+                player.getWorld().dropItemNaturally(player.getLocation(), leftover));
         }
+        getConfig().set(path, System.currentTimeMillis() + kitCooldownMillis(rank));
+        saveConfig();
         player.closeInventory();
-        player.sendMessage(Component.text("OP kit received."));
+        player.sendMessage(Component.text(rank + " kit claimed. Cooldown: " + kitCooldownHours(rank) + " hours."));
     }
 
+    @EventHandler
+    public void onKitsMenuDrag(org.bukkit.event.inventory.InventoryDragEvent event) {
+        if (event.getView().title().equals(Component.text(KIT_MENU_TITLE))) {
+            event.setCancelled(true);
+        }
+    }
 
     private void cancelSpawnTeleport(Player player, String reason) {
         BukkitTask task = spawnTeleportTasks.remove(player.getUniqueId());
@@ -514,146 +909,44 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     }
 
     @EventHandler
-    public void onSpawnTeleportMove(PlayerMoveEvent event) {
-        if (!spawnTeleportTasks.containsKey(event.getPlayer().getUniqueId())) return;
+    public void onCombatTaggedTeleportIntoSpawn(PlayerTeleportEvent event) {
+        if (event.isCancelled()) return;
+        Player player = event.getPlayer();
+        Long combatExpiry = combatUntil.get(player.getUniqueId());
         Location from = event.getFrom();
         Location to = event.getTo();
+        if (to != null && combatExpiry != null && combatExpiry > System.currentTimeMillis()
+                && !isInSpawnProtection(from) && isInSpawnProtection(to)) {
+            event.setCancelled(true);
+            player.sendMessage(Component.text("You cannot enter spawn while in combat.",
+                net.kyori.adventure.text.format.NamedTextColor.RED));
+        }
+    }
+
+    @EventHandler
+    public void onSpawnTeleportMove(PlayerMoveEvent event) {
+        Player player = event.getPlayer();
+        Location from = event.getFrom();
+        Location to = event.getTo();
+
+        // Combat-tagged players cannot cross into the protected spawn area.
+        // Players already inside can still leave normally.
+        Long combatExpiry = combatUntil.get(player.getUniqueId());
+        if (to != null && combatExpiry != null && combatExpiry > System.currentTimeMillis()
+                && !isInSpawnProtection(from) && isInSpawnProtection(to)) {
+            event.setCancelled(true);
+            player.sendMessage(Component.text("You cannot enter spawn while in combat.",
+                net.kyori.adventure.text.format.NamedTextColor.RED));
+            return;
+        }
+
+        if (!spawnTeleportTasks.containsKey(player.getUniqueId())) return;
         if (to != null && (from.getWorld() != to.getWorld()
                 || from.getX() != to.getX()
                 || from.getY() != to.getY()
                 || from.getZ() != to.getZ())) {
-            cancelSpawnTeleport(event.getPlayer(), "Spawn teleport cancelled because you moved.");
+            cancelSpawnTeleport(player, "Spawn teleport cancelled because you moved.");
         }
-    }
-
-    @EventHandler(priority = org.bukkit.event.EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onChatModeration(AsyncChatEvent event) {
-        if (!chatFilterEnabled) return;
-
-        Player player = event.getPlayer();
-        if (player.hasPermission(chatBypassPermission)) return;
-
-        String message = PlainTextComponentSerializer.plainText().serialize(event.message());
-        if (message == null || message.isBlank()) return;
-
-        String blockReason = null;
-        if (containsBlockedChatWord(message)) blockReason = "Your message was blocked by the chat filter.";
-        else if (linkSpamEnabled && containsLinkOrIp(message)) blockReason = "Links and server addresses are not allowed in public chat.";
-        else if (characterSpamEnabled && hasCharacterSpam(message)) blockReason = "Please don't spam repeated characters.";
-        else if (capsFilterEnabled && hasExcessiveCaps(message)) blockReason = "Please avoid excessive capital letters.";
-
-        if (blockReason == null && antiSpamEnabled) {
-            String normalized = message.toLowerCase(java.util.Locale.ROOT).replaceAll("\\s+", " ").trim();
-            String similar = normalizeForSimilarity(message);
-            long now = System.currentTimeMillis();
-            ChatState state = chatStates.computeIfAbsent(player.getUniqueId(), ignored -> new ChatState());
-            synchronized (state) {
-                while (!state.recentMessageTimes.isEmpty() && now - state.recentMessageTimes.peekFirst() > messageWindowMillis) {
-                    state.recentMessageTimes.removeFirst();
-                    state.recentMessages.removeFirst();
-                }
-                boolean repeated = duplicateChatEnabled && state.lastMessage != null && normalized.equals(state.lastMessage)
-                    && now - state.lastMessageAt < duplicateWindowMillis;
-                boolean nearRepeated = nearDuplicateEnabled && !similar.isBlank() && state.recentMessages.contains(similar);
-                if (repeated || nearRepeated) blockReason = "Please don't repeat or slightly change the same message.";
-                else if (state.lastMessageAt > 0L && now - state.lastMessageAt < minimumMessageGapMillis)
-                    blockReason = "You're sending messages too quickly. Please slow down.";
-                else if (state.recentMessageTimes.size() >= maxMessagesPerWindow)
-                    blockReason = "Chat rate limit reached. Wait a moment before sending again.";
-                else {
-                    state.lastMessage = normalized;
-                    state.lastMessageAt = now;
-                    state.recentMessageTimes.addLast(now);
-                    state.recentMessages.addLast(similar);
-                }
-            }
-        }
-        if (blockReason != null) {
-            event.setCancelled(true);
-            sendChatModerationNotice(player, blockReason);
-        }
-    }
-
-    private void loadChatModerationSettings() {
-        getConfig().addDefault("chat-filter.enabled", true);
-        getConfig().addDefault("chat-filter.blocked-words", List.of());
-        getConfig().addDefault("chat-filter.bypass-permission", "askyriaessentials.chatfilter.bypass");
-        getConfig().addDefault("chat-filter.anti-spam.enabled", true);
-        getConfig().addDefault("chat-filter.anti-spam.cooldown-seconds", 3);
-        getConfig().addDefault("chat-filter.anti-spam.block-duplicate-messages", true);
-        getConfig().addDefault("chat-filter.anti-spam.duplicate-window-seconds", 30);
-        getConfig().addDefault("chat-filter.anti-spam.max-messages-per-window", 5);
-        getConfig().addDefault("chat-filter.anti-spam.window-seconds", 10);
-        getConfig().addDefault("chat-filter.anti-spam.minimum-message-gap-millis", 1200);
-        getConfig().addDefault("chat-filter.anti-spam.near-duplicate-detection", true);
-        getConfig().addDefault("chat-filter.filters.excessive-caps", true);
-        getConfig().addDefault("chat-filter.filters.character-spam", true);
-        getConfig().addDefault("chat-filter.filters.links-and-ips", true);
-        getConfig().options().copyDefaults(true);
-        chatFilterEnabled = getConfig().getBoolean("chat-filter.enabled", true);
-        antiSpamEnabled = getConfig().getBoolean("chat-filter.anti-spam.enabled", true);
-        duplicateChatEnabled = getConfig().getBoolean("chat-filter.anti-spam.block-duplicate-messages", true);
-        chatCooldownMillis = Math.max(0L,
-            getConfig().getLong("chat-filter.anti-spam.cooldown-seconds", 3L)) * 1000L;
-        duplicateWindowMillis = Math.max(0L,
-            getConfig().getLong("chat-filter.anti-spam.duplicate-window-seconds", 30L)) * 1000L;
-        maxMessagesPerWindow = Math.max(2, getConfig().getInt("chat-filter.anti-spam.max-messages-per-window", 5));
-        messageWindowMillis = Math.max(1000L, getConfig().getLong("chat-filter.anti-spam.window-seconds", 10L)) * 1000L;
-        minimumMessageGapMillis = Math.max(0L, getConfig().getLong("chat-filter.anti-spam.minimum-message-gap-millis", 1200L));
-        nearDuplicateEnabled = getConfig().getBoolean("chat-filter.anti-spam.near-duplicate-detection", true);
-        capsFilterEnabled = getConfig().getBoolean("chat-filter.filters.excessive-caps", true);
-        characterSpamEnabled = getConfig().getBoolean("chat-filter.filters.character-spam", true);
-        linkSpamEnabled = getConfig().getBoolean("chat-filter.filters.links-and-ips", true);
-        chatBypassPermission = getConfig().getString(
-            "chat-filter.bypass-permission", "askyriaessentials.chatfilter.bypass");
-        if (chatBypassPermission == null || chatBypassPermission.isBlank()) {
-            chatBypassPermission = "askyriaessentials.chatfilter.bypass";
-        }
-        blockedChatWords = getConfig().getStringList("chat-filter.blocked-words").stream()
-            .map(word -> word.toLowerCase(java.util.Locale.ROOT)
-                .replaceAll("[^\\p{L}\\p{N}]", ""))
-            .filter(word -> !word.isBlank())
-            .distinct()
-            .toList();
-        saveConfig();
-    }
-
-    private String normalizeForSimilarity(String message) {
-        return message.toLowerCase(java.util.Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]", "").replaceAll("(.)\\1{2,}", "$1$1");
-    }
-
-    private boolean hasCharacterSpam(String message) {
-        return message.matches("(?s).*(.)\\1{5,}.*");
-    }
-
-    private boolean hasExcessiveCaps(String message) {
-        long letters = message.chars().filter(Character::isLetter).count();
-        long upper = message.chars().filter(Character::isUpperCase).count();
-        return letters >= 8 && upper >= 8 && upper >= Math.ceil(letters * 0.75);
-    }
-
-    private boolean containsLinkOrIp(String message) {
-        String lower = message.toLowerCase(java.util.Locale.ROOT);
-        return lower.matches("(?s).*\\b(?:https?://|www\\.)\\S+.*")
-            || lower.matches("(?s).*\\b(?:[a-z0-9-]+\\.)+(?:com|net|org|gg|io|xyz|me|co|info|biz|quest)\\b.*")
-            || lower.matches("(?s).*\\b(?:[0-9]{1,3}\\.){3}[0-9]{1,3}(?::[0-9]{1,5})?\\b.*");
-    }
-
-    private boolean containsBlockedChatWord(String message) {
-        if (blockedChatWords.isEmpty()) return false;
-        for (String token : message.toLowerCase(java.util.Locale.ROOT).split("\\s+")) {
-            String normalizedToken = token.replaceAll("[^\\p{L}\\p{N}]", "");
-            if (blockedChatWords.contains(normalizedToken)) return true;
-        }
-        return false;
-    }
-
-    private void sendChatModerationNotice(Player player, String message) {
-        Bukkit.getScheduler().runTask(this, () -> {
-            if (player.isOnline()) {
-                player.sendMessage(Component.text(message, net.kyori.adventure.text.format.NamedTextColor.RED));
-            }
-        });
     }
 
     @EventHandler
@@ -682,9 +975,13 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         } else if (isProtected(player)) {
             player.sendActionBar(Component.text("NEW PLAYER PROTECTION IS ACTIVE"));
         }
-        String raw = rawTags.get(id);
-        if (raw != null) applyTagToOnlinePlayer(id, raw);
-        applyIgnColor(player);
+        if (selectedRanks.containsKey(id)) {
+            applySelectedRank(player);
+        } else {
+            String raw = rawTags.get(id);
+            if (raw != null) applyTagToOnlinePlayer(id, raw);
+            applyIgnColor(player);
+        }
         sentFakeEntries.put(id, Set.of());
         updateTabLists();
     }
@@ -698,7 +995,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         cooldownOriginalBoards.remove(player.getUniqueId());
         cooldownBoards.remove(player.getUniqueId());
         cooldownSidebarEntries.remove(player.getUniqueId());
-        chatStates.remove(player.getUniqueId());
         Bukkit.getScheduler().runTask(this, this::updateTabLists);
         Long until = combatUntil.remove(player.getUniqueId());
         if (until != null && until > System.currentTimeMillis()) {
@@ -779,7 +1075,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             Bukkit.getScheduler().runTask(this, () -> {
                 randomSkinPool = List.copyOf(unique.values());
                 assignRandomSkins();
-                if (shopNpcManager != null) shopNpcManager.refreshSkins();
                 // Re-send profile entries so clients receive the skin textures after loading.
                 sentFakeEntries.clear();
                 updateTabLists();
@@ -801,17 +1096,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             getLogger().warning("Only " + skinCount + " unique skins loaded for "
                 + simulatedPlayerNames.size() + " display names; remaining names will use the default skin.");
         }
-    }
-
-    public List<TextureProperty> getShopNpcSkin(String type) {
-        if (randomSkinPool.isEmpty()) return List.of();
-        int index = switch (type) {
-            case "armor" -> 0;
-            case "kits" -> 1;
-            case "mythical" -> 2;
-            default -> 3;
-        };
-        return randomSkinPool.get(index % randomSkinPool.size());
     }
 
     private UUID fakeProfileId(String name) {
@@ -919,41 +1203,6 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
 
 
     @EventHandler
-    public void saveDeathInventory(PlayerDeathEvent event) {
-        // Let Bukkit/Paper handle normal death drops. Do not copy the inventory
-        // into the restore cache or clear the event drops.
-        String path = DEATH_RESTORE_PATH + event.getEntity().getUniqueId();
-        getConfig().set(path, null);
-        saveConfig();
-    }
-
-    private boolean restoreDeathInventory(CommandSender sender, String playerName) {
-        Player target = Bukkit.getPlayerExact(playerName);
-        if (target == null) {
-            sender.sendMessage(Component.text("That player must be online to receive their restored items."));
-            return true;
-        }
-        String path = DEATH_RESTORE_PATH + target.getUniqueId();
-        List<?> saved = getConfig().getList(path);
-        if (saved == null || saved.isEmpty()) {
-            sender.sendMessage(Component.text("No saved death loot found for " + target.getName() + "."));
-            return true;
-        }
-        for (Object value : saved) {
-            if (value instanceof ItemStack item && !item.getType().isAir()) {
-                Map<Integer, ItemStack> overflow = target.getInventory().addItem(item.clone());
-                overflow.values().forEach(leftover ->
-                    target.getWorld().dropItemNaturally(target.getLocation(), leftover));
-            }
-        }
-        getConfig().set(path, null);
-        saveConfig();
-        sender.sendMessage(Component.text("Restored " + target.getName() + "'s most recent death loot."));
-        target.sendMessage(Component.text("Your most recent death loot has been restored."));
-        return true;
-    }
-
-    @EventHandler
     public void onInvisibleKillerDeath(PlayerDeathEvent event) {
         Player victim = event.getEntity();
         Player killer = victim.getKiller();
@@ -963,16 +1212,29 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
         }
     }
 
-    private boolean isInSpawnProtection(Location location) {
-        if (location == null || location.getWorld() == null) return false;
-        int radius = Math.max(0, getConfig().getInt("spawn-protection-radius", 100));
+    private boolean isWithinSpawnRadius(Location location, World.Environment environment) {
+        if (location == null || location.getWorld() == null
+                || location.getWorld().getEnvironment() != environment) return false;
+        // Protect 40 blocks in each horizontal direction from the spawn center.
+        // The protection is horizontal and applies at every Y.
+        int halfSize = Math.max(0, getConfig().getInt("spawn-protection-half-size", 40));
         Location spawn = location.getWorld().getSpawnLocation();
-        if (!location.getWorld().equals(spawn.getWorld())) return false;
-        double dx = location.getX() - spawn.getX();
-        double dz = location.getZ() - spawn.getZ();
-        // Spawn protection covers the 100-block radius only at absolute Y=180 and above.
-        return dx * dx + dz * dz <= (double) radius * radius
-            && location.getY() >= 180.0;
+        return Math.abs(location.getBlockX() - spawn.getBlockX()) <= halfSize
+            && Math.abs(location.getBlockZ() - spawn.getBlockZ()) <= halfSize;
+    }
+
+    private boolean isInSpawnProtection(Location location) {
+        return isWithinSpawnRadius(location, World.Environment.NORMAL);
+    }
+
+    // In the Nether, protect blocks only near that world's spawn. This does
+    // not block portal travel, PvP, or movement.
+    private boolean isInNetherBuildProtection(Location location) {
+        return isWithinSpawnRadius(location, World.Environment.NETHER);
+    }
+
+    private boolean isInBuildProtection(Location location) {
+        return isInSpawnProtection(location) || isInNetherBuildProtection(location);
     }
 
     private void denySpawnAction(Player player) {
@@ -981,7 +1243,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
 
     @EventHandler
     public void onSpawnBlockBreak(BlockBreakEvent event) {
-        if (!event.getPlayer().isOp() && isInSpawnProtection(event.getBlock().getLocation())) {
+        if (!event.getPlayer().isOp() && isInBuildProtection(event.getBlock().getLocation())) {
             event.setCancelled(true);
             denySpawnAction(event.getPlayer());
         }
@@ -989,7 +1251,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
 
     @EventHandler
     public void onSpawnBlockPlace(BlockPlaceEvent event) {
-        if (!event.getPlayer().isOp() && isInSpawnProtection(event.getBlock().getLocation())) {
+        if (!event.getPlayer().isOp() && isInBuildProtection(event.getBlock().getLocation())) {
             event.setCancelled(true);
             denySpawnAction(event.getPlayer());
         }
@@ -997,7 +1259,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
 
     @EventHandler
     public void onSpawnBucketEmpty(PlayerBucketEmptyEvent event) {
-        if (!event.getPlayer().isOp() && isInSpawnProtection(event.getBlock().getRelative(event.getBlockFace()).getLocation())) {
+        if (!event.getPlayer().isOp() && isInBuildProtection(event.getBlock().getRelative(event.getBlockFace()).getLocation())) {
             event.setCancelled(true);
             denySpawnAction(event.getPlayer());
         }
@@ -1005,7 +1267,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
 
     @EventHandler
     public void onSpawnBucketFill(PlayerBucketFillEvent event) {
-        if (!event.getPlayer().isOp() && isInSpawnProtection(event.getBlock().getLocation())) {
+        if (!event.getPlayer().isOp() && isInBuildProtection(event.getBlock().getLocation())) {
             event.setCancelled(true);
             denySpawnAction(event.getPlayer());
         }
@@ -1015,12 +1277,12 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     public void onSpawnEntityExplosion(EntityExplodeEvent event) {
         // Filter affected blocks individually so TNT cannot damage protected blocks,
         // even when the TNT itself explodes outside the protected radius.
-        event.blockList().removeIf(block -> isInSpawnProtection(block.getLocation()));
+        event.blockList().removeIf(block -> isInBuildProtection(block.getLocation()));
     }
 
     @EventHandler
     public void onSpawnBlockExplosion(BlockExplodeEvent event) {
-        event.blockList().removeIf(block -> isInSpawnProtection(block.getLocation()));
+        event.blockList().removeIf(block -> isInBuildProtection(block.getLocation()));
     }
 
     @EventHandler
@@ -1062,7 +1324,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 attacker.sendMessage(Component.text("You cannot attack players while your protection is active."));
                 return;
             }
-            if (!isProtected(victim)) {
+            if (!isProtected(victim) && !areCombatFriends(attacker, victim)) {
                 tagCombat(attacker);
                 tagCombat(victim);
             }
@@ -1126,59 +1388,267 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 sender.sendMessage(Component.text("Announcement displayed to " + Bukkit.getOnlinePlayers().size() + " player(s)."));
                 return true;
             }
+            case "kick" -> {
+                if (sender instanceof Player actor && !canKick(actor)) {
+                    sender.sendMessage(Component.text("You need MODERATOR or a higher staff rank to use this command."));
+                    return true;
+                }
+                if (args.length < 1) {
+                    sender.sendMessage(Component.text("Usage: /kick <player> [reason]"));
+                    return true;
+                }
+                Player target = Bukkit.getPlayerExact(args[0]);
+                if (target == null) {
+                    sender.sendMessage(Component.text("That player is not online."));
+                    return true;
+                }
+                if (sender instanceof Player actor) {
+                    if (actor.equals(target)) {
+                        sender.sendMessage(Component.text("You cannot kick yourself."));
+                        return true;
+                    }
+                    int actorLevel = staffLevel(actor.getUniqueId());
+                    int targetLevel = staffLevel(target.getUniqueId());
+                    if (targetLevel >= 0 && (actorLevel < 0 || actorLevel >= targetLevel)) {
+                        sender.sendMessage(Component.text("You cannot kick a staff member with an equal or higher rank."));
+                        return true;
+                    }
+                }
+                String reason = args.length > 1
+                    ? String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length))
+                    : "Kicked by a staff member";
+                target.kick(Component.text("You have been kicked from CORE SMP.\nReason: " + reason));
+                sender.sendMessage(Component.text("KICKED • " + target.getName() + " • " + reason,
+                    net.kyori.adventure.text.format.NamedTextColor.GREEN));
+                return true;
+            }
+            case "tempban" -> {
+                if (sender instanceof Player actor && !canTempBan(actor)) {
+                    sender.sendMessage(Component.text("You need ADMIN or a higher staff rank to use this command."));
+                    return true;
+                }
+                if (args.length == 1 && args[0].equalsIgnoreCase("list")) {
+                    var banList = Bukkit.getBanList(org.bukkit.BanList.Type.NAME);
+                    long now = System.currentTimeMillis();
+                    List<org.bukkit.BanEntry> entries = new ArrayList<>(banList.getBanEntries());
+                    entries.removeIf(entry -> entry.getExpiration() != null && entry.getExpiration().getTime() <= now);
+                    sender.sendMessage(Component.text("ACTIVE TEMPBANS (" + entries.size() + ")", net.kyori.adventure.text.format.NamedTextColor.GOLD));
+                    if (entries.isEmpty()) sender.sendMessage(Component.text("No active bans."));
+                    for (org.bukkit.BanEntry entry : entries) {
+                        String expiry = entry.getExpiration() == null ? "Permanent" : formatRemaining(entry.getExpiration().getTime() - now);
+                        sender.sendMessage(Component.text(entry.getTarget() + " • " + expiry + " • "
+                            + (entry.getReason() == null ? "No reason provided" : entry.getReason())));
+                    }
+                    return true;
+                }
+                if (args.length == 2 && args[0].equalsIgnoreCase("remove")) {
+                    String targetName = args[1];
+                    var banList = Bukkit.getBanList(org.bukkit.BanList.Type.NAME);
+                    if (banList.getBanEntry(targetName) == null) {
+                        sender.sendMessage(Component.text(targetName + " is not currently banned."));
+                        return true;
+                    }
+                    banList.pardon(targetName);
+                    sender.sendMessage(Component.text("TEMPBAN REMOVED • " + targetName, net.kyori.adventure.text.format.NamedTextColor.GREEN));
+                    return true;
+                }
+                if (args.length < 3) {
+                    sender.sendMessage(Component.text("Usage: /tempban <player> <time> <reason>"));
+                    sender.sendMessage(Component.text("Also: /tempban list OR /tempban remove <player>"));
+                    sender.sendMessage(Component.text("Time examples: 30m, 2h, 7d, 1w, perm."));
+                    return true;
+                }
+                String targetName = args[0];
+                if (sender instanceof Player actor) {
+                    if (actor.getName().equalsIgnoreCase(targetName)) {
+                        sender.sendMessage(Component.text("You cannot tempban yourself."));
+                        return true;
+                    }
+                    Player onlineTarget = Bukkit.getPlayerExact(targetName);
+                    UUID targetId = onlineTarget != null ? onlineTarget.getUniqueId() : Bukkit.getOfflinePlayer(targetName).getUniqueId();
+                    int actorLevel = staffLevel(actor.getUniqueId());
+                    int targetLevel = staffLevel(targetId);
+                    if (targetLevel >= 0 && (actorLevel < 0 || actorLevel >= targetLevel)) {
+                        sender.sendMessage(Component.text("You cannot ban a staff member with an equal or higher rank."));
+                        return true;
+                    }
+                }
+                java.time.Duration duration = parseBanDuration(args[1]);
+                if (duration == null) {
+                    sender.sendMessage(Component.text("Invalid time. Use 30m, 2h, 7d, 1w, or perm."));
+                    return true;
+                }
+                String reason = String.join(" ", java.util.Arrays.copyOfRange(args, 2, args.length)).trim();
+                if (reason.isEmpty()) {
+                    sender.sendMessage(Component.text("A ban reason is required."));
+                    return true;
+                }
+                java.util.Date expires = duration.isZero() ? null : java.util.Date.from(java.time.Instant.now().plus(duration));
+                Bukkit.getBanList(org.bukkit.BanList.Type.NAME).addBan(targetName, reason, expires, sender.getName());
+                Player onlineTarget = Bukkit.getPlayerExact(targetName);
+                if (onlineTarget != null) onlineTarget.kick(Component.text("You are banned from CORE SMP. Reason: " + reason));
+                sender.sendMessage(Component.text("TEMPBAN APPLIED • " + targetName + " • "
+                    + (duration.isZero() ? "Permanent" : args[1]) + " • " + reason, net.kyori.adventure.text.format.NamedTextColor.GREEN));
+                return true;
+            }
+            case "timeout" -> {
+                if (sender instanceof Player actor && !hasStaffRank(actor)) {
+                    sender.sendMessage(Component.text("You need a staff rank to use this command."));
+                    return true;
+                }
+                if (args.length < 2) {
+                    sender.sendMessage(Component.text("Usage: /timeout <player> <duration> [reason]"));
+                    sender.sendMessage(Component.text("Durations: 30s, 10m, 2h, 1d (maximum 30d)."));
+                    return true;
+                }
+                Player target = Bukkit.getPlayerExact(args[0]);
+                if (target == null) {
+                    sender.sendMessage(Component.text("Player must be online to start a timeout."));
+                    return true;
+                }
+                if (sender instanceof Player actor) {
+                    if (actor.equals(target)) {
+                        sender.sendMessage(Component.text("You cannot timeout yourself."));
+                        return true;
+                    }
+                    int actorLevel = staffLevel(actor.getUniqueId());
+                    int targetLevel = staffLevel(target.getUniqueId());
+                    if (targetLevel >= 0 && (actorLevel < 0 || actorLevel >= targetLevel)) {
+                        sender.sendMessage(Component.text("You cannot timeout a staff member with an equal or higher rank."));
+                        return true;
+                    }
+                }
+                java.time.Duration duration = parseBanDuration(args[1]);
+                if (duration == null || duration.isZero() || duration.compareTo(java.time.Duration.ofDays(30)) > 0) {
+                    sender.sendMessage(Component.text("Invalid duration. Use 30s, 10m, 2h or 1d (maximum 30d)."));
+                    return true;
+                }
+                String reason = args.length > 2 ? String.join(" ", java.util.Arrays.copyOfRange(args, 2, args.length)) : "No reason provided";
+                long expiry = System.currentTimeMillis() + duration.toMillis();
+                timedOutUntil.put(target.getUniqueId(), expiry);
+                timeoutReasons.put(target.getUniqueId(), reason);
+                saveTimeoutData();
+                target.sendMessage(Component.text("CHAT TIMEOUT • " + args[1] + " • " + reason, net.kyori.adventure.text.format.NamedTextColor.RED));
+                sender.sendMessage(Component.text("TIMEOUT APPLIED", net.kyori.adventure.text.format.NamedTextColor.GREEN)
+                    .append(Component.text(" • " + target.getName() + " • " + args[1] + " • " + reason)));
+                return true;
+            }
+            case "untimeout" -> {
+                if (sender instanceof Player actor && !hasStaffRank(actor)) {
+                    sender.sendMessage(Component.text("You need a staff rank to use this command."));
+                    return true;
+                }
+                if (args.length != 1) {
+                    sender.sendMessage(Component.text("Usage: /untimeout <player>"));
+                    return true;
+                }
+                org.bukkit.OfflinePlayer target = Bukkit.getOfflinePlayer(args[0]);
+                UUID targetId = target.getUniqueId();
+                if (timedOutUntil.remove(targetId) == null) {
+                    sender.sendMessage(Component.text(args[0] + " does not have an active timeout."));
+                    return true;
+                }
+                timeoutReasons.remove(targetId);
+                saveTimeoutData();
+                if (target.isOnline()) target.getPlayer().sendMessage(Component.text("Your chat timeout has been removed.", net.kyori.adventure.text.format.NamedTextColor.GREEN));
+                sender.sendMessage(Component.text("TIMEOUT REMOVED • " + args[0], net.kyori.adventure.text.format.NamedTextColor.GREEN));
+                return true;
+            }
+            case "timeoutlist" -> {
+                if (sender instanceof Player actor && !hasStaffRank(actor)) {
+                    sender.sendMessage(Component.text("You need a staff rank to use this command."));
+                    return true;
+                }
+                long now = System.currentTimeMillis();
+                timedOutUntil.entrySet().removeIf(entry -> entry.getValue() <= now);
+                timeoutReasons.keySet().retainAll(timedOutUntil.keySet());
+                saveTimeoutData();
+                sender.sendMessage(Component.text("ACTIVE CHAT TIMEOUTS (" + timedOutUntil.size() + ")", net.kyori.adventure.text.format.NamedTextColor.GOLD));
+                if (timedOutUntil.isEmpty()) sender.sendMessage(Component.text("No players are currently timed out."));
+                for (Map.Entry<UUID, Long> entry : timedOutUntil.entrySet()) {
+                    String name = Bukkit.getOfflinePlayer(entry.getKey()).getName();
+                    long seconds = Math.max(1L, (entry.getValue() - now + 999L) / 1000L);
+                    sender.sendMessage(Component.text((name == null ? entry.getKey().toString() : name)
+                        + " • " + formatRemaining(entry.getValue() - now) + " • "
+                        + timeoutReasons.getOrDefault(entry.getKey(), "No reason provided")));
+                }
+                return true;
+            }
+            case "rank" -> {
+                if (args.length == 0 || args[0].equalsIgnoreCase("choose")) {
+                    if (!(sender instanceof Player player)) {
+                        sender.sendMessage(Component.text("Only players can choose their rank."));
+                        return true;
+                    }
+                    if (args.length == 1) { openRankMenu(player); return true; }
+                    if (args.length == 2) {
+                        String rank = normalizeRank(args[1]);
+                        if (rank == null || !PLAYER_RANKS.contains(rank)
+                                || !ownedRanks.getOrDefault(player.getUniqueId(), Set.of()).contains(rank)) {
+                            player.sendMessage(Component.text("You do not own that player rank."));
+                            return true;
+                        }
+                        selectedRanks.put(player.getUniqueId(), rank);
+                        applySelectedRank(player);
+                        saveRanks(player.getUniqueId());
+                        player.sendMessage(Component.text("Selected rank: " + rank));
+                        return true;
+                    }
+                    sender.sendMessage(Component.text("Usage: /rank choose [player-rank]"));
+                    return true;
+                }
+                if (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("remove")) {
+                    if (sender instanceof Player actor && !hasStaffRank(actor)) {
+                        sender.sendMessage(Component.text("You need a staff rank to manage ranks."));
+                        return true;
+                    }
+                    if (args.length != 3) {
+                        sender.sendMessage(Component.text("Usage: /rank give <player> <rank> OR /rank remove <player> <rank>"));
+                        return true;
+                    }
+                    String rank = normalizeRank(args[2]);
+                    if (rank == null) {
+                        sender.sendMessage(Component.text("Player ranks: BOOSTER, VIP, BOOSTER+, VIP+, CORE, MEDIA, CREATOR."));
+                        sender.sendMessage(Component.text("Staff ranks: OWNER, CO OWNER, HEAD MANAGEMENT, MANAGEMENT, DEVELOPER, SR ADMIN, ADMIN, MODERATOR, JR MOD."));
+                        return true;
+                    }
+                    org.bukkit.OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
+                    UUID id = target.getUniqueId();
+                    Set<String> ranks = ownedRanks.computeIfAbsent(id, ignored -> new HashSet<>());
+                    boolean giving = args[0].equalsIgnoreCase("give");
+                    if (giving && !ranks.add(rank)) {
+                        sender.sendMessage(Component.text(args[1] + " already has " + rank + "."));
+                        return true;
+                    }
+                    if (!giving && !ranks.remove(rank)) {
+                        sender.sendMessage(Component.text(args[1] + " does not have " + rank + "."));
+                        return true;
+                    }
+                    if (!giving && rank.equals(selectedRanks.get(id))) {
+                        String fallback = STAFF_RANKS.stream().filter(ranks::contains).findFirst()
+                            .orElseGet(() -> PLAYER_RANKS.stream().filter(ranks::contains).findFirst().orElse(null));
+                        if (fallback == null) selectedRanks.remove(id); else selectedRanks.put(id, fallback);
+                    } else if (giving && selectedRanks.get(id) == null) {
+                        selectedRanks.put(id, rank);
+                    }
+                    saveRanks(id);
+                    if (target.isOnline()) applySelectedRank(target.getPlayer());
+                    String action = giving ? "GAVE" : "REMOVED";
+                    sender.sendMessage(Component.text(action + " RANK • " + args[1] + " • " + rank, net.kyori.adventure.text.format.NamedTextColor.GREEN));
+                    if (target.isOnline()) target.getPlayer().sendMessage(Component.text(giving
+                        ? "You received the " + rank + " rank." : "Your " + rank + " rank was removed."));
+                    return true;
+                }
+                sender.sendMessage(Component.text("Usage: /rank give <player> <rank> | /rank remove <player> <rank> | /rank choose"));
+                return true;
+            }
             case "kits" -> {
-                if (!requireOp(sender)) return true;
                 if (!(sender instanceof Player player)) {
                     sender.sendMessage(Component.text("Only players can open the kits menu."));
                     return true;
                 }
                 openKitsMenu(player);
                 return true;
-            }
-            case "shopvillager" -> {
-                if (!requireOp(sender)) return true;
-                if (!(sender instanceof Player player)) {
-                    sender.sendMessage(Component.text("Only players can manage shop villagers."));
-                    return true;
-                }
-                if (args.length == 2 && args[0].equalsIgnoreCase("spawn")) {
-                    shopVillagerManager.spawnShopVillager(player, args[1]);
-                } else if (args.length == 2 && args[0].equalsIgnoreCase("edit")) {
-                    shopVillagerManager.openEditor(player, args[1].toLowerCase(java.util.Locale.ROOT));
-                } else if (args.length == 1 && args[0].equalsIgnoreCase("remove")) {
-                    shopVillagerManager.removeTargeted(player);
-                } else if (args.length == 1 && args[0].equalsIgnoreCase("removeall")) {
-                    shopVillagerManager.removeAll(player);
-                } else {
-                    sender.sendMessage(Component.text("Usage: /shopvillager spawn <armor|kits|mythical|seller>"));
-                }
-                return true;
-            }
-            case "shopnpc" -> {
-                if (!requireOp(sender)) return true;
-                if (!(sender instanceof Player player)) {
-                    sender.sendMessage(Component.text("Only players can manage shop NPCs."));
-                    return true;
-                }
-                if (args.length == 2 && args[0].equalsIgnoreCase("spawn")) {
-                    shopNpcManager.spawnShopNpc(player, args[1]);
-                } else if (args.length == 2 && args[0].equalsIgnoreCase("edit")) {
-                    shopVillagerManager.openEditor(player, args[1].toLowerCase(java.util.Locale.ROOT));
-                } else if (args.length == 2 && args[0].equalsIgnoreCase("remove")) {
-                    shopNpcManager.removeShopNpc(player, args[1].toLowerCase(java.util.Locale.ROOT));
-                } else if (args.length == 1 && args[0].equalsIgnoreCase("removeall")) {
-                    shopNpcManager.removeAll(player);
-                } else {
-                    sender.sendMessage(Component.text("Usage: /shopnpc spawn <armor|mythical|seller>"));
-                    sender.sendMessage(Component.text("/shopnpc edit <armor|mythical|seller>"));
-                    sender.sendMessage(Component.text("/shopnpc remove <type> OR /shopnpc removeall"));
-                }
-                return true;
-            }
-            case "deathrestore" -> {
-                if (!requireOp(sender)) return true;
-                if (args.length != 1) { sender.sendMessage(Component.text("Usage: /deathrestore <player>")); return true; }
-                return restoreDeathInventory(sender, args[0]);
             }
             case "addplayers" -> {
                 if (!requireOp(sender)) return true;
@@ -1285,6 +1755,110 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
                 sender.sendMessage(Component.text("Updated "+target.getName()+" username gradient."));
                 return true;
             }
+            case "combatfriend" -> {
+                if (!(sender instanceof Player player)) {
+                    sender.sendMessage(Component.text("Only players can use combat friend commands."));
+                    return true;
+                }
+                if (args.length < 1 || args.length > 2) {
+                    player.sendMessage(Component.text("Usage: /combatfriend <add|accept|deny|remove|list> [player]"));
+                    return true;
+                }
+                String action = args[0].toLowerCase(java.util.Locale.ROOT);
+                if (action.equals("list")) {
+                    if (args.length != 1) {
+                        player.sendMessage(Component.text("Usage: /combatfriend list"));
+                        return true;
+                    }
+                    Set<UUID> friends = combatFriends.getOrDefault(player.getUniqueId(), Set.of());
+                    if (friends.isEmpty()) {
+                        player.sendMessage(Component.text("You have no combat friends."));
+                    } else {
+                        List<String> names = new ArrayList<>();
+                        for (UUID id : friends) {
+                            String name = Bukkit.getOfflinePlayer(id).getName();
+                            names.add(name == null ? id.toString() : name);
+                        }
+                        player.sendMessage(Component.text("Combat friends: " + String.join(", ", names)));
+                    }
+                    return true;
+                }
+                if (args.length != 2) {
+                    player.sendMessage(Component.text("Usage: /combatfriend " + action + " <player>"));
+                    return true;
+                }
+                if (action.equals("add")) {
+                    Player target = Bukkit.getPlayerExact(args[1]);
+                    if (target == null) {
+                        player.sendMessage(Component.text("That player must be online to receive a request."));
+                        return true;
+                    }
+                    if (target.equals(player)) {
+                        player.sendMessage(Component.text("You cannot add yourself as a combat friend."));
+                        return true;
+                    }
+                    UUID requesterId = player.getUniqueId();
+                    UUID targetId = target.getUniqueId();
+                    if (areCombatFriends(player, target)) {
+                        player.sendMessage(Component.text("You are already combat friends with " + target.getName() + "."));
+                        return true;
+                    }
+                    if (pendingCombatFriendRequests.getOrDefault(requesterId, Set.of()).contains(targetId)) {
+                        player.sendMessage(Component.text(target.getName() + " has already sent you a request. Use /combatfriend accept " + target.getName() + "."));
+                        return true;
+                    }
+                    pendingCombatFriendRequests.computeIfAbsent(targetId, ignored -> new HashSet<>()).add(requesterId);
+                    saveCombatFriendData();
+                    player.sendMessage(Component.text("Combat friend request sent to " + target.getName() + "."));
+                    target.sendMessage(Component.text(player.getName() + " wants to be your combat friend. Use /combatfriend accept " + player.getName() + " or /combatfriend deny " + player.getName() + "."));
+                    return true;
+                }
+                if (action.equals("accept") || action.equals("deny")) {
+                    org.bukkit.OfflinePlayer requester = Bukkit.getOfflinePlayer(args[1]);
+                    UUID requesterId = requester.getUniqueId();
+                    Set<UUID> requests = pendingCombatFriendRequests.get(player.getUniqueId());
+                    if (requests == null || !requests.remove(requesterId)) {
+                        player.sendMessage(Component.text("You do not have a pending request from " + args[1] + "."));
+                        return true;
+                    }
+                    if (requests.isEmpty()) pendingCombatFriendRequests.remove(player.getUniqueId());
+                    if (action.equals("accept")) {
+                        combatFriends.computeIfAbsent(player.getUniqueId(), ignored -> new HashSet<>()).add(requesterId);
+                        combatFriends.computeIfAbsent(requesterId, ignored -> new HashSet<>()).add(player.getUniqueId());
+                        player.sendMessage(Component.text("You are now combat friends with " + args[1] + "."));
+                        Player onlineRequester = Bukkit.getPlayer(requesterId);
+                        if (onlineRequester != null) onlineRequester.sendMessage(Component.text(player.getName() + " accepted your combat friend request."));
+                    } else {
+                        player.sendMessage(Component.text("Denied " + args[1] + "'s combat friend request."));
+                        Player onlineRequester = Bukkit.getPlayer(requesterId);
+                        if (onlineRequester != null) onlineRequester.sendMessage(Component.text(player.getName() + " denied your combat friend request."));
+                    }
+                    saveCombatFriendData();
+                    return true;
+                }
+                if (action.equals("remove")) {
+                    org.bukkit.OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
+                    UUID targetId = target.getUniqueId();
+                    Set<UUID> ownFriends = combatFriends.get(player.getUniqueId());
+                    if (ownFriends == null || !ownFriends.remove(targetId)) {
+                        player.sendMessage(Component.text(args[1] + " is not on your combat friend list."));
+                        return true;
+                    }
+                    if (ownFriends.isEmpty()) combatFriends.remove(player.getUniqueId());
+                    Set<UUID> theirFriends = combatFriends.get(targetId);
+                    if (theirFriends != null) {
+                        theirFriends.remove(player.getUniqueId());
+                        if (theirFriends.isEmpty()) combatFriends.remove(targetId);
+                    }
+                    saveCombatFriendData();
+                    player.sendMessage(Component.text("Removed " + args[1] + " from your combat friends."));
+                    Player onlineTarget = Bukkit.getPlayer(targetId);
+                    if (onlineTarget != null) onlineTarget.sendMessage(Component.text(player.getName() + " removed you as a combat friend."));
+                    return true;
+                }
+                player.sendMessage(Component.text("Usage: /combatfriend <add|accept|deny|remove|list> [player]"));
+                return true;
+            }
             case "cheatban" -> {
                 if (!requireOp(sender)) return true;
                 if (args.length != 2) { sender.sendMessage(Component.text("Usage: /cheatban <player> <duration> (30m, 2h, 7d, perm)")); return true; }
@@ -1360,12 +1934,51 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
             }
             case "invsee", "endersee" -> {
                 if (!requireOp(sender)) return true;
-                if (!(sender instanceof Player viewer)) { sender.sendMessage("Only players can use this command."); return true; }
-                if (args.length != 1) { sender.sendMessage(Component.text("Usage: /" + label + " <player>")); return true; }
+                if (!(sender instanceof Player viewer)) {
+                    sender.sendMessage(Component.text("Only players can use this command."));
+                    return true;
+                }
+                if (args.length != 1) {
+                    viewer.sendMessage(Component.text("Usage: /" + label + " <player>"));
+                    return true;
+                }
+
                 Player target = Bukkit.getPlayerExact(args[0]);
-                if (target == null) { sender.sendMessage(Component.text("That player must be online.")); return true; }
-                if (command.getName().equalsIgnoreCase("invsee")) viewer.openInventory(target.getInventory());
-                else viewer.openInventory(target.getEnderChest());
+                if (target == null) {
+                    target = Bukkit.getOnlinePlayers().stream()
+                        .filter(p -> p.getName().equalsIgnoreCase(args[0]))
+                        .findFirst().orElse(null);
+                }
+                if (target == null || !target.isOnline()) {
+                    viewer.sendMessage(Component.text("That player must be online."));
+                    return true;
+                }
+                if (target.equals(viewer)) {
+                    viewer.sendMessage(Component.text("You cannot use this command on yourself."));
+                    return true;
+                }
+
+                final Player inventoryTarget = target;
+                final boolean enderChest = command.getName().equalsIgnoreCase("endersee");
+                // Open on the next server tick and report the real exception to console
+                // instead of leaving players with only Bukkit's generic error message.
+                Bukkit.getScheduler().runTask(this, () -> {
+                    if (!viewer.isOnline() || !inventoryTarget.isOnline()) {
+                        if (viewer.isOnline()) viewer.sendMessage(Component.text("The target is no longer online."));
+                        return;
+                    }
+                    try {
+                        Inventory inventory = enderChest
+                            ? inventoryTarget.getEnderChest()
+                            : inventoryTarget.getInventory();
+                        viewer.openInventory(inventory);
+                    } catch (Exception ex) {
+                        getLogger().severe("Failed to open " + (enderChest ? "Ender Chest" : "player inventory")
+                            + " for " + viewer.getName() + " viewing " + inventoryTarget.getName());
+                        getLogger().log(java.util.logging.Level.SEVERE, "Inventory viewer error", ex);
+                        viewer.sendMessage(Component.text("Could not open that inventory. Check the server console."));
+                    }
+                });
                 return true;
             }
             default -> { return false; }
@@ -1375,37 +1988,105 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> suggestions = new ArrayList<>();
+        if (command.getName().equalsIgnoreCase("kick") && (!(sender instanceof Player p) || canKick(p)) && args.length == 1) {
+            for (Player online : Bukkit.getOnlinePlayers()) {
+                if (online.getName().toLowerCase(java.util.Locale.ROOT).startsWith(args[0].toLowerCase(java.util.Locale.ROOT))
+                        && (!(sender instanceof Player actor) || (staffLevel(online.getUniqueId()) < 0
+                        || staffLevel(actor.getUniqueId()) < staffLevel(online.getUniqueId())))) {
+                    suggestions.add(online.getName());
+                }
+            }
+            return suggestions;
+        }
+        if (command.getName().equalsIgnoreCase("tempban") && (!(sender instanceof Player p) || canTempBan(p))) {
+            if (args.length == 1) {
+                for (String action : List.of("list", "remove")) {
+                    if (action.startsWith(args[0].toLowerCase(java.util.Locale.ROOT))) suggestions.add(action);
+                }
+                for (Player online : Bukkit.getOnlinePlayers()) {
+                    if (online.getName().toLowerCase(java.util.Locale.ROOT).startsWith(args[0].toLowerCase(java.util.Locale.ROOT))
+                            && (!(sender instanceof Player actor) || (staffLevel(online.getUniqueId()) < 0
+                            || staffLevel(actor.getUniqueId()) < staffLevel(online.getUniqueId())))) {
+                        suggestions.add(online.getName());
+                    }
+                }
+            } else if (args.length == 2 && !args[0].equalsIgnoreCase("list") && !args[0].equalsIgnoreCase("remove")) {
+                for (String duration : List.of("30m", "1h", "2h", "6h", "1d", "3d", "7d", "30d", "1w", "perm")) {
+                    if (duration.startsWith(args[1].toLowerCase(java.util.Locale.ROOT))) suggestions.add(duration);
+                }
+            } else if (args.length == 2 && args[0].equalsIgnoreCase("remove")) {
+                for (org.bukkit.BanEntry<String> entry : Bukkit.getBanList(org.bukkit.BanList.Type.NAME).getBanEntries()) {
+                    if (entry.getTarget().toLowerCase(java.util.Locale.ROOT).startsWith(args[1].toLowerCase(java.util.Locale.ROOT)))
+                        suggestions.add(entry.getTarget());
+                }
+            }
+            return suggestions;
+        }
+        if (Set.of("timeout", "untimeout").contains(command.getName().toLowerCase(java.util.Locale.ROOT))
+                && sender instanceof Player staff && hasStaffRank(staff) && args.length == 1) {
+            int actorLevel = staffLevel(staff.getUniqueId());
+            for (Player online : Bukkit.getOnlinePlayers()) {
+                int targetLevel = staffLevel(online.getUniqueId());
+                boolean canTarget = targetLevel < 0 || (actorLevel >= 0 && actorLevel < targetLevel);
+                if (canTarget && online.getName().toLowerCase(java.util.Locale.ROOT)
+                        .startsWith(args[0].toLowerCase(java.util.Locale.ROOT))) suggestions.add(online.getName());
+            }
+            return suggestions;
+        }
+        if (command.getName().equalsIgnoreCase("timeout") && args.length == 2) {
+            for (String duration : List.of("30s", "5m", "10m", "30m", "1h", "2h", "6h", "1d", "3d", "7d", "30d"))
+                if (duration.startsWith(args[1].toLowerCase(java.util.Locale.ROOT))) suggestions.add(duration);
+            return suggestions;
+        }
+
+        if (command.getName().equalsIgnoreCase("rank")) {
+            if (args.length == 1) {
+                List<String> actions = sender instanceof Player p && hasStaffRank(p)
+                    ? List.of("give", "remove", "choose") : List.of("choose");
+                for (String action : actions) if (action.startsWith(args[0].toLowerCase())) suggestions.add(action);
+            } else if (args.length == 2 && (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("remove"))
+                    && sender instanceof Player p && hasStaffRank(p)) {
+                for (Player online : Bukkit.getOnlinePlayers()) if (online.getName().toLowerCase().startsWith(args[1].toLowerCase())) suggestions.add(online.getName());
+            } else if ((args.length == 2 && args[0].equalsIgnoreCase("choose"))
+                    || (args.length == 3 && (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("remove")))) {
+                List<String> ranks = args[0].equalsIgnoreCase("choose") ? PLAYER_RANKS
+                    : java.util.stream.Stream.concat(PLAYER_RANKS.stream(), STAFF_RANKS.stream()).toList();
+                for (String rank : ranks) if (rank.toLowerCase().startsWith(args[args.length-1].toLowerCase())) suggestions.add(rank);
+            }
+            return suggestions;
+        }
         if (command.getName().equalsIgnoreCase("announcement")) {
             if (sender.isOp() && args.length == 1 && "send".startsWith(args[0].toLowerCase(java.util.Locale.ROOT))) {
                 suggestions.add("send");
             }
             return suggestions;
         }
-        if (command.getName().equalsIgnoreCase("deathrestore") && sender.isOp() && args.length == 1) {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                if (player.getName().toLowerCase().startsWith(args[0].toLowerCase())) suggestions.add(player.getName());
-            }
-        } else if (command.getName().equalsIgnoreCase("shopvillager") && sender.isOp()) {
+        if (command.getName().equalsIgnoreCase("combatfriend")) {
             if (args.length == 1) {
-                for (String option : List.of("spawn", "remove", "removeall")) {
-                    if (option.startsWith(args[0].toLowerCase())) suggestions.add(option);
+                for (String action : List.of("add", "accept", "deny", "remove", "list")) {
+                    if (action.startsWith(args[0].toLowerCase(java.util.Locale.ROOT))) suggestions.add(action);
                 }
-            } else if (args.length == 2 && args[0].equalsIgnoreCase("spawn")) {
-                for (String type : List.of("armor", "mythical", "seller")) {
-                    if (type.startsWith(args[1].toLowerCase())) suggestions.add(type);
+            } else if (args.length == 2) {
+                String action = args[0].toLowerCase(java.util.Locale.ROOT);
+                if (action.equals("add")) {
+                    for (Player online : Bukkit.getOnlinePlayers()) {
+                        if (online != sender && online.getName().toLowerCase().startsWith(args[1].toLowerCase())) suggestions.add(online.getName());
+                    }
+                } else if ((action.equals("accept") || action.equals("deny")) && sender instanceof Player player) {
+                    for (UUID id : pendingCombatFriendRequests.getOrDefault(player.getUniqueId(), Set.of())) {
+                        String name = Bukkit.getOfflinePlayer(id).getName();
+                        if (name != null && name.toLowerCase().startsWith(args[1].toLowerCase())) suggestions.add(name);
+                    }
+                } else if (action.equals("remove") && sender instanceof Player player) {
+                    for (UUID id : combatFriends.getOrDefault(player.getUniqueId(), Set.of())) {
+                        String name = Bukkit.getOfflinePlayer(id).getName();
+                        if (name != null && name.toLowerCase().startsWith(args[1].toLowerCase())) suggestions.add(name);
+                    }
                 }
             }
-        } else if (command.getName().equalsIgnoreCase("shopnpc") && sender.isOp()) {
-            if (args.length == 1) {
-                for (String option : List.of("spawn", "edit", "remove", "removeall")) {
-                    if (option.startsWith(args[0].toLowerCase())) suggestions.add(option);
-                }
-            } else if (args.length == 2 && List.of("spawn", "edit", "remove").contains(args[0].toLowerCase())) {
-                for (String type : List.of("armor", "mythical", "seller")) {
-                    if (type.startsWith(args[1].toLowerCase())) suggestions.add(type);
-                }
-            }
-        } else if (command.getName().equalsIgnoreCase("playertag")) {
+            return suggestions;
+        }
+        if (command.getName().equalsIgnoreCase("playertag")) {
             if (!sender.isOp()) return suggestions;
             if (args.length == 1) {
                 for (Player player : Bukkit.getOnlinePlayers()) {
@@ -1458,7 +2139,7 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Tab
     private void applyIgnColor(Player player) {
         String raw = rawIgnColors.get(player.getUniqueId());
         Component ign = raw == null
-            ? Component.text(player.getName()).decorate(net.kyori.adventure.text.format.TextDecoration.BOLD)
+            ? Component.text(player.getName())
             : mini.deserialize("<bold>" + raw + "</bold>");
         player.displayName(ign);
         Component tag = tags.get(player.getUniqueId());
