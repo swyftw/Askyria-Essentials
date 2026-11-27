@@ -1,3 +1,4 @@
 end-closed: false
+spawn-protection-half-size: 25
 protected-players: {}
 player-tags: {}
