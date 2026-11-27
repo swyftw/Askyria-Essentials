@@ -1624,15 +1624,16 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
                         sender.sendMessage(Component.text(args[1] + " does not have " + rank + "."));
                         return true;
                     }
+                    // Granting a rank never changes the player's active tag.
+                    // If their selected rank is removed, clear the selection but leave
+                    // their current tag untouched until they explicitly use /rank choose.
                     if (!giving && rank.equals(selectedRanks.get(id))) {
-                        String fallback = STAFF_RANKS.stream().filter(ranks::contains).findFirst()
-                            .orElseGet(() -> PLAYER_RANKS.stream().filter(ranks::contains).findFirst().orElse(null));
-                        if (fallback == null) selectedRanks.remove(id); else selectedRanks.put(id, fallback);
-                    } else if (giving && selectedRanks.get(id) == null) {
-                        selectedRanks.put(id, rank);
+                        selectedRanks.remove(id);
                     }
                     saveRanks(id);
-                    if (target.isOnline()) applySelectedRank(target.getPlayer());
+                    if (target.isOnline() && selectedRanks.containsKey(id)) {
+                        applySelectedRank(target.getPlayer());
+                    }
                     String action = giving ? "GAVE" : "REMOVED";
                     sender.sendMessage(Component.text(action + " RANK • " + args[1] + " • " + rank, net.kyori.adventure.text.format.NamedTextColor.GREEN));
                     if (target.isOnline()) target.getPlayer().sendMessage(Component.text(giving
@@ -1925,6 +1926,10 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
                 }
                 String safeTag = tagText.replace("<", "").replace(">", "");
                 String raw = "<bold><gradient:" + c1 + ":" + c2 + ":" + c3 + ">" + safeTag + "</gradient></bold>";
+                // A manually assigned player tag takes priority over rank tags.
+                // The player can switch back to an owned rank explicitly with /rank choose.
+                selectedRanks.remove(target.getUniqueId());
+                saveRanks(target.getUniqueId());
                 rawTags.put(target.getUniqueId(), raw);
                 getConfig().set("player-tags." + target.getUniqueId(), raw);
                 saveConfig();
