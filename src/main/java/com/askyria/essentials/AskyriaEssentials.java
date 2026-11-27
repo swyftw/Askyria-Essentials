@@ -1207,9 +1207,11 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
 
     private boolean isInSpawnProtection(Location location) {
         if (location == null || location.getWorld() == null) return false;
+        // CORE spawn protection applies only in the Overworld. Nether and End
+        // must remain fully usable, including their portals and build areas.
+        if (location.getWorld().getEnvironment() != World.Environment.NORMAL) return false;
         int radius = Math.max(0, getConfig().getInt("spawn-protection-radius", 100));
         Location spawn = location.getWorld().getSpawnLocation();
-        if (!location.getWorld().equals(spawn.getWorld())) return false;
         double dx = location.getX() - spawn.getX();
         double dz = location.getZ() - spawn.getZ();
         // No Y-level restriction: the 100-block horizontal radius is protected from bedrock to build limit.
