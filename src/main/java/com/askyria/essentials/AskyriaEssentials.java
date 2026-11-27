@@ -49,6 +49,7 @@ import org.bukkit.potion.PotionType;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.block.BlockBreakEvent;
@@ -907,6 +908,21 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
     }
 
     @EventHandler
+    public void onCombatTaggedTeleportIntoSpawn(PlayerTeleportEvent event) {
+        if (event.isCancelled()) return;
+        Player player = event.getPlayer();
+        Long combatExpiry = combatUntil.get(player.getUniqueId());
+        Location from = event.getFrom();
+        Location to = event.getTo();
+        if (to != null && combatExpiry != null && combatExpiry > System.currentTimeMillis()
+                && !isInSpawnProtection(from) && isInSpawnProtection(to)) {
+            event.setCancelled(true);
+            player.sendMessage(Component.text("You cannot enter spawn while in combat.",
+                net.kyori.adventure.text.format.NamedTextColor.RED));
+        }
+    }
+
+    @EventHandler
     public void onSpawnTeleportMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
         Location from = event.getFrom();
@@ -1198,11 +1214,12 @@ public final class AskyriaEssentials extends JavaPlugin implements Listener, Com
     private boolean isWithinSpawnRadius(Location location, World.Environment environment) {
         if (location == null || location.getWorld() == null
                 || location.getWorld().getEnvironment() != environment) return false;
-        int radius = Math.max(0, getConfig().getInt("spawn-protection-radius", 100));
+        // A 50x50 square means 25 blocks from the spawn center on each
+        // horizontal axis. The protection is horizontal and applies at every Y.
+        int halfSize = Math.max(0, getConfig().getInt("spawn-protection-half-size", 25));
         Location spawn = location.getWorld().getSpawnLocation();
-        double dx = location.getX() - spawn.getX();
-        double dz = location.getZ() - spawn.getZ();
-        return dx * dx + dz * dz <= (double) radius * radius;
+        return Math.abs(location.getBlockX() - spawn.getBlockX()) <= halfSize
+            && Math.abs(location.getBlockZ() - spawn.getBlockZ()) <= halfSize;
     }
 
     private boolean isInSpawnProtection(Location location) {
